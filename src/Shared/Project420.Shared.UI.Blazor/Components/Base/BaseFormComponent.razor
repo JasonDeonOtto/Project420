@@ -1,0 +1,249 @@
+@typeparam TModel
+
+<div class="base-form-container">
+    @if (!string.IsNullOrWhiteSpace(Title))
+    {
+        <h3 class="base-form-title">@Title</h3>
+        @if (!string.IsNullOrWhiteSpace(Subtitle))
+        {
+            <p class="base-form-subtitle">@Subtitle</p>
+        }
+    }
+
+    @if (!string.IsNullOrWhiteSpace(SuccessMessage))
+    {
+        <div class="alert alert-success alert-dismissible" role="alert">
+            @SuccessMessage
+            <button type="button" class="btn-close" @onclick="@(() => SuccessMessage = null)" aria-label="Close">&times;</button>
+        </div>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(ErrorMessage))
+    {
+        <div class="alert alert-danger alert-dismissible" role="alert">
+            @ErrorMessage
+            <button type="button" class="btn-close" @onclick="@(() => ErrorMessage = null)" aria-label="Close">&times;</button>
+        </div>
+    }
+
+    @if (ShowValidationSummary && ValidationErrors.Any())
+    {
+        <div class="validation-summary" role="alert">
+            <h6>Please correct the following errors:</h6>
+            <ul>
+                @foreach (var error in ValidationErrors)
+                {
+                    <li>@error</li>
+                }
+            </ul>
+        </div>
+    }
+
+    <EditForm Model="@Model" OnValidSubmit="@HandleValidSubmit" OnInvalidSubmit="@HandleInvalidSubmit">
+        <DataAnnotationsValidator />
+
+        @if (ShowValidationSummary)
+        {
+            <ValidationSummary class="validation-summary" />
+        }
+
+        @ChildContent
+
+        <div class="base-form-toolbar">
+            @if (ShowCancelButton)
+            {
+                <button type="button"
+                        class="btn btn-secondary"
+                        @onclick="HandleCancel"
+                        disabled="@IsSubmitting">
+                    @CancelText
+                </button>
+            }
+
+            @if (AdditionalButtons != null)
+            {
+                @AdditionalButtons
+            }
+
+            <button type="submit"
+                    class="btn btn-primary"
+                    disabled="@IsSubmitting">
+                @if (IsSubmitting)
+                {
+                    <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                    <span>@SubmittingText</span>
+                }
+                else
+                {
+                    <span>@SubmitText</span>
+                }
+            </button>
+        </div>
+    </EditForm>
+</div>
+
+@code {
+    /// <summary>
+    /// The model to bind to the form
+    /// </summary>
+    [Parameter]
+    public TModel? Model { get; set; }
+
+    /// <summary>
+    /// Form title displayed at the top
+    /// </summary>
+    [Parameter]
+    public string Title { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Optional subtitle/description
+    /// </summary>
+    [Parameter]
+    public string? Subtitle { get; set; }
+
+    /// <summary>
+    /// Text for the submit button
+    /// </summary>
+    [Parameter]
+    public string SubmitText { get; set; } = "Save";
+
+    /// <summary>
+    /// Text shown while form is submitting
+    /// </summary>
+    [Parameter]
+    public string SubmittingText { get; set; } = "Saving...";
+
+    /// <summary>
+    /// Text for the cancel button
+    /// </summary>
+    [Parameter]
+    public string CancelText { get; set; } = "Cancel";
+
+    /// <summary>
+    /// Whether to show the cancel button
+    /// </summary>
+    [Parameter]
+    public bool ShowCancelButton { get; set; } = true;
+
+    /// <summary>
+    /// Whether to show the validation summary
+    /// </summary>
+    [Parameter]
+    public bool ShowValidationSummary { get; set; } = true;
+
+    /// <summary>
+    /// Whether the form is currently submitting
+    /// </summary>
+    [Parameter]
+    public bool IsSubmitting { get; set; } = false;
+
+    /// <summary>
+    /// Success message to display (auto-dismissible)
+    /// </summary>
+    [Parameter]
+    public string? SuccessMessage { get; set; }
+
+    /// <summary>
+    /// Error message to display (auto-dismissible)
+    /// </summary>
+    [Parameter]
+    public string? ErrorMessage { get; set; }
+
+    /// <summary>
+    /// Form field content
+    /// </summary>
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    /// <summary>
+    /// Additional custom buttons to show in the button bar
+    /// </summary>
+    [Parameter]
+    public RenderFragment? AdditionalButtons { get; set; }
+
+    /// <summary>
+    /// Callback when form is submitted with valid data
+    /// </summary>
+    [Parameter]
+    public EventCallback<TModel> OnValidSubmit { get; set; }
+
+    /// <summary>
+    /// Callback when form is submitted with invalid data
+    /// </summary>
+    [Parameter]
+    public EventCallback OnInvalidSubmit { get; set; }
+
+    /// <summary>
+    /// Callback when cancel button is clicked
+    /// </summary>
+    [Parameter]
+    public EventCallback OnCancel { get; set; }
+
+    /// <summary>
+    /// List of validation errors to display
+    /// </summary>
+    private List<string> ValidationErrors { get; set; } = new();
+
+    private async Task HandleValidSubmit()
+    {
+        ValidationErrors.Clear();
+
+        if (Model != null)
+        {
+            await OnValidSubmit.InvokeAsync(Model);
+        }
+    }
+
+    private async Task HandleInvalidSubmit()
+    {
+        await OnInvalidSubmit.InvokeAsync();
+    }
+
+    private async Task HandleCancel()
+    {
+        ValidationErrors.Clear();
+        SuccessMessage = null;
+        ErrorMessage = null;
+        await OnCancel.InvokeAsync();
+    }
+
+    /// <summary>
+    /// Public method to set a success message from parent component
+    /// </summary>
+    public void SetSuccessMessage(string message)
+    {
+        SuccessMessage = message;
+        ErrorMessage = null;
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// Public method to set an error message from parent component
+    /// </summary>
+    public void SetErrorMessage(string message)
+    {
+        ErrorMessage = message;
+        SuccessMessage = null;
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// Public method to clear all messages
+    /// </summary>
+    public void ClearMessages()
+    {
+        SuccessMessage = null;
+        ErrorMessage = null;
+        ValidationErrors.Clear();
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// Public method to add validation errors programmatically
+    /// </summary>
+    public void AddValidationError(string error)
+    {
+        ValidationErrors.Add(error);
+        StateHasChanged();
+    }
+}

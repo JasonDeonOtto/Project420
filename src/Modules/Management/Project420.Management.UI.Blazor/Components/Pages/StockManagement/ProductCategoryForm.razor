@@ -1,0 +1,234 @@
+@page "/product-category-form"
+@page "/product-category-form/{CategoryId:int}"
+@using Project420.Management.BLL.StockManagement.Services
+@using Project420.Management.BLL.StockManagement.DTOs
+@using FluentValidation
+@inject IProductCategoryService CategoryService
+@inject IValidator<CreateProductCategoryDto> CreateValidator
+@inject IValidator<UpdateProductCategoryDto> UpdateValidator
+@inject NavigationManager Navigation
+@rendermode InteractiveServer
+
+<PageTitle>@(IsEditMode ? "Edit Product Category" : "Create Product Category")</PageTitle>
+
+@if (!string.IsNullOrEmpty(successMessage))
+{
+    <div class="alert-custom alert-success-custom">
+        @successMessage
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="alert-custom alert-danger-custom">
+        @errorMessage
+    </div>
+}
+
+@if (validationErrors.Any())
+{
+    <div class="alert-custom alert-danger-custom">
+        <strong>Validation Errors:</strong>
+        <ul style="margin-bottom: 0; margin-top: 0.5rem;">
+            @foreach (var error in validationErrors)
+            {
+                <li>@error</li>
+            }
+        </ul>
+    </div>
+}
+
+@if (isLoading)
+{
+    <div class="base-form-container" style="text-align: center;">
+        <img src="images/cannabis-seed.svg" class="loading-icon" alt="Loading" />
+        <p style="color: var(--text-secondary); font-family: 'Shadows Into Light', cursive; margin-top: 1rem;">Loading category...</p>
+    </div>
+}
+else
+{
+    <BaseForm TModel="object"
+              Model="@model"
+              Title="@(IsEditMode ? "Edit Product Category" : "Create Product Category")"
+              Subtitle="Cannabis compliance - Product category management"
+              SubmitText="@(IsEditMode ? "Update Category" : "Create Category")"
+              SubmittingText="@(IsEditMode ? "Updating..." : "Creating...")"
+              OnValidSubmit="@HandleSubmit"
+              OnCancel="@Cancel"
+              IsSubmitting="@isSubmitting">
+
+        <!-- Category Information -->
+        <div class="form-section">
+            <h3 class="form-section-header">Category Information</h3>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="form-field">
+                    <label class="form-label">Category Name *</label>
+                    <InputText class="form-input" @bind-Value="Name"
+                               placeholder="e.g., Flowers, Edibles, Accessories" />
+                    <small style="color: var(--text-secondary); font-family: 'Shadows Into Light', cursive; font-size: 0.85rem;">
+                        2-50 characters, letters, numbers, and basic punctuation
+                    </small>
+                </div>
+
+                <div class="form-field">
+                    <label class="form-label">Category Code *</label>
+                    <InputText class="form-input" @bind-Value="CategoryCode"
+                               placeholder="e.g., FLWR, EDBL, ACCS" />
+                    <small style="color: var(--text-secondary); font-family: 'Shadows Into Light', cursive; font-size: 0.85rem;">
+                        2-20 characters, uppercase letters, numbers, hyphens, underscores
+                    </small>
+                </div>
+            </div>
+        </div>
+
+        <!-- Cannabis Compliance Rules -->
+        <div class="form-section" style="border: 2px solid var(--dead-rose-purple);">
+            <h3 class="form-section-header" style="color: var(--dead-rose-purple-light);">Cannabis Compliance</h3>
+
+            <div class="form-check-custom">
+                <InputCheckbox id="specialRules" @bind-Value="SpecialRules" />
+                <label for="specialRules">
+                    <strong>Special Compliance Rules Apply</strong>
+                    <br />
+                    <small style="color: var(--text-secondary);">
+                        Check this if products in this category require additional compliance checks,
+                        age verification, or special documentation (e.g., medical cannabis products).
+                    </small>
+                </label>
+            </div>
+
+            <div class="form-check-custom">
+                <InputCheckbox id="isActive" @bind-Value="IsActive" />
+                <label for="isActive">
+                    <strong>Category is Active</strong>
+                    <br />
+                    <small style="color: var(--text-secondary);">
+                        Inactive categories are hidden from new product creation but existing products remain unaffected.
+                    </small>
+                </label>
+            </div>
+        </div>
+
+    </BaseForm>
+}
+
+@code {
+    [Parameter]
+    public int? CategoryId { get; set; }
+
+    private CreateProductCategoryDto createModel = new();
+    private UpdateProductCategoryDto updateModel = new();
+    private object model => IsEditMode ? (object)updateModel : createModel;
+    private string Name { get => IsEditMode ? updateModel.Name : createModel.Name; set { if (IsEditMode) updateModel.Name = value; else createModel.Name = value; } }
+    private string CategoryCode { get => IsEditMode ? updateModel.CategoryCode : createModel.CategoryCode; set { if (IsEditMode) updateModel.CategoryCode = value; else createModel.CategoryCode = value; } }
+    private bool SpecialRules { get => IsEditMode ? updateModel.SpecialRules : createModel.SpecialRules; set { if (IsEditMode) updateModel.SpecialRules = value; else createModel.SpecialRules = value; } }
+    private bool IsActive { get => IsEditMode ? updateModel.IsActive : createModel.IsActive; set { if (IsEditMode) updateModel.IsActive = value; else createModel.IsActive = value; } }
+    private List<string> validationErrors = new();
+    private string successMessage = string.Empty;
+    private string errorMessage = string.Empty;
+    private bool isSubmitting = false;
+    private bool isLoading = false;
+    private bool IsEditMode => CategoryId.HasValue;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (IsEditMode)
+        {
+            await LoadCategory();
+        }
+        else
+        {
+            createModel = new CreateProductCategoryDto { IsActive = true };
+        }
+    }
+
+    private async Task LoadCategory()
+    {
+        isLoading = true;
+        try
+        {
+            var category = await CategoryService.GetCategoryByIdAsync(CategoryId!.Value);
+            if (category != null)
+            {
+                updateModel = new UpdateProductCategoryDto
+                    {
+                        Id = category.Id,
+                        Name = category.Name,
+                        CategoryCode = category.CategoryCode,
+                        SpecialRules = category.SpecialRules,
+                        IsActive = category.IsActive
+                    };
+            }
+            else
+            {
+                errorMessage = "Category not found";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error loading category: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task HandleSubmit(object submittedModel)
+    {
+        validationErrors.Clear();
+        errorMessage = string.Empty;
+        successMessage = string.Empty;
+        isSubmitting = true;
+
+        try
+        {
+            if (IsEditMode)
+            {
+                var validationResult = await UpdateValidator.ValidateAsync(updateModel);
+
+                if (!validationResult.IsValid)
+                {
+                    validationErrors = validationResult.Errors.Select(e => e.ErrorMessage).ToList();
+                    return;
+                }
+
+                var updated = await CategoryService.UpdateCategoryAsync(updateModel);
+                successMessage = $"Category '{updated.Name}' updated successfully!";
+
+                await Task.Delay(1500);
+                Navigation.NavigateTo("/product-categories");
+            }
+            else
+            {
+                var validationResult = await CreateValidator.ValidateAsync(createModel);
+
+                if (!validationResult.IsValid)
+                {
+                    validationErrors = validationResult.Errors.Select(e => e.ErrorMessage).ToList();
+                    return;
+                }
+
+                var created = await CategoryService.CreateCategoryAsync(createModel);
+                successMessage = $"Category '{created.Name}' created successfully! ID: {created.Id}";
+
+                await Task.Delay(1500);
+                Navigation.NavigateTo("/product-categories");
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+
+    private void Cancel()
+    {
+        Navigation.NavigateTo("/product-categories");
+    }
+}

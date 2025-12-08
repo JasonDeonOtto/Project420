@@ -1,458 +1,684 @@
-# CLAUDE.md - AI Assistant Development Guide
+# CLAUDE INITIALIZATION & WORKFLOW - PROJECT420
 
-## About This File
-
-This file provides comprehensive documentation for AI assistants (like Claude) working on this codebase. It contains essential information about project structure, development workflows, conventions, and best practices.
-
-**Last Updated:** 2025-12-07
-**Repository:** JasonDeonOtto/Project420
-**Status:** Empty repository - awaiting initial project setup
+**Last Updated**: 2025-12-06
+**Status**: ACTIVE - Phase 4 (Retail) Vertical Slice Complete ✅
+**Project**: Project420 - Cannabis Management System for South Africa
+**Version**: 0.1.0 - Proof of Concept (Phase 4 - Retail Checkout Operational)
 
 ---
 
-## 🚀 Quick Start
+## 🚀 CLAUDE CORE START
 
-### Repository Status
-This is a newly initialized repository with no code yet. As development begins, this section will be updated with:
-- Prerequisites and dependencies
-- Installation instructions
-- How to run the project locally
-- How to run tests
+### CRITICAL REQUIREMENT: SA CANNABIS COMPLIANCE GUIDES
 
-### Initial Setup Commands
-```bash
-# Clone the repository
-git clone <repository-url>
-cd Project420
+**MANDATORY REFERENCES** (BOTH documents REQUIRED for ALL work):
 
-# Install dependencies (to be added when project structure is defined)
-# npm install / pip install -r requirements.txt / etc.
+1. **`SA_Cannabis_Software_Guide.md`** - Software development & compliance framework
+2. **`south-africa-cannabis-cultivation-production-laws-guide.md`** - Cultivation & production legal requirements
 
-# Run the project (to be added)
-# npm start / python main.py / etc.
+These documents are EXTREMELY IMPORTANT and MUST be automatically loaded and considered for ALL Project420 work.
+
+**SA_Cannabis_Software_Guide.md** contains:
+- Legal framework and compliance requirements
+- Tax considerations and future-proofing
+- Essential features (must-have)
+- POPIA data protection requirements
+- Future-proof features
+- Business registration requirements
+- Technical implementation notes
+- API integration points
+- Database schema considerations
+
+**south-africa-cannabis-cultivation-production-laws-guide.md** contains:
+- Medicinal cannabis licensing (SAHPRA Section 22C)
+- Hemp cultivation regulations (DALRRD permits)
+- Private personal use cannabis laws
+- GMP (Good Manufacturing Practice) standards
+- Seed-to-sale traceability requirements
+- Laboratory testing and quality control
+- Security and storage requirements
+- Record keeping and penalties
+
+**COMPLIANCE RULE**: When working on Project420, Claude MUST:
+1. ✅ Read and understand **BOTH** compliance guides before implementation
+2. ✅ Verify all features comply with SA Cannabis for Private Purposes Act 2024
+3. ✅ Ensure SAHPRA Section 22C and DALRRD hemp permit compliance for cultivation/production modules
+4. ✅ Implement GMP-compliant record keeping and traceability (seed-to-sale tracking)
+5. ✅ Ensure POPIA (data protection) compliance in all data handling
+6. ✅ Future-proof for expected 2026-2027 commercial regulations
+7. ✅ Implement required tax calculation capabilities
+8. ✅ Follow prescribed development phases from the guides
+
+---
+
+## 📋 INITIALIZATION SEQUENCE
+
+**WORKFLOW TRIGGER**: This configuration automatically activates upon Claude startup:
+
+1. **Claude Initialization** → Reads this CLAUDE.md
+2. **SA Guide Loading** → Automatically loads and references **BOTH** compliance guides:
+   - `SA_Cannabis_Software_Guide.md` (software development framework)
+   - `south-africa-cannabis-cultivation-production-laws-guide.md` (legal requirements)
+3. **Compliance Verification** → Verifies current work aligns with legal requirements
+4. **Context Assessment** → Determines task complexity and agent needs
+5. **Pattern Application** → Applies appropriate workflow patterns
+6. **Quality Gates** → Ensures all output meets legal and technical standards
+
+### Automatic Startup Workflow
+
+```
+Claude Start
+    ↓
+Load Project420 CLAUDE.md
+    ↓
+*** AUTO-LOAD BOTH Compliance Guides ***
+├── SA_Cannabis_Software_Guide.md
+└── south-africa-cannabis-cultivation-production-laws-guide.md
+    ↓
+Verify Compliance Context (SAHPRA + DALRRD + POPIA)
+    ↓
+Assess Task Complexity → Determine Agent Needs
+    ↓
+Apply Appropriate Workflow Pattern
+    ↓
+Execute with Legal & Technical Quality Gates
 ```
 
 ---
 
-## 📁 Project Structure
+## 🎯 PROJECT OVERVIEW
 
-> **Note:** This section will be populated as the codebase develops.
+### Project Context
 
-Expected structure template:
+Project420 is a comprehensive cannabis industry management system designed specifically for the **South African market**. The system must comply with:
+
+- Cannabis for Private Purposes Act 2024 (signed May 28, 2024)
+- POPIA (Protection of Personal Information Act)
+- SAHPRA (South African Health Products Regulatory Authority) requirements
+- DALRRD (Department of Agriculture, Land Reform and Rural Development) hemp regulations
+- SARS (South African Revenue Service) tax requirements
+
+### Architecture
+
+**3-Tier Modular Architecture**:
+```
+┌─────────────────────┐
+│  Presentation Layer │  ← Blazor Web, MAUI Mobile
+│  (UI.Blazor/Maui)  │
+├─────────────────────┤
+│ Business Logic Layer│  ← Services, Validation, DTOs
+│       (BLL)         │
+├─────────────────────┤
+│ Data Access Layer   │  ← EF Core, Repositories
+│       (DAL)         │
+└─────────────────────┘
+         ↕
+    [Database]
+```
+
+### Technology Stack
+
+- **Backend**: .NET 9, EF Core 9, C#
+- **Frontend**: Blazor, MAUI (planned)
+- **Database**: SQL Server, PostgreSQL, SQLite
+- **Testing**: xUnit, Moq, FluentAssertions
+- **Validation**: FluentValidation
+- **Mapping**: AutoMapper
+
+---
+
+## 🔐 COMPLIANCE REQUIREMENTS (AUTO-ENFORCED)
+
+### Legal Compliance Checklist
+
+When working on ANY feature, verify:
+
+- [ ] Complies with Cannabis for Private Purposes Act 2024
+- [ ] POPIA data protection requirements met
+- [ ] Age verification (18+) implemented where needed
+- [ ] Audit trails for all business operations
+- [ ] Possession/cultivation limits enforced (where applicable)
+- [ ] Required license/permit tracking (SAHPRA, DALRRD)
+- [ ] Tax calculation capabilities (current + future-proof)
+- [ ] Data encryption at rest and in transit
+- [ ] Secure authentication (OAuth 2.0, JWT)
+- [ ] Role-based access control (RBAC)
+
+### Development Phases (From SA Guide)
+
+**Phase 1 (Months 1-3): Core Infrastructure** ← CURRENT POC
+- Database architecture (POPIA-compliant) ✅
+- Authentication & RBAC
+- License/permit management
+- Basic inventory tracking
+- Audit logging
+
+**Phase 2 (Months 4-6): Compliance Features**
+- Seed-to-sale traceability
+- SAHPRA/DALRRD reporting
+- Lab testing integration
+- Tax calculation engine
+- Compliance dashboard
+
+**Phase 3 (Months 7-9): Operations**
+- Point of Sale system ← Initial focus
+- Customer management ← Initial focus
+- Financial reporting
+- Mobile applications
+- Multi-location support
+
+**Phase 4 (Months 10-12): Advanced Features**
+- E-commerce preparation (for 2027)
+- Cultivation management
+- Business intelligence
+- API development
+- Government integration (when available)
+
+---
+
+## 📁 PROJECT STRUCTURE
+
 ```
 Project420/
-├── src/                    # Source code
-│   ├── components/         # Reusable components
-│   ├── services/          # Business logic/services
-│   ├── utils/             # Utility functions
-│   └── config/            # Configuration files
-├── tests/                 # Test files
-├── docs/                  # Documentation
-├── scripts/               # Build/deployment scripts
-├── .github/               # GitHub workflows and templates
-├── package.json           # Dependencies (if Node.js)
-├── requirements.txt       # Dependencies (if Python)
-├── README.md              # User-facing documentation
-└── CLAUDE.md             # This file
+├── CLAUDE.md                           <- THIS FILE (Project config)
+├── SA_Cannabis_Software_Guide.md      <- CRITICAL COMPLIANCE REFERENCE
+├── docs/
+│   ├── PROJECT-STATUS.md              <- Current status & roadmap
+│   ├── AGENT-ASSIGNMENTS.md           <- Agent responsibilities
+│   └── ARCHITECTURE.md                 <- Technical architecture
+│
+├── src/
+│   ├── Shared/                         <- Shared libraries
+│   │   ├── Project420.Shared.Core
+│   │   ├── Project420.Shared.Infrastructure
+│   │   └── Project420.Shared.Database
+│   │
+│   └── Modules/
+│       ├── Management/                 <- Customer, Product, Pricelist
+│       │   ├── Project420.Management.Models
+│       │   ├── Project420.Management.DAL
+│       │   ├── Project420.Management.BLL
+│       │   └── Project420.Management.UI.Blazor
+│       │
+│       └── Retail/
+│           └── POS/                    <- Point of Sale
+│               ├── Project420.Retail.POS.Models
+│               ├── Project420.Retail.POS.DAL
+│               ├── Project420.Retail.POS.BLL
+│               └── Project420.Retail.POS.UI.Blazor
+│
+└── tests/                              <- Unit & Integration tests
+    ├── Project420.Management.Tests
+    └── Project420.Retail.POS.Tests
 ```
 
 ---
 
-## 🛠 Development Workflow
+## 🎯 WORKFLOW PATTERNS
 
-### Branching Strategy
-- **Main/Master Branch:** Production-ready code
-- **Feature Branches:** `feature/description` or `claude/session-id`
-- **Bug Fix Branches:** `fix/description`
-- **Claude Branches:** AI development branches follow pattern `claude/claude-md-*`
+### Task Complexity Assessment
 
-### Commit Conventions
-Follow conventional commits format:
-```
-<type>(<scope>): <subject>
+**Simple Task** (Direct execution):
+- Single file edit
+- Documentation update
+- Simple query/question
+- Code review
 
-<body>
+**Medium Task** (Todo tracking):
+- Multi-file changes (2-4 files)
+- Feature addition (single module)
+- Bug fix with investigation
+- Test implementation
 
-<footer>
-```
+**Complex Task** (Full Architect coordination):
+- Large feature (5+ files)
+- Multi-module changes
+- Compliance-critical features
+- Architecture decisions
+- Integration with legal requirements
 
-**Types:**
-- `feat`: New feature
-- `fix`: Bug fix
-- `docs`: Documentation changes
-- `style`: Code style changes (formatting, etc.)
-- `refactor`: Code refactoring
-- `test`: Adding or updating tests
-- `chore`: Maintenance tasks
+### Agent Deployment Rules
 
-**Example:**
-```
-feat(auth): add user authentication system
+For **Complex Tasks** on Project420:
 
-Implemented JWT-based authentication with login and logout endpoints.
-Includes password hashing and token validation.
-
-Closes #123
-```
-
-### Code Review Process
-- All changes require review before merging to main
-- Run tests and linting before creating PR
-- Update documentation for user-facing changes
-- Keep PRs focused and reasonably sized
+1. **Architect Agent** - Overall coordination and quality gates
+2. **Compliance Agent** - Verifies against SA_Cannabis_Software_Guide.md
+3. **Database Agent** - POPIA-compliant data models and migrations
+4. **BLL Developer** - Business logic with legal validations
+5. **UI/UX Agent** - User interfaces with required verifications
+6. **Testing Agent** - Comprehensive testing including compliance scenarios
+7. **Security Agent** - POPIA compliance and security audits
+8. **Documentation Agent** - Professional documentation
 
 ---
 
-## 🎯 AI Assistant Guidelines
+## 🔒 SECURITY & DATA PROTECTION (POPIA)
 
-### Before Making Changes
-1. **Always read files before modifying them**
-   - Use Read tool to understand existing code
-   - Never propose changes to unread code
-   - Understand context and existing patterns
+### POPIA Compliance Requirements
 
-2. **Search before creating**
-   - Check if functionality already exists
-   - Look for similar patterns in the codebase
-   - Avoid duplicating code
+**CRITICAL**: Protection of Personal Information Act enforcement since July 1, 2021
 
-3. **Plan complex tasks**
-   - Use TodoWrite for multi-step tasks
-   - Break down large features into smaller steps
-   - Track progress transparently
-
-### Code Quality Standards
-
-#### General Principles
-- **KISS (Keep It Simple, Stupid):** Avoid over-engineering
-- **DRY (Don't Repeat Yourself):** Extract common patterns
-- **YAGNI (You Aren't Gonna Need It):** Don't add speculative features
-- **Single Responsibility:** Each function/class should do one thing well
-
-#### Security
-Always check for and prevent:
-- SQL injection
-- XSS (Cross-Site Scripting)
-- CSRF (Cross-Site Request Forgery)
-- Command injection
-- Path traversal
-- Insecure authentication/authorization
-- Exposure of sensitive data
-- OWASP Top 10 vulnerabilities
-
-#### Error Handling
-- Validate input at system boundaries (user input, APIs)
-- Don't add error handling for impossible scenarios
-- Trust internal code and framework guarantees
-- Provide meaningful error messages
-- Log errors appropriately
-
-#### Testing
-- Write tests for new features
-- Update tests when modifying existing code
-- Ensure tests pass before committing
-- Aim for meaningful coverage, not just high percentages
-
-### What NOT to Do
-❌ **Avoid over-engineering:**
-- Don't add features beyond requirements
-- Don't create abstractions for single-use code
-- Don't add comments to unchanged code
-- Don't add type hints/docstrings unless modifying that code
-- Don't add error handling for scenarios that can't happen
-
-❌ **Avoid backwards-compatibility hacks:**
-- Don't rename unused vars with `_` prefix
-- Don't add `// removed` comments
-- Don't keep dead code
-- If unused, delete it completely
-
-❌ **Avoid making assumptions:**
-- Don't guess at URLs or endpoints
-- Don't invent configuration values
-- Don't assume project structure without verification
-- Ask for clarification when uncertain
-
-### File Operations
-- **Prefer editing over creating:** Always modify existing files when possible
-- **Read before writing:** Use Read tool before Edit/Write
-- **Don't create unnecessary files:** No speculative documentation
-- **Use appropriate tools:**
-  - `Read` for reading files (not `cat`)
-  - `Edit` for modifying files (not `sed`)
-  - `Write` for new files only
-  - `Grep` for searching content
-  - `Glob` for finding files
-
----
-
-## 🧪 Testing Strategy
-
-> **To be defined** based on project technology stack
-
-### Test Types
-- **Unit Tests:** Test individual functions/components
-- **Integration Tests:** Test component interactions
-- **End-to-End Tests:** Test complete user workflows
-- **Performance Tests:** Test system performance under load
-
-### Running Tests
-```bash
-# To be added when test framework is chosen
-# npm test / pytest / go test / etc.
+**Required Technical Implementation**:
+```javascript
+// From SA_Cannabis_Software_Guide.md
+const POPIA_TECHNICAL = {
+  encryption: {
+    atRest: 'AES-256',
+    inTransit: 'TLS 1.3',
+    keyManagement: 'required'
+  },
+  accessControl: {
+    rbac: true,
+    leastPrivilege: true,
+    mfa: 'recommended'
+  },
+  auditLogging: {
+    allDataAccess: true,
+    allModifications: true,
+    immutable: true,
+    retention: '7 years'
+  },
+  dataRetention: {
+    taxRecords: '5 years',
+    employmentRecords: '3 years after termination',
+    customerRecords: '5 years after last transaction'
+  }
+};
 ```
 
-### Test Coverage Goals
-- Aim for meaningful coverage of critical paths
-- 100% coverage is not the goal; quality over quantity
-- Focus on testing business logic and edge cases
+**Penalties for Non-Compliance**:
+- Administrative fine: Up to R10 million
+- Serious violations: Up to 10 years imprisonment
+- Civil liability: Compensation to affected individuals
 
 ---
 
-## 📦 Dependencies and Package Management
+## 💰 TAX CALCULATION REQUIREMENTS
 
-> **To be defined** based on project technology stack
+### Current Tax Framework (2025)
 
-### Adding Dependencies
-1. Evaluate necessity and security
-2. Check license compatibility
-3. Consider bundle size impact (for frontend)
-4. Document why dependency is needed
-5. Pin versions for reproducibility
+**VAT**: 15% (mandatory if turnover > R1 million)
+**Corporate Tax**: 27% standard (progressive for small business)
 
-### Updating Dependencies
-- Review changelogs before updating
-- Test thoroughly after updates
-- Update one major dependency at a time
-- Document breaking changes
+### Future-Proofing (2026-2027)
 
----
+Design all financial modules to accommodate:
+- Cannabis-specific excise duty (expected)
+- Provincial/local levies (possible)
+- Cultivation taxes (potential)
+- License fees by category
 
-## 🔧 Configuration
-
-> **To be defined** based on project needs
-
-### Environment Variables
-```bash
-# Example template - update as needed
-# DATABASE_URL=
-# API_KEY=
-# NODE_ENV=development
-```
-
-### Configuration Files
-List and describe key configuration files as they're added:
-- `.env` - Environment variables (never commit!)
-- `.env.example` - Template for environment variables
-- `config.json` - Application configuration
-- etc.
+**Implementation**: See `SA_Cannabis_Software_Guide.md` Section 2.2 for detailed tax types
 
 ---
 
-## 🚢 Deployment
+## 📊 ESSENTIAL FEATURES (MUST-HAVE)
 
-> **To be defined** based on deployment strategy
+From SA_Cannabis_Software_Guide.md Section 3:
 
-### Build Process
-```bash
-# To be added
-# npm run build / make build / etc.
-```
+### 3.1 License and Permit Management
+- SAHPRA Section 22C tracking
+- DoH Section 22A permit management
+- DALRRD hemp permit tracking
+- Expiry alerts (90, 60, 30 days)
+- Document storage with version control
+- Audit trail
 
-### Deployment Steps
-1. TBD
-2. TBD
-3. TBD
+### 3.2 Seed-to-Sale Traceability
+- Unique identifiers (RFID, barcode, QR)
+- Plant tracking (strain, batch, growth stage)
+- Processing records (harvest, curing, extraction)
+- Lab testing integration (COA management)
+- Chain of custody logging
+- Waste tracking
 
-### Environments
-- **Development:** Local development environment
-- **Staging:** Pre-production testing (if applicable)
-- **Production:** Live environment
+### 3.3 Point of Sale (POS) System
+- Age verification (18+ minimum)
+- Purchase limit enforcement
+- VAT + future excise calculation
+- Multiple payment methods
+- Receipt generation (compliant format)
+- Medical patient tracking (Section 21)
 
----
+### 3.4 Inventory Management
+- Real-time stock tracking
+- Batch management (FIFO/FEFO)
+- Potency tracking (THC/CBD)
+- Expiry monitoring
+- Storage compliance (temp/humidity)
+- Shrinkage alerts
 
-## 📝 Code Style and Conventions
+### 3.5 Compliance and Reporting
+- SAHPRA reports (production, inventory, sales, destruction)
+- DALRRD reports (cultivation, THC results, harvest)
+- SARS reports (VAT201, excise, income)
+- GMP documentation
+- Immutable audit logs (7-year retention)
+- Compliance dashboard
 
-> **To be defined** based on chosen language/framework
-
-### Naming Conventions
-- **Variables:** `camelCase` / `snake_case` (depending on language)
-- **Constants:** `UPPER_SNAKE_CASE`
-- **Functions:** `camelCase` / `snake_case`
-- **Classes:** `PascalCase`
-- **Files:** `kebab-case` or language convention
-
-### Formatting
-- Use consistent indentation (2 or 4 spaces)
-- Configure and use a formatter (Prettier, Black, gofmt, etc.)
-- Configure and use a linter (ESLint, Pylint, etc.)
-- Keep line length reasonable (80-120 characters)
-
-### Comments
-- Write self-documenting code when possible
-- Add comments only when logic isn't self-evident
-- Document "why" not "what"
-- Keep comments up-to-date with code changes
-
----
-
-## 🗂 Key Files and Their Purpose
-
-> **To be populated** as significant files are added
-
-| File | Purpose | Notes |
-|------|---------|-------|
-| CLAUDE.md | AI assistant guide | This file |
-| README.md | User documentation | To be created |
-| .gitignore | Git ignore patterns | To be created |
+### 3.6 Financial Reporting
+- Sales reports (daily, weekly, monthly, quarterly, annual)
+- Tax reports (VAT output/input, excise, liability)
+- Cost tracking (COGS, labor, overhead, margins)
+- Accounting integration (Sage, Xero, QuickBooks, Pastel)
+- B-BBEE reporting
 
 ---
 
-## 🔍 Common Tasks
+## 🚀 FUTURE-PROOF FEATURES (PHASE 4+)
 
-### Adding a New Feature
-1. Create feature branch: `git checkout -b feature/feature-name`
-2. Read relevant existing code
-3. Plan implementation using TodoWrite
-4. Implement feature following code quality standards
-5. Write/update tests
-6. Update documentation
-7. Commit with descriptive message
-8. Push and create pull request
+Design architecture to easily add (when regulations permit):
 
-### Fixing a Bug
-1. Create fix branch: `git checkout -b fix/bug-description`
-2. Read code to understand the bug
-3. Write failing test that reproduces the bug (if possible)
-4. Fix the bug
-5. Verify test now passes
-6. Commit with "fix:" prefix
-7. Push and create pull request
+### E-Commerce Module (Expected ~2027)
+- Online ordering
+- Delivery management with age verification
+- Real-time inventory sync
+- Loyalty programs
 
-### Refactoring
-1. Ensure tests exist and pass
-2. Make incremental changes
-3. Run tests after each change
-4. Commit frequently
-5. Don't mix refactoring with feature work
+### Advanced Cultivation Management
+- IoT sensor integration
+- Environmental controls automation
+- Fertigation tracking
+- Yield prediction (ML)
+- Genetic tracking
+
+### Cannabis Club Features (Potential)
+- Member management
+- Cultivation allocation
+- Cooperative ownership
+- Event management
+
+**Full details**: `SA_Cannabis_Software_Guide.md` Section 5
 
 ---
 
-## 📚 Resources and References
+## 🎓 DEVELOPMENT STANDARDS
 
-### Documentation
-- Project README: To be created
-- API documentation: To be created
-- Architecture docs: To be created
+### Code Quality Requirements
 
-### External Resources
-- Language/framework documentation
-- Best practices guides
-- Security guidelines (OWASP, etc.)
+1. **SOLID Principles**: Mandatory for all code
+2. **Repository Pattern**: All data access through repositories
+3. **Dependency Injection**: Service lifetime management
+4. **Async/Await**: All I/O operations async
+5. **XML Documentation**: All public APIs documented
+6. **Unit Test Coverage**: Target 90%+
+7. **Error Handling**: Comprehensive with logging
+8. **Audit Trails**: All business operations logged
 
----
+### Compliance-Specific Standards
 
-## 🤝 Contributing
-
-### For Human Developers
-1. Read this guide and README.md
-2. Set up development environment
-3. Create feature branch
-4. Make changes following conventions
-5. Test thoroughly
-6. Submit pull request
-
-### For AI Assistants
-1. **Always read this file first** when starting a new session
-2. Follow all guidelines in "AI Assistant Guidelines" section
-3. Use TodoWrite for complex tasks
-4. Read code before modifying
-5. Ask for clarification when uncertain
-6. Update this file when conventions change
+1. **Data Validation**: FluentValidation for all inputs
+2. **POPIA Compliance**: Encrypted PII, consent tracking, audit logs
+3. **Legal Limits**: Enforce possession/cultivation limits in code
+4. **Age Verification**: Required for all user-facing features
+5. **Audit Logging**: Immutable, timestamped, user-attributed
+6. **Tax Calculations**: Accurate, auditable, future-compatible
 
 ---
 
-## 📋 Checklist for AI Assistants
+## 📖 KEY REFERENCE DOCUMENTS
 
-Before making changes, verify:
-- [ ] I have read the relevant code files
-- [ ] I understand the existing patterns and conventions
-- [ ] I have created a todo list for complex tasks
-- [ ] My changes follow the code quality standards
-- [ ] I have checked for security vulnerabilities
-- [ ] I have not over-engineered the solution
-- [ ] I have tested my changes (or written tests)
-- [ ] My commit message follows conventions
-- [ ] I have updated documentation if needed
+### Project-Specific (CRITICAL)
+- **SA Cannabis Software Guide**: `SA_Cannabis_Software_Guide.md` ⚠️ MANDATORY REFERENCE
+- **SA Cultivation & Production Laws**: `south-africa-cannabis-cultivation-production-laws-guide.md` ⚠️ MANDATORY REFERENCE
+- **Coding Standards**: `docs/CODING-STANDARDS.md` - Complete architecture patterns
+- **Project Status**: `docs/PROJECT-STATUS.md`
+- **UI Standards**: `docs/PROJECT_STANDARDS.md` - Blazor UI guidelines
+- **Agent Assignments**: `docs/AGENT-ASSIGNMENTS.md`
+- **Technical Architecture**: `docs/ARCHITECTURE.md`
 
----
-
-## 🔄 Maintenance
-
-### Keeping This File Updated
-This file should be updated when:
-- Project structure changes significantly
-- New conventions are adopted
-- New tools or frameworks are added
-- Deployment process changes
-- Common issues or patterns emerge
-
-**Responsibility:** Any developer (human or AI) making structural changes should update this file.
+### Central ClaudeCode Hub
+- **Location**: `../../ClaudeCode/`
+- **Master Coordination**: `../../ClaudeCode/MASTER-COORDINATION.md`
+- **Activation Rules**: `../../ClaudeCode/ACTIVATION-RULES.md`
+- **Agent Patterns**: `../../ClaudeCode/agents/`
+- **Core Standards**: `../../ClaudeCode/core/`
+- **Knowledge Base**: `../../ClaudeCode/knowledge/`
+- **Templates**: `../../ClaudeCode/templates/`
 
 ---
 
-## 📞 Getting Help
+## ✅ STARTUP CHECKLIST FOR PROJECT420
 
-### For Questions About This Project
-- Check README.md (when created)
-- Review existing code and patterns
-- Check git history for context
-- Ask the project maintainer
+When Claude starts working on Project420, verify:
 
-### For Claude-Specific Issues
-- Visit: https://github.com/anthropics/claude-code/issues
-- Use `/help` command in Claude Code
-
----
-
-## 🎯 Project Vision and Goals
-
-> **To be defined** by project owner
-
-### What This Project Does
-*Description to be added when project scope is defined*
-
-### Key Objectives
-1. TBD
-2. TBD
-3. TBD
-
-### Success Criteria
-- TBD
-- TBD
-- TBD
+- [ ] **BOTH** compliance guides have been read and understood:
+  - [ ] SA_Cannabis_Software_Guide.md
+  - [ ] south-africa-cannabis-cultivation-production-laws-guide.md
+- [ ] Current task aligns with legal compliance requirements (SAHPRA, DALRRD, POPIA)
+- [ ] POPIA data protection requirements considered
+- [ ] GMP compliance requirements understood (for cultivation/production modules)
+- [ ] Seed-to-sale traceability requirements identified
+- [ ] Tax calculation needs identified and future-proofed
+- [ ] Age verification requirements understood (where applicable)
+- [ ] Audit trail implementation planned
+- [ ] Appropriate workflow pattern selected
+- [ ] Quality gates in place for compliance-critical features
+- [ ] Documentation follows professional standards
+- [ ] Code follows CODING-STANDARDS.md patterns and PROJECT_STANDARDS.md (UI)
 
 ---
 
-## 📊 Project Status
+## 🚨 CRITICAL RULES FOR PROJECT420
 
-**Current Phase:** Repository Initialization
-**Next Steps:**
-1. Define project scope and technology stack
-2. Initialize project structure
-3. Set up development environment
-4. Create initial documentation
-5. Begin feature development
-
----
-
-## 🏷 Version History
-
-### 2025-12-07 - Initial Creation
-- Created CLAUDE.md template for empty repository
-- Established structure for future documentation
-- Defined AI assistant guidelines and best practices
+1. **ALWAYS Reference BOTH Compliance Guides** - SA_Cannabis_Software_Guide.md AND south-africa-cannabis-cultivation-production-laws-guide.md are mandatory reading
+2. **POPIA Compliance First** - Data protection is non-negotiable (R10M penalty / 10 years imprisonment)
+3. **GMP Compliance Required** - Cultivation/production modules MUST follow SAHPRA GMP standards
+4. **Seed-to-Sale Traceability** - Every plant, batch, and package MUST be tracked (SAHPRA/DALRRD requirement)
+5. **Future-Proof Everything** - 2026-2027 commercial regs coming
+6. **Audit Everything** - Immutable logs for 7 years minimum (SAHPRA/SARS requirement)
+7. **Age Verification** - 18+ required, no exceptions (Cannabis Act 2024)
+8. **Tax Accuracy** - Current VAT + future excise capabilities
+9. **Legal Limits** - Enforce possession/cultivation limits in code
+10. **Security Standards** - AES-256 + TLS 1.3 + RBAC mandatory
+11. **Laboratory Testing** - ISO/IEC 17025 accredited labs, COA required for every batch
+12. **Test Thoroughly** - Compliance scenarios must be tested
+13. **Document Professionally** - Legal liability requires clear documentation
+14. **Follow Architecture Patterns** - Use CODING-STANDARDS.md for all development
 
 ---
 
-*This file is a living document. Keep it updated as the project evolves.*
+## 📞 REGULATORY AUTHORITIES & CONTACTS
+
+From SA_Cannabis_Software_Guide.md Section 10:
+
+| Authority | Website | Purpose | Contact |
+|-----------|---------|---------|---------|
+| SAHPRA | www.sahpra.org.za | Medical cannabis licensing | enquiries@sahpra.org.za |
+| DALRRD | www.dalrrd.gov.za | Hemp permits | Hemp.PIA@dalrrd.gov.za |
+| SARS | www.sars.gov.za | Tax compliance | 0800 00 7277 |
+| CIPC | www.cipc.co.za | Company registration | 086 100 2472 |
+| Information Regulator | www.inforegulator.org.za | POPIA compliance | enquiries@inforegulator.org.za |
+| DTIC | www.thedtic.gov.za | Cannabis Master Plan | - |
+
+---
+
+## 🎯 CURRENT PROJECT STATUS
+
+**Phase**: POC - Phase 3 Complete ✅ | Phase 4 Ready 🚀
+**Status**: BLL Services & Testing Complete | UI Development or Production Modules Next
+
+**✅ Phase 1 Complete (2025-12-02) - Data Models**:
+- [x] Solution and project setup
+- [x] 3-tier architecture implementation
+- [x] Modular folder structure
+- [x] **AuditableEntity base class** - POPIA compliance foundation
+- [x] **Product entity** - Cannabis compliance (THC/CBD, batch, strain, lab tests)
+- [x] **Debtor entity** - Age verification (18+), medical licenses, credit management
+- [x] **Pricelist & PricelistItem** - Flexible multi-tier pricing system
+- [x] **TransactionHeader & TransactionDetail** - Complete invoice/receipt system
+- [x] **Payment entity** - HOW customers pay (separate from Transaction)
+- [x] **3 Enumerations** - Type-safe status/type/method enums
+
+**✅ Phase 2 Complete (2025-12-05) - DbContext & Database**:
+- [x] Created 3 DbContexts (PosDbContext, ManagementDbContext, SharedDbContext)
+- [x] Installed EF Core packages (SqlServer, Tools, Design)
+- [x] Configured entity relationships using Fluent API
+- [x] Generated migrations and created databases
+- [x] Created seed data (10 products, 4 customers, 1 pricelist)
+- [x] Reorganized BLL into domain-driven structure
+
+**✅ Phase 3 Part A Complete (2025-12-06) - Shared Services & BLL**:
+- [x] **VATCalculationService** - Universal transaction logic (POS, GRV, RTS, Invoices, Credits)
+  - Detail-first transaction pattern
+  - SA VAT compliance (15% VAT-inclusive pricing)
+  - Automatic rounding adjustment
+  - 44 unit tests - 100% passing ✅
+- [x] **TransactionNumberGeneratorService** - Auto-generate unique transaction numbers
+  - Thread-safe implementation
+  - 10 transaction types supported
+  - Format: TYPE-YYYYMMDD-XXX
+- [x] **AuditLogService** - POPIA/Cannabis Act/SARS compliance
+  - 7-year audit trail framework
+  - Security event logging
+  - Data change tracking
+- [x] **BLL Gap Closure** - Verified ProductCategoryService & DebtorCategoryService complete
+- [x] **Dependency Injection** - All services registered in DI
+- [x] **Build Status**: 0 Errors, 0 Warnings
+
+**⏸️ DEFERRED: Advanced Batch & Serial Number System (Future Phase)**:
+- **Status**: Design complete, implementation deferred to Phase 4+
+- **Documentation**: See `docs/future-features/BATCH-SERIAL-NUMBER-DESIGN.md`
+- **Current Implementation**: Basic TransactionNumberGeneratorService (TYPE-YYYYMMDD-XXX format)
+- **Future Implementation**:
+  - Batch Numbers: `SSTTYYYYMMDDNNNN` (16 digits with Site ID + Type)
+  - Full Serial Numbers: `SSSSSTTYYYYMMDDBBBBBUUUUUWWWWQC` (28 digits with QR code)
+  - Short Serial Numbers: `SSYYMMDDNNNNN` (13 digits for barcodes)
+  - Embedded traceability: Site, Strain, Batch Type, Date, Weight, Pack Size, Check Digit
+- **Reason for Deferral**: Complete Phase 3B testing first, then implement during production module development
+
+**✅ Phase 3 Part B Complete (2025-12-06) - Testing & Quality Assurance**:
+- [x] **Test Infrastructure** - Created ServiceTestBase, RepositoryTestBase, TestDbContextFactory
+- [x] **Unit Tests** - 224 tests, 100% pass rate
+  - CustomerService: 100% coverage (20 tests)
+  - VATCalculationService: 87.6% coverage (44 tests)
+  - PricelistService: 60.1% coverage (20+ tests)
+  - ProductService: 54.8% coverage (11 tests)
+- [x] **Validator Tests** - 123 tests covering compliance
+  - CreateProductValidator: 100% coverage (62 tests)
+  - UpdateProductValidator: 100% coverage (53 tests)
+  - CustomerRegistrationValidator: 100% coverage (18 tests)
+- [x] **Code Coverage Report** - Generated with Coverlet + ReportGenerator
+  - Overall: 12.2% (includes untested DAL/Migrations - expected)
+  - Core BLL Services: 54-100% (excellent)
+- [x] **Compliance Verified**:
+  - ✅ Age verification (18+ Cannabis Act)
+  - ✅ POPIA consent tracking
+  - ✅ SA VAT calculation (15%)
+  - ✅ Cannabis content validation (THC/CBD)
+- [x] **Documentation**: See `docs/testing/PHASE-3B-COMPLETION-REPORT.md`
+
+**⚠️ Deferred to Phase 4+**:
+- Integration tests (customer → product → sale workflows)
+- Untested services: AuditLogService, TransactionNumberGeneratorService, Category services
+
+**✅ Phase 4 (Retail) Vertical Slice Complete (2025-12-06)**:
+- [x] **TransactionRepository** - Complete DAL layer (CRUD + reporting queries)
+- [x] **TransactionService** - Complete BLL layer (checkout workflow)
+- [x] **DTOs** - CartItemDto, CheckoutRequestDto, CheckoutResultDto
+- [x] **POSCheckout.razor** - Full UI component (cart, age verification, payment, receipt)
+- [x] **Dependency Injection** - All services registered
+- [x] **Build Verification** - 0 errors, 0 warnings
+- [x] **Cannabis Compliance** - Age verification (18+), batch tracking
+- [x] **SA VAT Compliance** - 15% VAT calculation with proper breakdown
+- [x] **Payment Methods** - Cash, Card, EFT, Mobile Payment support
+- [x] **Transaction Numbering** - Unique transaction numbers (SALE-YYYYMMDD-XXX)
+- [x] **Receipt Display** - Professional receipt with VAT breakdown
+
+**📊 Phase 4 Statistics**:
+- **Files Created**: 8 new files (2 repositories, 1 service, 3 DTOs, 1 UI page, 1 interface)
+- **Lines of Code**: ~1,800 lines
+- **Methods Implemented**: 11 repository methods, 3 service methods
+- **Compliance Features**: Age verification, batch tracking, VAT calculation
+- **Pattern**: Complete vertical slice (DAL → BLL → UI)
+
+**🎯 What's Replicable**:
+This vertical slice demonstrates the complete pattern for all future features:
+1. **DAL Pattern**: Repository with interface, CRUD + business queries
+2. **BLL Pattern**: Service with DTOs, validation, business logic
+3. **UI Pattern**: Blazor component with form handling, service injection
+4. **DI Pattern**: Registration in Program.cs
+5. **Compliance**: Age verification, audit trails, VAT calculations
+
+**🚀 Phase 4+ Next Steps**:
+
+**Option A: UI Development** (Recommended - Visual Progress):
+- [ ] Enhance Customer Management UI (registration, list, search, age verification)
+- [ ] Build Product Management UI (catalog, create/edit, stock alerts)
+- [ ] Implement Pricelist Management UI (multi-tier pricing)
+- [ ] Create POS Interface (product selection, cart, checkout, VAT receipts)
+
+**Option B: Production Modules** (Advanced Features):
+- [ ] Implement AuditLogService (POPIA 7-year retention)
+- [ ] Implement TransactionNumberGeneratorService (invoice/receipt numbers)
+- [ ] Build Cultivation Tracking (seed-to-sale traceability)
+- [ ] Add Lab Testing Integration (COA management)
+- [ ] Create Compliance Reporting (SAHPRA, DALRRD, SARS)
+
+**Option C: Complete Testing** (Higher Coverage):
+- [ ] Write integration tests (end-to-end workflows)
+- [ ] Test remaining services (AuditLog, TransactionNumber, Categories)
+- [ ] Improve ProductService coverage to 80%+
+- [ ] Improve PricelistService coverage to 80%+
+- [ ] Add E2E tests with real database
+
+**Option D: Online Ordering API** (E-Commerce MVP - Future Phase):
+- [ ] Create ASP.NET Core Web API project (Project420.API.WebApi)
+- [ ] Implement Product Catalog API (GET /api/products, /api/products/{id})
+- [ ] Build Order Placement API (POST /api/orders with age verification)
+- [ ] Develop Customer Authentication (JWT tokens, OAuth 2.0)
+- [ ] Integrate Payment Processing (Yoco/PayFast/Ozow for SA market)
+- [ ] Add Order Status Tracking (GET /api/orders/{id}/status)
+- [ ] Create OnlineOrders Module (Models, DAL, BLL layers)
+- [ ] Implement Click & Collect (order online, pickup in-store with ID verification)
+- [ ] Add Email Notifications (order confirmation, ready for pickup)
+- [ ] Build Compliance Middleware (age verification, audit logging, POPIA)
+
+**⚠️ Online Ordering Legal Compliance Note**:
+- **Current Status (2024)**: Commercial cannabis sales NOT yet legal in SA (Cannabis for Private Purposes Act)
+- **Expected Timeline**: Commercial regulations anticipated 2026-2027
+- **MVP Strategy**: Build "Click & Collect" system (compliant, future-proof for full e-commerce)
+- **Required Compliance**:
+  - Age verification (18+) at registration AND pickup
+  - POPIA data protection (encrypted PII, consent tracking)
+  - Purchase limit enforcement
+  - Audit trail for all online transactions
+  - Delivery age verification (when commercial sales legal)
+
+---
+
+## 💡 SUCCESS METRICS FOR PROJECT420
+
+**Legal Compliance**:
+- [ ] All features verified against SA Cannabis Act 2024
+- [ ] POPIA compliance audit passed
+- [ ] Tax calculations accurate and future-ready
+- [ ] Age verification 100% enforced
+- [ ] Audit trails complete and immutable
+
+**Technical Quality**:
+- [ ] 90%+ unit test coverage
+- [ ] All SOLID principles applied
+- [ ] Database properly normalized and encrypted
+- [ ] Performance targets met (<1s response)
+- [ ] Security audit passed
+
+**Documentation**:
+- [ ] All compliance requirements documented
+- [ ] API documentation complete
+- [ ] User guides for legal requirements
+- [ ] Developer guides for compliance features
+
+---
+
+**CLAUDE FLOW STATUS**: ✅ **INITIALIZED AND ACTIVE**
+**SA GUIDE REFERENCE**: ⚠️ **MANDATORY FOR ALL WORK**
+**PROJECT420**: ✅ **PHASE 4 (RETAIL) VERTICAL SLICE COMPLETE - FULL STACK OPERATIONAL**
+**COMPLIANCE GATES**: ✅ **ACTIVE AND ENFORCED**
+**BUILD STATUS**: ✅ **0 ERRORS, 0 WARNINGS**
+**TEST STATUS**: ✅ **224/224 TESTS PASSING (100% pass rate)**
+**CHECKOUT STATUS**: ✅ **FULL DAL → BLL → UI VERTICAL SLICE WORKING**
+
+---
+
+*Building compliant, future-proof cannabis management software for South Africa* 🌿

@@ -1,0 +1,289 @@
+@page "/pricelists"
+@using Project420.Management.BLL.Sales.Retail.Services
+@using Project420.Management.BLL.Sales.Retail.DTOs
+@inject IPricelistService PricelistService
+@inject NavigationManager Navigation
+@rendermode InteractiveServer
+
+<PageTitle>Pricelists</PageTitle>
+
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Pricelists</h1>
+        <button class="btn btn-primary" @onclick="NavigateToCreate">
+            <i class="bi bi-plus-circle"></i> Create Pricelist
+        </button>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="text-center p-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-3">Loading pricelists...</p>
+        </div>
+    }
+    else if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger" role="alert">
+            <i class="bi bi-exclamation-triangle-fill"></i> @errorMessage
+        </div>
+    }
+    else
+    {
+        <!-- Search and Filter Bar -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-search"></i></span>
+                            <input type="text" class="form-control" placeholder="Search by name or code..."
+                                   @bind="searchTerm" @bind:event="oninput" @bind:after="ApplyFilter" />
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <select class="form-select" @bind="filterStatus" @bind:after="ApplyFilter">
+                            <option value="all">All Pricelists</option>
+                            <option value="active">Active Only</option>
+                            <option value="inactive">Inactive Only</option>
+                            <option value="current">Currently Effective</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3 text-end">
+                        <span class="badge bg-info fs-6">Total: @filteredPricelists.Count()</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @if (filteredPricelists.Any())
+        {
+            <div class="card">
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover table-striped mb-0">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Code</th>
+                                    <th>Name</th>
+                                    <th>Type</th>
+                                    <th>Effective Dates</th>
+                                    <th>Status</th>
+                                    <th>Default</th>
+                                    <th>Priority</th>
+                                    <th>Items</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var pricelist in filteredPricelists)
+                                {
+                                    <tr>
+                                        <td><code>@pricelist.Code</code></td>
+                                        <td>
+                                            <strong>@pricelist.Name</strong>
+                                            @if (!string.IsNullOrEmpty(pricelist.Description))
+                                            {
+                                                <br />
+                                                <small class="text-muted">@(pricelist.Description.Length > 50 ? pricelist.Description.Substring(0, 50) + "..." : pricelist.Description)</small>
+                                            }
+                                        </td>
+                                        <td>
+                                            @if (pricelist.PricingStrategy == "Percentage")
+                                            {
+                                                <span class="badge bg-info">
+                                                    <i class="bi bi-percent"></i> Percentage
+                                                </span>
+                                            }
+                                            else if (pricelist.PricingStrategy == "Tiered")
+                                            {
+                                                <span class="badge bg-warning">
+                                                    <i class="bi bi-bar-chart-steps"></i> Tiered
+                                                </span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-success">
+                                                    <i class="bi bi-currency-dollar"></i> Fixed Price
+                                                </span>
+                                            }
+                                        </td>
+                                        <td>
+                                            @if (pricelist.EffectiveFrom.HasValue)
+                                            {
+                                                <small>
+                                                    <strong>From:</strong> @pricelist.EffectiveFrom.Value.ToString("yyyy-MM-dd")<br />
+                                                    @if (pricelist.EffectiveTo.HasValue)
+                                                    {
+                                                        <span><strong>To:</strong> @pricelist.EffectiveTo.Value.ToString("yyyy-MM-dd")</span>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="text-muted"><strong>To:</strong> No end date</span>
+                                                    }
+                                                </small>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted">No dates set</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            @if (IsCurrentlyEffective(pricelist))
+                                            {
+                                                <span class="badge bg-success">
+                                                    <i class="bi bi-check-circle-fill"></i> Effective Now
+                                                </span>
+                                            }
+                                            else if (pricelist.IsActive)
+                                            {
+                                                <span class="badge bg-warning text-dark">
+                                                    <i class="bi bi-clock-fill"></i> Scheduled
+                                                </span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-secondary">Inactive</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            @if (pricelist.IsDefault)
+                                            {
+                                                <span class="badge bg-primary">
+                                                    <i class="bi bi-star-fill"></i> Default
+                                                </span>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted">-</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-info">@pricelist.Priority</span>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-secondary">@pricelist.ProductCount items</span>
+                                        </td>
+                                        <td>
+                                            <button class="btn btn-sm btn-info" @onclick="() => NavigateToEdit(pricelist.Id)" title="Edit">
+                                                <i class="bi bi-pencil"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-success ms-1" @onclick="() => ViewItems(pricelist.Id)" title="Manage Items">
+                                                <i class="bi bi-list-ul"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="alert alert-info text-center" role="alert">
+                <i class="bi bi-info-circle-fill"></i>
+                @if (string.IsNullOrWhiteSpace(searchTerm) && filterStatus == "all")
+                {
+                    <p class="mb-0">No pricelists found. Click "Create Pricelist" to add one.</p>
+                }
+                else
+                {
+                    <p class="mb-0">No pricelists found matching your filters.</p>
+                }
+            </div>
+        }
+    }
+</div>
+
+@code {
+    private List<PricelistDto> pricelists = new();
+    private IEnumerable<PricelistDto> filteredPricelists = Enumerable.Empty<PricelistDto>();
+    private string searchTerm = string.Empty;
+    private string filterStatus = "all";
+    private bool isLoading = true;
+    private string errorMessage = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        isLoading = true;
+        errorMessage = string.Empty;
+
+        try
+        {
+            pricelists = (await PricelistService.GetAllPricelistsAsync()).ToList();
+            ApplyFilter();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error loading pricelists: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void ApplyFilter()
+    {
+        var filtered = pricelists.AsEnumerable();
+
+        // Apply status filter
+        filtered = filterStatus switch
+        {
+            "active" => filtered.Where(p => p.IsActive),
+            "inactive" => filtered.Where(p => !p.IsActive),
+            "current" => filtered.Where(p => IsCurrentlyEffective(p)),
+            _ => filtered
+        };
+
+        // Apply search filter
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+        {
+            var term = searchTerm.ToLower();
+            filtered = filtered.Where(p =>
+                p.Name.ToLower().Contains(term) ||
+                (p.Code != null && p.Code.ToLower().Contains(term)) ||
+                (p.Description != null && p.Description.ToLower().Contains(term))
+            );
+        }
+
+        filteredPricelists = filtered.OrderByDescending(p => p.Priority);
+    }
+
+    private bool IsCurrentlyEffective(PricelistDto pricelist)
+    {
+        if (!pricelist.IsActive)
+            return false;
+
+        var today = DateTime.Today;
+
+        var afterStart = !pricelist.EffectiveFrom.HasValue || pricelist.EffectiveFrom.Value <= today;
+        var beforeEnd = !pricelist.EffectiveTo.HasValue || pricelist.EffectiveTo.Value >= today;
+
+        return afterStart && beforeEnd;
+    }
+
+    private void NavigateToCreate()
+    {
+        Navigation.NavigateTo("/pricelist-form");
+    }
+
+    private void NavigateToEdit(int pricelistId)
+    {
+        Navigation.NavigateTo($"/pricelist-form/{pricelistId}");
+    }
+
+    private void ViewItems(int pricelistId)
+    {
+        Navigation.NavigateTo($"/pricelist-form/{pricelistId}");
+    }
+}

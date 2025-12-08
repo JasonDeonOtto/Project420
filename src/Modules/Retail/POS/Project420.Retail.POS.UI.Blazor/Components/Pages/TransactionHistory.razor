@@ -1,0 +1,489 @@
+@page "/pos/transactions"
+@using Project420.Retail.POS.BLL.Services
+@using Project420.Retail.POS.BLL.DTOs
+@using Project420.Shared.Core.Enums
+@inject ITransactionSearchService TransactionSearchService
+@inject NavigationManager Navigation
+@rendermode InteractiveServer
+
+<PageTitle>Transaction History</PageTitle>
+
+<div class="base-form-container">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+        <h2 class="form-title" style="margin-bottom: 0;">Transaction History</h2>
+        <div style="display: flex; gap: 1rem;">
+            <button class="btn-secondary-custom btn-icon" @onclick="RefreshData">
+                <span>🔄</span>
+                <span>Refresh</span>
+            </button>
+            <button class="btn-primary-custom btn-icon" @onclick="NavigateToCheckout">
+                <img src="images/cannabis-seed.svg" alt="" />
+                <span>New Sale</span>
+            </button>
+        </div>
+    </div>
+
+    @if (isLoading)
+    {
+        <div style="text-align: center; padding: 3rem;">
+            <img src="images/cannabis-seed.svg" class="loading-icon" alt="Loading" />
+            <p style="color: var(--text-secondary); font-family: 'Shadows Into Light', cursive; margin-top: 1rem;">Loading transactions...</p>
+        </div>
+    }
+    else if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert-custom alert-danger-custom">
+            @errorMessage
+        </div>
+    }
+    else
+    {
+        <!-- SEARCH & FILTER SECTION -->
+        <div class="form-section" style="margin-bottom: 2rem;">
+            <h4 style="color: var(--cannabis-green-light); font-family: 'Permanent Marker', cursive; margin-bottom: 1rem;">
+                🔍 Search & Filter
+            </h4>
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">
+                <!-- Transaction Number Search -->
+                <div class="form-field">
+                    <label class="form-label">Transaction Number</label>
+                    <input type="text" class="form-input" placeholder="SALE-20251207-001"
+                           @bind="searchCriteria.TransactionNumber" @bind:event="oninput" />
+                </div>
+
+                <!-- Date Range -->
+                <div class="form-field">
+                    <label class="form-label">From Date</label>
+                    <input type="date" class="form-input" @bind="searchCriteria.StartDate" />
+                </div>
+
+                <div class="form-field">
+                    <label class="form-label">To Date</label>
+                    <input type="date" class="form-input" @bind="searchCriteria.EndDate" />
+                </div>
+
+                <!-- Customer Name -->
+                <div class="form-field">
+                    <label class="form-label">Customer Name</label>
+                    <input type="text" class="form-input" placeholder="Customer name..."
+                           @bind="searchCriteria.CustomerName" @bind:event="oninput" />
+                </div>
+
+                <!-- Transaction Type -->
+                <div class="form-field">
+                    <label class="form-label">Transaction Type</label>
+                    <select class="form-input" @bind="searchCriteria.TransactionType">
+                        <option value="">All Types</option>
+                        <option value="@TransactionTypeCode.SALE">Sale</option>
+                        <option value="@TransactionTypeCode.CRN">Refund (Credit Note)</option>
+                    </select>
+                </div>
+
+                <!-- Transaction Status -->
+                <div class="form-field">
+                    <label class="form-label">Status</label>
+                    <select class="form-input" @bind="searchCriteria.Status">
+                        <option value="">All Statuses</option>
+                        <option value="@TransactionStatus.Completed">Completed</option>
+                        <option value="@TransactionStatus.Cancelled">Cancelled</option>
+                        <option value="@TransactionStatus.Refunded">Refunded</option>
+                    </select>
+                </div>
+
+                <!-- Payment Method -->
+                <div class="form-field">
+                    <label class="form-label">Payment Method</label>
+                    <select class="form-input" @bind="searchCriteria.PaymentMethod">
+                        <option value="">All Methods</option>
+                        <option value="@PaymentMethod.Cash">Cash</option>
+                        <option value="@PaymentMethod.Card">Card</option>
+                        <option value="@PaymentMethod.EFT">EFT</option>
+                        <option value="@PaymentMethod.MobilePayment">Mobile Payment</option>
+                        <option value="@PaymentMethod.OnAccount">On Account</option>
+                    </select>
+                </div>
+
+                <!-- Batch Number (Cannabis Traceability) -->
+                <div class="form-field">
+                    <label class="form-label">Batch Number 🌿</label>
+                    <input type="text" class="form-input" placeholder="Batch number for traceability"
+                           @bind="searchCriteria.BatchNumber" @bind:event="oninput" />
+                </div>
+            </div>
+
+            <!-- Amount Range -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem;">
+                <div class="form-field">
+                    <label class="form-label">Min Amount (R)</label>
+                    <input type="number" class="form-input" step="0.01" placeholder="0.00"
+                           @bind="searchCriteria.MinAmount" />
+                </div>
+
+                <div class="form-field">
+                    <label class="form-label">Max Amount (R)</label>
+                    <input type="number" class="form-input" step="0.01" placeholder="10000.00"
+                           @bind="searchCriteria.MaxAmount" />
+                </div>
+            </div>
+
+            <!-- Search Buttons -->
+            <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+                <button class="btn-primary-custom" @onclick="SearchTransactions">
+                    🔍 Search
+                </button>
+                <button class="btn-secondary-custom" @onclick="ClearFilters">
+                    🗑️ Clear Filters
+                </button>
+                <button class="btn-secondary-custom" @onclick="LoadTodaysTransactions">
+                    📅 Today's Transactions
+                </button>
+            </div>
+        </div>
+
+        <!-- RESULTS SUMMARY -->
+        @if (searchResults != null && searchResults.Summary != null)
+        {
+            <div class="form-section" style="margin-bottom: 2rem; background: linear-gradient(135deg, var(--cannabis-green) 0%, var(--cannabis-green-dark) 100%); padding: 1.5rem;">
+                <h4 style="color: var(--text-primary); font-family: 'Permanent Marker', cursive; margin-bottom: 1rem;">
+                    📊 Summary Statistics
+                </h4>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+                    <div style="background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 8px;">
+                        <div style="font-family: 'Shadows Into Light', cursive; color: var(--text-secondary); font-size: 0.9rem;">Total Sales</div>
+                        <div style="font-family: 'Permanent Marker', cursive; color: var(--text-primary); font-size: 1.5rem;">
+                            R @searchResults.Summary.TotalSales.ToString("N2")
+                        </div>
+                    </div>
+                    <div style="background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 8px;">
+                        <div style="font-family: 'Shadows Into Light', cursive; color: var(--text-secondary); font-size: 0.9rem;">Total Refunds</div>
+                        <div style="font-family: 'Permanent Marker', cursive; color: var(--dead-rose-purple); font-size: 1.5rem;">
+                            R @searchResults.Summary.TotalRefunds.ToString("N2")
+                        </div>
+                    </div>
+                    <div style="background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 8px;">
+                        <div style="font-family: 'Shadows Into Light', cursive; color: var(--text-secondary); font-size: 0.9rem;">Net Amount</div>
+                        <div style="font-family: 'Permanent Marker', cursive; color: var(--text-primary); font-size: 1.5rem;">
+                            R @searchResults.Summary.NetAmount.ToString("N2")
+                        </div>
+                    </div>
+                    <div style="background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 8px;">
+                        <div style="font-family: 'Shadows Into Light', cursive; color: var(--text-secondary); font-size: 0.9rem;">Transactions</div>
+                        <div style="font-family: 'Permanent Marker', cursive; color: var(--text-primary); font-size: 1.5rem;">
+                            @searchResults.Summary.TransactionCount
+                        </div>
+                    </div>
+                    <div style="background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 8px;">
+                        <div style="font-family: 'Shadows Into Light', cursive; color: var(--text-secondary); font-size: 0.9rem;">Avg Transaction</div>
+                        <div style="font-family: 'Permanent Marker', cursive; color: var(--text-primary); font-size: 1.5rem;">
+                            R @searchResults.Summary.AverageTransactionValue.ToString("N2")
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+
+        <!-- RESULTS TABLE -->
+        @if (searchResults != null && searchResults.Transactions.Any())
+        {
+            <div class="form-section">
+                <!-- Pagination Info -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                    <span style="color: var(--text-secondary); font-family: 'Shadows Into Light', cursive;">
+                        Showing @((searchResults.CurrentPage - 1) * searchResults.PageSize + 1)
+                        - @Math.Min(searchResults.CurrentPage * searchResults.PageSize, searchResults.TotalCount)
+                        of @searchResults.TotalCount transactions
+                    </span>
+                    <span style="padding: 0.5rem 1rem; background-color: var(--cannabis-green); color: var(--text-primary); font-family: 'Permanent Marker', cursive;">
+                        Page @searchResults.CurrentPage of @searchResults.TotalPages
+                    </span>
+                </div>
+
+                <table class="table-custom">
+                    <thead>
+                        <tr>
+                            <th>Transaction #</th>
+                            <th>Date/Time</th>
+                            <th>Type</th>
+                            <th>Status</th>
+                            <th>Customer</th>
+                            <th>Items</th>
+                            <th>Total Amount</th>
+                            <th>Payment</th>
+                            <th>Cashier</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var transaction in searchResults.Transactions)
+                        {
+                            <tr>
+                                <td>
+                                    <strong style="color: var(--cannabis-green-light); font-family: 'Courier New', monospace;">
+                                        @transaction.TransactionNumber
+                                    </strong>
+                                </td>
+                                <td style="font-size: 0.9rem;">
+                                    @transaction.TransactionDate.ToString("yyyy-MM-dd")<br/>
+                                    <span style="color: var(--text-secondary);">@transaction.TransactionDate.ToString("HH:mm:ss")</span>
+                                </td>
+                                <td>
+                                    @if (transaction.TransactionType == "Sale")
+                                    {
+                                        <span style="padding: 0.25rem 0.5rem; background-color: var(--cannabis-green); color: var(--text-primary); font-family: 'Permanent Marker', cursive; font-size: 0.7rem;">
+                                            💰 SALE
+                                        </span>
+                                    }
+                                    else if (transaction.TransactionType == "Refund" || transaction.TransactionType == "CRN")
+                                    {
+                                        <span style="padding: 0.25rem 0.5rem; background-color: var(--dead-rose-purple); color: var(--text-primary); font-family: 'Permanent Marker', cursive; font-size: 0.7rem;">
+                                            ↩️ REFUND
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span style="padding: 0.25rem 0.5rem; background-color: var(--bg-tertiary); color: var(--text-secondary); font-family: 'Permanent Marker', cursive; font-size: 0.7rem;">
+                                            @transaction.TransactionType
+                                        </span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (transaction.Status == "Completed")
+                                    {
+                                        <span style="color: var(--cannabis-green-light);">✅ @transaction.Status</span>
+                                    }
+                                    else if (transaction.Status == "Cancelled")
+                                    {
+                                        <span style="color: var(--dead-rose-purple);">❌ @transaction.Status</span>
+                                    }
+                                    else if (transaction.Status == "Refunded")
+                                    {
+                                        <span style="color: var(--accent-purple);">↩️ @transaction.Status</span>
+                                    }
+                                    else
+                                    {
+                                        <span style="color: var(--text-secondary);">@transaction.Status</span>
+                                    }
+                                </td>
+                                <td>
+                                    <span style="color: var(--text-primary);">@transaction.CustomerName</span>
+                                </td>
+                                <td style="text-align: center;">
+                                    <span style="padding: 0.25rem 0.5rem; background-color: var(--bg-tertiary); color: var(--text-primary); border-radius: 4px;">
+                                        @transaction.ItemCount
+                                    </span>
+                                </td>
+                                <td style="text-align: right;">
+                                    <strong style="color: @(transaction.TotalAmount >= 0 ? "var(--cannabis-green-light)" : "var(--dead-rose-purple)"); font-family: 'Courier New', monospace; font-size: 1.1rem;">
+                                        R @transaction.TotalAmount.ToString("N2")
+                                    </strong>
+                                </td>
+                                <td>
+                                    <span style="font-size: 0.9rem; color: var(--text-secondary);">
+                                        @transaction.PaymentMethod
+                                    </span>
+                                </td>
+                                <td>
+                                    <span style="font-size: 0.9rem; color: var(--text-secondary);">
+                                        @transaction.CashierName
+                                    </span>
+                                </td>
+                                <td>
+                                    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                                        <button class="btn-secondary-custom" style="padding: 0.25rem 0.75rem; font-size: 0.8rem;"
+                                                @onclick="() => ViewTransactionDetails(transaction.TransactionNumber)">
+                                            👁️ View
+                                        </button>
+                                        @if (transaction.TransactionType == "Sale" && transaction.Status != "Cancelled" && transaction.Status != "Refunded")
+                                        {
+                                            <button class="btn-secondary-custom" style="padding: 0.25rem 0.75rem; font-size: 0.8rem; background-color: var(--dead-rose-purple);"
+                                                    @onclick="() => ProcessRefund(transaction.TransactionNumber)">
+                                                ↩️ Refund
+                                            </button>
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+
+                <!-- PAGINATION CONTROLS -->
+                <div style="display: flex; justify-content: center; align-items: center; gap: 1rem; margin-top: 2rem;">
+                    <button class="btn-secondary-custom"
+                            @onclick="FirstPage"
+                            disabled="@(!searchResults.HasPreviousPage)">
+                        ⏮️ First
+                    </button>
+                    <button class="btn-secondary-custom"
+                            @onclick="PreviousPage"
+                            disabled="@(!searchResults.HasPreviousPage)">
+                        ⬅️ Previous
+                    </button>
+
+                    <span style="padding: 0.5rem 1rem; background-color: var(--cannabis-green); color: var(--text-primary); font-family: 'Permanent Marker', cursive;">
+                        Page @searchResults.CurrentPage of @searchResults.TotalPages
+                    </span>
+
+                    <button class="btn-secondary-custom"
+                            @onclick="NextPage"
+                            disabled="@(!searchResults.HasNextPage)">
+                        Next ➡️
+                    </button>
+                    <button class="btn-secondary-custom"
+                            @onclick="LastPage"
+                            disabled="@(!searchResults.HasNextPage)">
+                        Last ⏭️
+                    </button>
+                </div>
+
+                <!-- Page Size Selector -->
+                <div style="display: flex; justify-content: center; align-items: center; gap: 1rem; margin-top: 1rem;">
+                    <label style="color: var(--text-secondary); font-family: 'Shadows Into Light', cursive;">Items per page:</label>
+                    <select class="form-input" style="width: auto;" @bind="searchCriteria.PageSize" @bind:after="SearchTransactions">
+                        <option value="10">10</option>
+                        <option value="25">25</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                    </select>
+                </div>
+            </div>
+        }
+        else if (searchResults != null && !searchResults.Transactions.Any())
+        {
+            <div style="text-align: center; padding: 3rem; background: var(--bg-secondary); border-radius: 12px;">
+                <p style="color: var(--text-secondary); font-family: 'Shadows Into Light', cursive; font-size: 1.2rem;">
+                    🔍 No transactions found matching your search criteria.
+                </p>
+                <button class="btn-secondary-custom" @onclick="ClearFilters" style="margin-top: 1rem;">
+                    Clear Filters and Try Again
+                </button>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    private bool isLoading = true;
+    private string? errorMessage;
+    private TransactionSearchCriteriaDto searchCriteria = new();
+    private TransactionSearchResultDto? searchResults;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadTodaysTransactions();
+    }
+
+    private async Task LoadTodaysTransactions()
+    {
+        try
+        {
+            isLoading = true;
+            errorMessage = null;
+
+            // Set today's date range
+            searchCriteria = new TransactionSearchCriteriaDto
+            {
+                StartDate = DateTime.Today,
+                EndDate = DateTime.Today.AddDays(1).AddSeconds(-1),
+                PageNumber = 1,
+                PageSize = 50
+            };
+
+            await SearchTransactions();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error loading today's transactions: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task SearchTransactions()
+    {
+        try
+        {
+            isLoading = true;
+            errorMessage = null;
+
+            searchResults = await TransactionSearchService.SearchTransactionsAsync(searchCriteria);
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error searching transactions: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task RefreshData()
+    {
+        await SearchTransactions();
+    }
+
+    private void ClearFilters()
+    {
+        searchCriteria = new TransactionSearchCriteriaDto
+        {
+            PageNumber = 1,
+            PageSize = searchCriteria.PageSize
+        };
+        searchResults = null;
+    }
+
+    private async Task FirstPage()
+    {
+        if (searchResults != null && searchResults.HasPreviousPage)
+        {
+            searchCriteria.PageNumber = 1;
+            await SearchTransactions();
+        }
+    }
+
+    private async Task PreviousPage()
+    {
+        if (searchResults != null && searchResults.HasPreviousPage)
+        {
+            searchCriteria.PageNumber--;
+            await SearchTransactions();
+        }
+    }
+
+    private async Task NextPage()
+    {
+        if (searchResults != null && searchResults.HasNextPage)
+        {
+            searchCriteria.PageNumber++;
+            await SearchTransactions();
+        }
+    }
+
+    private async Task LastPage()
+    {
+        if (searchResults != null && searchResults.HasNextPage)
+        {
+            searchCriteria.PageNumber = searchResults.TotalPages;
+            await SearchTransactions();
+        }
+    }
+
+    private void ViewTransactionDetails(string transactionNumber)
+    {
+        Navigation.NavigateTo($"/pos/transaction/{transactionNumber}");
+    }
+
+    private void ProcessRefund(string transactionNumber)
+    {
+        Navigation.NavigateTo($"/pos/refund/{transactionNumber}");
+    }
+
+    private void NavigateToCheckout()
+    {
+        Navigation.NavigateTo("/pos/checkout");
+    }
+}

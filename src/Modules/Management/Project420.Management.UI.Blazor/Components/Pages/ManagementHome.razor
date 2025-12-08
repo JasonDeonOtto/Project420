@@ -1,0 +1,143 @@
+﻿@page "/"
+
+<PageTitle>Project420 - Management Dashboard</PageTitle>
+
+<div class="container-fluid mt-4">
+    <h1 class="mb-4">🌿 Project420 Management System</h1>
+    <p class="lead text-muted mb-4">Cannabis Industry Management - South African Compliance</p>
+
+    <div class="row">
+        <!-- Quick Stats -->
+        <div class="col-md-3 mb-4">
+            <div class="card border-primary">
+                <div class="card-body text-center">
+                    <i class="bi bi-people-fill text-primary" style="font-size: 2rem;"></i>
+                    <h3 class="mt-2">Customers</h3>
+                    <p class="text-muted">Manage customer accounts</p>
+                    <a href="/customers" class="btn btn-primary btn-sm">View Customers</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3 mb-4">
+            <div class="card border-success">
+                <div class="card-body text-center">
+                    <i class="bi bi-box-seam-fill text-success" style="font-size: 2rem;"></i>
+                    <h3 class="mt-2">Products</h3>
+                    <p class="text-muted">Manage product catalog</p>
+                    <a href="/products" class="btn btn-success btn-sm">View Products</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3 mb-4">
+            <div class="card border-warning">
+                <div class="card-body text-center">
+                    <i class="bi bi-currency-dollar text-warning" style="font-size: 2rem;"></i>
+                    <h3 class="mt-2">Pricelists</h3>
+                    <p class="text-muted">Manage pricing strategies</p>
+                    <a href="/pricelists" class="btn btn-warning btn-sm">View Pricelists</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3 mb-4">
+            <div class="card border-info">
+                <div class="card-body text-center">
+                    <i class="bi bi-tags-fill text-info" style="font-size: 2rem;"></i>
+                    <h3 class="mt-2">Categories</h3>
+                    <p class="text-muted">Organize products & customers</p>
+                    <a href="/product-categories" class="btn btn-info btn-sm">Manage Categories</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Compliance Information -->
+    <div class="row mt-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0">⚖️ Compliance Information</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <h6><i class="bi bi-check-circle-fill text-success"></i> Cannabis Act 2024</h6>
+                            <ul class="small">
+                                <li>Age verification (18+)</li>
+                                <li>Seed-to-sale traceability</li>
+                                <li>THC/CBD content tracking</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-4">
+                            <h6><i class="bi bi-shield-fill-check text-primary"></i> POPIA Compliance</h6>
+                            <ul class="small">
+                                <li>Data protection & masking</li>
+                                <li>Consent management</li>
+                                <li>7-year audit trails</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-4">
+                            <h6><i class="bi bi-calculator-fill text-info"></i> SARS Ready</h6>
+                            <ul class="small">
+                                <li>VAT calculations (15%)</li>
+                                <li>Future excise duty support</li>
+                                <li>Financial reporting</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="row mt-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">🚀 Quick Actions</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3 mb-2">
+                            <a href="/customer-registration" class="btn btn-outline-primary btn-block w-100">
+                                <i class="bi bi-person-plus"></i> Register Customer
+                            </a>
+                        </div>
+                        <div class="col-md-3 mb-2">
+                            <a href="/product-form" class="btn btn-outline-success btn-block w-100">
+                                <i class="bi bi-plus-circle"></i> Create Product
+                            </a>
+                        </div>
+                        <div class="col-md-3 mb-2">
+                            <a href="/product-categories" class="btn btn-outline-info btn-block w-100">
+                                <i class="bi bi-collection"></i> Manage Categories
+                            </a>
+                        </div>
+                        <div class="col-md-3 mb-2">
+                            <a href="/pricelists" class="btn btn-outline-warning btn-block w-100">
+                                <i class="bi bi-currency-dollar"></i> Create Pricelist
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- System Information -->
+    <div class="row mt-4">
+        <div class="col-md-12">
+            <div class="alert alert-info">
+                <h6 class="alert-heading"><i class="bi bi-info-circle-fill"></i> Project Status</h6>
+                <p class="mb-0">
+                    <strong>Phase:</strong> Phase 3 - Business Logic Complete |
+                    <strong>Version:</strong> 0.1.0 POC |
+                    <strong>Compliance:</strong> Cannabis Act 2024 + POPIA + SARS
+                </p>
+            </div>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,312 @@
+@page "/products"
+@using Project420.Management.BLL.StockManagement.Services
+@using Project420.Management.BLL.StockManagement.DTOs
+@inject IProductService ProductService
+@inject IProductCategoryService CategoryService
+@inject NavigationManager Navigation
+@rendermode InteractiveServer
+
+<PageTitle>Products</PageTitle>
+
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Products</h1>
+        <button class="btn btn-primary" @onclick="NavigateToCreate">
+            <i class="bi bi-plus-circle"></i> Create Product
+        </button>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="text-center p-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-3">Loading products...</p>
+        </div>
+    }
+    else if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger" role="alert">
+            <i class="bi bi-exclamation-triangle-fill"></i> @errorMessage
+        </div>
+    }
+    else
+    {
+        <!-- Search and Filter Bar -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-search"></i></span>
+                            <input type="text" class="form-control" placeholder="Search by name, SKU, or strain..."
+                                   @bind="searchTerm" @bind:event="oninput" @bind:after="ApplyFilter" />
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <select class="form-select" @bind="filterStatus" @bind:after="ApplyFilter">
+                            <option value="all">All Products</option>
+                            <option value="active">Active Only</option>
+                            <option value="inactive">Inactive Only</option>
+                            <option value="lowstock">Low Stock</option>
+                            <option value="outofstock">Out of Stock</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <select class="form-select" @bind="filterCategory" @bind:after="ApplyFilter">
+                            <option value="">All Categories</option>
+                            @foreach (var cat in categories)
+                            {
+                                <option value="@cat.Id">@cat.Name</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-3 text-end">
+                        <span class="badge bg-info fs-6">Total: @filteredProducts.Count()</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @if (filteredProducts.Any())
+        {
+            <div class="card">
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover table-striped mb-0">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>SKU</th>
+                                    <th>Name</th>
+                                    <th>Strain</th>
+                                    <th>THC/CBD</th>
+                                    <th>Price</th>
+                                    <th>Cost</th>
+                                    <th>Margin</th>
+                                    <th>Stock</th>
+                                    <th>Status</th>
+                                    <th>Expiry</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var product in filteredProducts)
+                                {
+                                    <tr>
+                                        <td><code>@product.SKU</code></td>
+                                        <td>
+                                            <strong>@product.Name</strong>
+                                            @if (!string.IsNullOrEmpty(product.Description))
+                                            {
+                                                <br />
+                                                <small class="text-muted">@(product.Description.Length > 50 ? product.Description.Substring(0, 50) + "..." : product.Description)</small>
+                                            }
+                                        </td>
+                                        <td>
+                                            @if (!string.IsNullOrEmpty(product.StrainName))
+                                            {
+                                                <span class="badge bg-info">@product.StrainName</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted">-</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            @if (!string.IsNullOrEmpty(product.THCPercentage) || !string.IsNullOrEmpty(product.CBDPercentage))
+                                            {
+                                                <small>
+                                                    THC: @(product.THCPercentage ?? "-")<br />
+                                                    CBD: @(product.CBDPercentage ?? "-")
+                                                </small>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted">-</span>
+                                            }
+                                        </td>
+                                        <td><strong>R @product.Price.ToString("N2")</strong></td>
+                                        <td>R @product.CostPrice.ToString("N2")</td>
+                                        <td>
+                                            @if (product.ProfitMarginPercentage > 0)
+                                            {
+                                                <span class="badge bg-success">@product.ProfitMarginPercentage.ToString("N1")%</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted">-</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            @if (product.IsOutOfStock)
+                                            {
+                                                <span class="badge bg-danger">OUT OF STOCK</span>
+                                            }
+                                            else if (product.IsLowStock)
+                                            {
+                                                <span class="badge bg-warning text-dark">
+                                                    <i class="bi bi-exclamation-triangle-fill"></i> @product.StockOnHand
+                                                </span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-success">@product.StockOnHand</span>
+                                            }
+                                            <br />
+                                            <small class="text-muted">Min: @product.ReorderLevel</small>
+                                        </td>
+                                        <td>
+                                            @if (product.IsActive)
+                                            {
+                                                <span class="badge bg-success">Active</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-secondary">Inactive</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            @if (product.ExpiryDate.HasValue)
+                                            {
+                                                var daysUntilExpiry = (product.ExpiryDate.Value - DateTime.Today).Days;
+                                                if (daysUntilExpiry < 0)
+                                                {
+                                                    <span class="badge bg-danger">EXPIRED</span>
+                                                }
+                                                else if (daysUntilExpiry <= 30)
+                                                {
+                                                    <span class="badge bg-warning text-dark">@daysUntilExpiry days</span>
+                                                }
+                                                else
+                                                {
+                                                    <small>@product.ExpiryDate.Value.ToString("yyyy-MM-dd")</small>
+                                                }
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted">-</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            <button class="btn btn-sm btn-info" @onclick="() => NavigateToEdit(product.Id)" title="Edit">
+                                                <i class="bi bi-pencil"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-success ms-1" @onclick="() => ShowStockAdjustment(product.Id)" title="Adjust Stock">
+                                                <i class="bi bi-box-seam"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="alert alert-info text-center" role="alert">
+                <i class="bi bi-info-circle-fill"></i>
+                @if (string.IsNullOrWhiteSpace(searchTerm) && filterStatus == "all")
+                {
+                    <p class="mb-0">No products found. Click "Create Product" to add one.</p>
+                }
+                else
+                {
+                    <p class="mb-0">No products found matching your filters.</p>
+                }
+            </div>
+        }
+    }
+</div>
+
+@code {
+    private List<ProductDto> products = new();
+    private List<ProductCategoryDto> categories = new();
+    private IEnumerable<ProductDto> filteredProducts = Enumerable.Empty<ProductDto>();
+    private string searchTerm = string.Empty;
+    private string filterStatus = "all";
+    private string filterCategory = "";
+    private bool isLoading = true;
+    private string errorMessage = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        isLoading = true;
+        errorMessage = string.Empty;
+
+        try
+        {
+            // Load sequentially to avoid DbContext threading issues
+            products = (await ProductService.GetAllProductsAsync()).ToList();
+            categories = (await CategoryService.GetAllCategoriesAsync()).ToList();
+
+            ApplyFilter();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error loading data: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void ApplyFilter()
+    {
+        var filtered = products.AsEnumerable();
+
+        // Apply status filter
+        filtered = filterStatus switch
+        {
+            "active" => filtered.Where(p => p.IsActive),
+            "inactive" => filtered.Where(p => !p.IsActive),
+            "lowstock" => filtered.Where(p => p.IsLowStock && !p.IsOutOfStock),
+            "outofstock" => filtered.Where(p => p.IsOutOfStock),
+            _ => filtered
+        };
+
+        // Apply category filter
+        if (!string.IsNullOrEmpty(filterCategory) && int.TryParse(filterCategory, out var catId))
+        {
+            filtered = filtered.Where(p => p.CategoryId == catId);
+        }
+
+        // Apply search filter
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+        {
+            var term = searchTerm.ToLower();
+            filtered = filtered.Where(p =>
+                p.Name.ToLower().Contains(term) ||
+                p.SKU.ToLower().Contains(term) ||
+                (p.StrainName != null && p.StrainName.ToLower().Contains(term)) ||
+                (p.Description != null && p.Description.ToLower().Contains(term))
+            );
+        }
+
+        filteredProducts = filtered;
+    }
+
+    private void NavigateToCreate()
+    {
+        Navigation.NavigateTo("/product-form");
+    }
+
+    private void NavigateToEdit(int productId)
+    {
+        Navigation.NavigateTo($"/product-form/{productId}");
+    }
+
+    private void ShowStockAdjustment(int productId)
+    {
+        // TODO: Implement stock adjustment modal or page
+        errorMessage = "Stock adjustment feature coming soon!";
+    }
+}

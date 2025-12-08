@@ -1,0 +1,424 @@
+@page "/pos/transaction/{TransactionNumber}"
+@using Project420.Retail.POS.BLL.Services
+@using Project420.Retail.POS.BLL.DTOs
+@using Project420.Shared.Core.Enums
+@inject ITransactionSearchService TransactionSearchService
+@inject NavigationManager Navigation
+@rendermode InteractiveServer
+
+<PageTitle>Transaction Details</PageTitle>
+
+<div class="base-form-container">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+        <h2 class="form-title" style="margin-bottom: 0;">📄 Transaction Details</h2>
+        <div style="display: flex; gap: 1rem;">
+            <button class="btn-secondary-custom btn-icon" @onclick="GoBack">
+                <span>⬅️</span>
+                <span>Back</span>
+            </button>
+            <button class="btn-secondary-custom btn-icon" @onclick="PrintReceipt">
+                <span>🖨️</span>
+                <span>Print Receipt</span>
+            </button>
+        </div>
+    </div>
+
+    @if (isLoading)
+    {
+        <div style="text-align: center; padding: 3rem;">
+            <img src="images/cannabis-seed.svg" class="loading-icon" alt="Loading" />
+            <p style="color: var(--text-secondary); font-family: 'Shadows Into Light', cursive; margin-top: 1rem;">Loading transaction...</p>
+        </div>
+    }
+    else if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert-custom alert-danger-custom">
+            @errorMessage
+        </div>
+        <button class="btn-secondary-custom" @onclick="GoBack" style="margin-top: 1rem;">
+            ⬅️ Back to Transactions
+        </button>
+    }
+    else if (transaction != null)
+    {
+        <!-- TRANSACTION HEADER -->
+        <div class="form-section" style="background: linear-gradient(135deg, var(--cannabis-green) 0%, var(--cannabis-green-dark) 100%); margin-bottom: 2rem;">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem;">
+                <div style="background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 8px;">
+                    <div style="font-family: 'Shadows Into Light', cursive; color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 0.5rem;">Transaction Number</div>
+                    <div style="font-family: 'Courier New', monospace; color: var(--text-primary); font-size: 1.2rem; font-weight: bold;">
+                        @transaction.Header.TransactionNumber
+                    </div>
+                </div>
+
+                <div style="background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 8px;">
+                    <div style="font-family: 'Shadows Into Light', cursive; color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 0.5rem;">Date & Time</div>
+                    <div style="font-family: 'Permanent Marker', cursive; color: var(--text-primary); font-size: 1rem;">
+                        @transaction.Header.TransactionDate.ToString("yyyy-MM-dd HH:mm:ss")
+                    </div>
+                </div>
+
+                <div style="background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 8px;">
+                    <div style="font-family: 'Shadows Into Light', cursive; color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 0.5rem;">Type</div>
+                    <div>
+                        @if (transaction.Header.TransactionType == "Sale")
+                        {
+                            <span style="padding: 0.5rem 1rem; background-color: var(--cannabis-green); color: var(--text-primary); font-family: 'Permanent Marker', cursive; font-size: 0.9rem;">
+                                💰 SALE
+                            </span>
+                        }
+                        else if (transaction.Header.TransactionType == "Refund" || transaction.Header.TransactionType == "CRN")
+                        {
+                            <span style="padding: 0.5rem 1rem; background-color: var(--dead-rose-purple); color: var(--text-primary); font-family: 'Permanent Marker', cursive; font-size: 0.9rem;">
+                                ↩️ REFUND
+                            </span>
+                        }
+                        else
+                        {
+                            <span style="padding: 0.5rem 1rem; background-color: var(--bg-tertiary); color: var(--text-secondary); font-family: 'Permanent Marker', cursive; font-size: 0.9rem;">
+                                @transaction.Header.TransactionType
+                            </span>
+                        }
+                    </div>
+                </div>
+
+                <div style="background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 8px;">
+                    <div style="font-family: 'Shadows Into Light', cursive; color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 0.5rem;">Status</div>
+                    <div>
+                        @if (transaction.Header.Status == "Completed")
+                        {
+                            <span style="color: var(--cannabis-green-light); font-family: 'Permanent Marker', cursive; font-size: 1rem;">✅ @transaction.Header.Status</span>
+                        }
+                        else if (transaction.Header.Status == "Cancelled")
+                        {
+                            <span style="color: var(--dead-rose-purple); font-family: 'Permanent Marker', cursive; font-size: 1rem;">❌ @transaction.Header.Status</span>
+                        }
+                        else if (transaction.Header.Status == "Refunded")
+                        {
+                            <span style="color: var(--accent-purple); font-family: 'Permanent Marker', cursive; font-size: 1rem;">↩️ @transaction.Header.Status</span>
+                        }
+                        else
+                        {
+                            <span style="color: var(--text-secondary); font-family: 'Permanent Marker', cursive; font-size: 1rem;">@transaction.Header.Status</span>
+                        }
+                    </div>
+                </div>
+
+                <div style="background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 8px;">
+                    <div style="font-family: 'Shadows Into Light', cursive; color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 0.5rem;">Customer</div>
+                    <div style="font-family: 'Permanent Marker', cursive; color: var(--text-primary); font-size: 1rem;">
+                        @transaction.Header.CustomerName
+                    </div>
+                </div>
+
+                <div style="background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 8px;">
+                    <div style="font-family: 'Shadows Into Light', cursive; color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 0.5rem;">Cashier</div>
+                    <div style="font-family: 'Permanent Marker', cursive; color: var(--text-primary); font-size: 1rem;">
+                        @transaction.Header.CashierName
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- LINE ITEMS -->
+        <div class="form-section" style="margin-bottom: 2rem;">
+            <h3 style="color: var(--cannabis-green-light); font-family: 'Permanent Marker', cursive; margin-bottom: 1rem;">
+                🛒 Line Items (@transaction.LineItems.Count)
+            </h3>
+
+            <table class="table-custom">
+                <thead>
+                    <tr>
+                        <th>Product</th>
+                        <th>SKU</th>
+                        <th>Batch #</th>
+                        <th>Qty</th>
+                        <th>Unit Price</th>
+                        <th>Subtotal</th>
+                        <th>VAT</th>
+                        <th>Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in transaction.LineItems)
+                    {
+                        <tr>
+                            <td>
+                                <strong style="color: var(--cannabis-green-light);">@item.ProductName</strong>
+                            </td>
+                            <td style="font-family: 'Courier New', monospace; font-size: 0.9rem;">
+                                @item.ProductSku
+                            </td>
+                            <td style="font-family: 'Courier New', monospace; font-size: 0.9rem;">
+                                @if (!string.IsNullOrEmpty(item.BatchNumber))
+                                {
+                                    <span style="color: var(--accent-purple);">🌿 @item.BatchNumber</span>
+                                }
+                                else
+                                {
+                                    <span>-</span>
+                                }
+                            </td>
+                            <td style="text-align: center;">
+                                <span style="padding: 0.25rem 0.5rem; background-color: var(--bg-tertiary); color: var(--text-primary); border-radius: 4px;">
+                                    @item.Quantity
+                                </span>
+                            </td>
+                            <td style="text-align: right; font-family: 'Courier New', monospace;">
+                                R @item.UnitPrice.ToString("N2")
+                            </td>
+                            <td style="text-align: right; font-family: 'Courier New', monospace;">
+                                R @item.Subtotal.ToString("N2")
+                            </td>
+                            <td style="text-align: right; font-family: 'Courier New', monospace; color: var(--text-secondary);">
+                                R @item.VATAmount.ToString("N2")
+                            </td>
+                            <td style="text-align: right;">
+                                <strong style="color: var(--cannabis-green-light); font-family: 'Courier New', monospace; font-size: 1.1rem;">
+                                    R @item.Total.ToString("N2")
+                                </strong>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <!-- TOTALS SUMMARY -->
+        <div class="form-section" style="background: linear-gradient(135deg, var(--cannabis-green) 0%, var(--cannabis-green-dark) 100%); margin-bottom: 2rem;">
+            <h3 style="color: var(--text-primary); font-family: 'Permanent Marker', cursive; margin-bottom: 1.5rem;">
+                💰 Totals
+            </h3>
+
+            <div style="max-width: 500px; margin: 0 auto;">
+                <table style="width: 100%; color: var(--text-primary);">
+                    <tr>
+                        <td style="padding: 0.75rem; font-family: 'Shadows Into Light', cursive; font-size: 1.1rem;">Subtotal (excl VAT)</td>
+                        <td style="padding: 0.75rem; text-align: right; font-family: 'Courier New', monospace; font-size: 1.1rem;">
+                            R @transaction.Subtotal.ToString("N2")
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 0.75rem; font-family: 'Shadows Into Light', cursive; font-size: 1.1rem; color: var(--text-secondary);">VAT (15%)</td>
+                        <td style="padding: 0.75rem; text-align: right; font-family: 'Courier New', monospace; font-size: 1.1rem; color: var(--text-secondary);">
+                            R @transaction.VATAmount.ToString("N2")
+                        </td>
+                    </tr>
+                    @if (transaction.DiscountAmount > 0)
+                    {
+                        <tr>
+                            <td style="padding: 0.75rem; font-family: 'Shadows Into Light', cursive; font-size: 1.1rem; color: var(--dead-rose-purple);">Discount</td>
+                            <td style="padding: 0.75rem; text-align: right; font-family: 'Courier New', monospace; font-size: 1.1rem; color: var(--dead-rose-purple);">
+                                -R @transaction.DiscountAmount.ToString("N2")
+                            </td>
+                        </tr>
+                    }
+                    <tr style="border-top: 2px solid var(--cannabis-green-light);">
+                        <td style="padding: 1rem 0.75rem; font-family: 'Permanent Marker', cursive; font-size: 1.5rem;">
+                            <strong>TOTAL (incl VAT)</strong>
+                        </td>
+                        <td style="padding: 1rem 0.75rem; text-align: right; font-family: 'Courier New', monospace; font-size: 1.8rem; color: var(--cannabis-green-light);">
+                            <strong>R @transaction.TotalAmount.ToString("N2")</strong>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+        <!-- PAYMENT DETAILS -->
+        <div class="form-section" style="margin-bottom: 2rem;">
+            <h3 style="color: var(--cannabis-green-light); font-family: 'Permanent Marker', cursive; margin-bottom: 1rem;">
+                💳 Payment Details
+            </h3>
+
+            <table class="table-custom">
+                <thead>
+                    <tr>
+                        <th>Payment Method</th>
+                        <th>Amount</th>
+                        <th>Reference</th>
+                        <th>Date/Time</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var payment in transaction.Payments)
+                    {
+                        <tr>
+                            <td>
+                                <span style="padding: 0.25rem 0.75rem; background-color: var(--bg-tertiary); color: var(--text-primary); font-family: 'Permanent Marker', cursive; font-size: 0.8rem;">
+                                    @payment.PaymentMethod
+                                </span>
+                            </td>
+                            <td style="text-align: right;">
+                                <strong style="color: @(payment.Amount >= 0 ? "var(--cannabis-green-light)" : "var(--dead-rose-purple)"); font-family: 'Courier New', monospace; font-size: 1.1rem;">
+                                    R @payment.Amount.ToString("N2")
+                                </strong>
+                            </td>
+                            <td style="font-family: 'Courier New', monospace; font-size: 0.9rem;">
+                                @(payment.PaymentReference ?? "-")
+                            </td>
+                            <td style="font-size: 0.9rem;">
+                                @payment.PaymentDate.ToString("yyyy-MM-dd HH:mm:ss")
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <!-- NOTES -->
+        @if (!string.IsNullOrEmpty(transaction.Notes))
+        {
+            <div class="form-section" style="margin-bottom: 2rem;">
+                <h3 style="color: var(--cannabis-green-light); font-family: 'Permanent Marker', cursive; margin-bottom: 1rem;">
+                    📝 Notes
+                </h3>
+                <div style="background: var(--bg-tertiary); padding: 1.5rem; border-radius: 8px; color: var(--text-primary); font-family: 'Shadows Into Light', cursive; font-size: 1.1rem;">
+                    @transaction.Notes
+                </div>
+            </div>
+        }
+
+        <!-- RELATED TRANSACTIONS -->
+        @if (transaction.RelatedTransactions.Any())
+        {
+            <div class="form-section" style="margin-bottom: 2rem;">
+                <h3 style="color: var(--cannabis-green-light); font-family: 'Permanent Marker', cursive; margin-bottom: 1rem;">
+                    🔗 Related Transactions
+                </h3>
+
+                <table class="table-custom">
+                    <thead>
+                        <tr>
+                            <th>Transaction Number</th>
+                            <th>Relationship</th>
+                            <th>Amount</th>
+                            <th>Date</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var related in transaction.RelatedTransactions)
+                        {
+                            <tr>
+                                <td style="font-family: 'Courier New', monospace;">
+                                    @related.TransactionNumber
+                                </td>
+                                <td>
+                                    <span style="padding: 0.25rem 0.5rem; background-color: var(--accent-purple); color: var(--text-primary); font-family: 'Permanent Marker', cursive; font-size: 0.7rem;">
+                                        @related.RelationshipType
+                                    </span>
+                                </td>
+                                <td style="text-align: right; font-family: 'Courier New', monospace;">
+                                    R @related.Amount.ToString("N2")
+                                </td>
+                                <td>@related.TransactionDate.ToString("yyyy-MM-dd HH:mm")</td>
+                                <td>
+                                    <button class="btn-secondary-custom" style="padding: 0.25rem 0.75rem; font-size: 0.8rem;"
+                                            @onclick="() => ViewRelatedTransaction(related.TransactionNumber)">
+                                        👁️ View
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+
+        <!-- ACTION BUTTONS -->
+        <div class="form-section" style="text-align: center;">
+            <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
+                <button class="btn-secondary-custom btn-icon" @onclick="PrintReceipt">
+                    <span>🖨️</span>
+                    <span>Print Receipt</span>
+                </button>
+
+                @if (transaction.Header.TransactionType == "Sale" &&
+                     transaction.Header.Status != "Cancelled" &&
+                     transaction.Header.Status != "Refunded")
+                {
+                    <button class="btn-secondary-custom btn-icon" style="background-color: var(--dead-rose-purple);"
+                            @onclick="ProcessRefund">
+                        <span>↩️</span>
+                        <span>Process Refund</span>
+                    </button>
+                }
+
+                <button class="btn-secondary-custom btn-icon" @onclick="GoBack">
+                    <span>⬅️</span>
+                    <span>Back to Transactions</span>
+                </button>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public string TransactionNumber { get; set; } = string.Empty;
+
+    private bool isLoading = true;
+    private string? errorMessage;
+    private TransactionDetailDto? transaction;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadTransaction();
+    }
+
+    private async Task LoadTransaction()
+    {
+        try
+        {
+            isLoading = true;
+            errorMessage = null;
+
+            if (string.IsNullOrWhiteSpace(TransactionNumber))
+            {
+                errorMessage = "Transaction number is required";
+                return;
+            }
+
+            transaction = await TransactionSearchService.GetTransactionByNumberAsync(TransactionNumber);
+
+            if (transaction == null)
+            {
+                errorMessage = $"Transaction '{TransactionNumber}' not found";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error loading transaction: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void PrintReceipt()
+    {
+        // TODO: Implement receipt printing
+        // Options:
+        // 1. Print to thermal printer via JavaScript interop
+        // 2. Generate PDF and open in new window
+        // 3. Email receipt to customer
+        Navigation.NavigateTo($"/pos/receipt/{TransactionNumber}", true);
+    }
+
+    private void ProcessRefund()
+    {
+        Navigation.NavigateTo($"/pos/refund/{TransactionNumber}");
+    }
+
+    private void ViewRelatedTransaction(string transactionNumber)
+    {
+        Navigation.NavigateTo($"/pos/transaction/{transactionNumber}");
+    }
+
+    private void GoBack()
+    {
+        Navigation.NavigateTo("/pos/transactions");
+    }
+}

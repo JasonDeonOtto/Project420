@@ -1,0 +1,64 @@
+﻿<div class="top-row ps-3 navbar navbar-cannabis">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="">🌿 Project420 Management</a>
+    </div>
+</div>
+
+<input type="checkbox" title="Navigation menu" class="navbar-toggler" />
+
+<div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
+    <nav class="nav flex-column">
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
+                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Dashboard
+            </NavLink>
+        </div>
+
+        <!-- Sales & Customers -->
+        <div class="nav-item px-3">
+            <div class="text-muted small px-2 mt-3 mb-2"><strong>SALES & CUSTOMERS</strong></div>
+        </div>
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="customers">
+                <span class="bi bi-people-fill-nav-menu" aria-hidden="true"></span> Customer List
+            </NavLink>
+        </div>
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="customer-registration">
+                <span class="bi bi-person-plus-fill-nav-menu" aria-hidden="true"></span> Register Customer
+            </NavLink>
+        </div>
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="customer-categories">
+                <span class="bi bi-tags-fill-nav-menu" aria-hidden="true"></span> Customer Categories
+            </NavLink>
+        </div>
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="pricelists">
+                <span class="bi bi-currency-dollar-nav-menu" aria-hidden="true"></span> Pricelists
+            </NavLink>
+        </div>
+
+        <!-- Stock Management -->
+        <div class="nav-item px-3">
+            <div class="text-muted small px-2 mt-3 mb-2"><strong>STOCK MANAGEMENT</strong></div>
+        </div>
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="products">
+                <span class="bi bi-box-seam-fill-nav-menu" aria-hidden="true"></span> Products
+            </NavLink>
+        </div>
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="product-categories">
+                <span class="bi bi-collection-fill-nav-menu" aria-hidden="true"></span> Product Categories
+            </NavLink>
+        </div>
+    </nav>
+</div>
+

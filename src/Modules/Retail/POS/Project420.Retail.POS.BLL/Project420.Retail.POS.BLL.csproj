@@ -1,0 +1,15 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Project420.Retail.POS.Models\Project420.Retail.POS.Models.csproj" />
+    <ProjectReference Include="..\Project420.Retail.POS.DAL\Project420.Retail.POS.DAL.csproj" />
+    <ProjectReference Include="..\..\..\..\Shared\Project420.Shared.Infrastructure\Project420.Shared.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>

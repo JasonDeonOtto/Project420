@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="FluentValidation.AspNetCore" Version="11.3.0" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.0" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.11" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="7.2.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Modules\OnlineOrders\Project420.OnlineOrders.BLL\Project420.OnlineOrders.BLL.csproj" />
+    <ProjectReference Include="..\..\Shared\Project420.Shared.Core\Project420.Shared.Core.csproj" />
+    <ProjectReference Include="..\..\Shared\Project420.Shared.Infrastructure\Project420.Shared.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>

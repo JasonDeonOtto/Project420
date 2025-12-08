@@ -1,0 +1,234 @@
+@page "/product-categories"
+@using Project420.Management.BLL.StockManagement.Services
+@using Project420.Management.BLL.StockManagement.DTOs
+@inject IProductCategoryService CategoryService
+@inject NavigationManager Navigation
+@rendermode InteractiveServer
+
+<PageTitle>Product Categories</PageTitle>
+
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Product Categories</h1>
+        <button class="btn btn-primary" @onclick="NavigateToCreate">
+            <i class="bi bi-plus-circle"></i> Create Category
+        </button>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="text-center p-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-3">Loading categories...</p>
+        </div>
+    }
+    else if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger" role="alert">
+            <i class="bi bi-exclamation-triangle-fill"></i> @errorMessage
+        </div>
+    }
+    else
+    {
+        <!-- Search Bar -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-search"></i></span>
+                            <input type="text" class="form-control" placeholder="Search by name or code..."
+                                   @bind="searchTerm" @bind:event="oninput" @bind:after="ApplyFilter" />
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <select class="form-select" @bind="filterStatus" @bind:after="ApplyFilter">
+                            <option value="all">All Categories</option>
+                            <option value="active">Active Only</option>
+                            <option value="inactive">Inactive Only</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3 text-end">
+                        <span class="badge bg-info fs-6">Total: @filteredCategories.Count()</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @if (filteredCategories.Any())
+        {
+            <div class="card">
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover table-striped mb-0">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Name</th>
+                                    <th>Code</th>
+                                    <th>Product Count</th>
+                                    <th>Special Rules</th>
+                                    <th>Status</th>
+                                    <th>Created</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var category in filteredCategories)
+                                {
+                                    <tr>
+                                        <td>@category.Id</td>
+                                        <td><strong>@category.Name</strong></td>
+                                        <td><code>@category.CategoryCode</code></td>
+                                        <td>
+                                            <span class="badge bg-secondary">@category.ProductCount products</span>
+                                        </td>
+                                        <td>
+                                            @if (category.SpecialRules)
+                                            {
+                                                <span class="badge bg-warning text-dark">
+                                                    <i class="bi bi-exclamation-triangle-fill"></i> Special Rules
+                                                </span>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted">-</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            @if (category.IsActive)
+                                            {
+                                                <span class="badge bg-success">Active</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-secondary">Inactive</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            <small>@category.CreatedAt.ToString("yyyy-MM-dd HH:mm")</small>
+                                            <br />
+                                            <small class="text-muted">by @category.CreatedBy</small>
+                                        </td>
+                                        <td>
+                                            <button class="btn btn-sm btn-info" @onclick="() => NavigateToEdit(category.Id)" title="Edit">
+                                                <i class="bi bi-pencil"></i>
+                                            </button>
+                                            @if (category.IsActive)
+                                            {
+                                                <button class="btn btn-sm btn-warning ms-1" @onclick="() => DeactivateCategory(category.Id)" title="Deactivate">
+                                                    <i class="bi bi-x-circle"></i>
+                                                </button>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="alert alert-info text-center" role="alert">
+                <i class="bi bi-info-circle-fill"></i>
+                @if (string.IsNullOrWhiteSpace(searchTerm))
+                {
+                    <p class="mb-0">No product categories found. Click "Create Category" to add one.</p>
+                }
+                else
+                {
+                    <p class="mb-0">No categories found matching "@searchTerm"</p>
+                }
+            </div>
+        }
+    }
+</div>
+
+@code {
+    private List<ProductCategoryDto> categories = new();
+    private IEnumerable<ProductCategoryDto> filteredCategories = Enumerable.Empty<ProductCategoryDto>();
+    private string searchTerm = string.Empty;
+    private string filterStatus = "all";
+    private bool isLoading = true;
+    private string errorMessage = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadCategories();
+    }
+
+    private async Task LoadCategories()
+    {
+        isLoading = true;
+        errorMessage = string.Empty;
+
+        try
+        {
+            var result = await CategoryService.GetAllCategoriesAsync();
+            categories = result.ToList();
+            ApplyFilter();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error loading categories: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void ApplyFilter()
+    {
+        var filtered = categories.AsEnumerable();
+
+        // Apply status filter
+        if (filterStatus == "active")
+        {
+            filtered = filtered.Where(c => c.IsActive);
+        }
+        else if (filterStatus == "inactive")
+        {
+            filtered = filtered.Where(c => !c.IsActive);
+        }
+
+        // Apply search filter
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+        {
+            var term = searchTerm.ToLower();
+            filtered = filtered.Where(c =>
+                c.Name.ToLower().Contains(term) ||
+                c.CategoryCode.ToLower().Contains(term)
+            );
+        }
+
+        filteredCategories = filtered;
+    }
+
+    private void NavigateToCreate()
+    {
+        Navigation.NavigateTo("/product-category-form");
+    }
+
+    private void NavigateToEdit(int categoryId)
+    {
+        Navigation.NavigateTo($"/product-category-form/{categoryId}");
+    }
+
+    private async Task DeactivateCategory(int categoryId)
+    {
+        try
+        {
+            await CategoryService.DeactivateCategoryAsync(categoryId);
+            await LoadCategories();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error deactivating category: {ex.Message}";
+        }
+    }
+}

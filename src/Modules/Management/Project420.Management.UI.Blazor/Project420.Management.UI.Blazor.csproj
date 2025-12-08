@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Project420.Management.DAL\Project420.Management.DAL.csproj" />
+    <ProjectReference Include="..\Project420.Management.BLL\Project420.Management.BLL.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Project420.Shared.Core\Project420.Shared.Core.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Project420.Shared.UI.Blazor\Project420.Shared.UI.Blazor.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Components\Pages\Sales\Common\" />
+    <Folder Include="Components\Pages\Sales\Wholesale\" />
+    <Folder Include="Components\Pages\Sales\Retail\" />
+    <Folder Include="Components\Pages\SystemAdministration\" />
+    <Folder Include="Components\Pages\StockManagement\" />
+    <Folder Include="Components\Pages\Purchasing\" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+</Project>

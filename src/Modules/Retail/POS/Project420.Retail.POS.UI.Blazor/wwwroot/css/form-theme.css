@@ -1,0 +1,387 @@
+@import url('https://fonts.googleapis.com/css2?family=Shadows+Into+Light&family=Permanent+Marker&family=Satisfy&display=swap');
+
+:root {
+    --cannabis-green: #4a7c59;
+    --cannabis-green-light: #6b9d7a;
+    --cannabis-green-dark: #2d5a3d;
+    --ferrari-red-faded: #c75450;
+    --ferrari-red-hover: #d16a66;
+    --dead-rose-purple: #8b5e83;
+    --dead-rose-purple-light: #a57a9d;
+    --background-dark: #1a1a1a;
+    --background-card: #2d2d2d;
+    --text-primary: #e8e8e8;
+    --text-secondary: #b8b8b8;
+}
+
+/* Global body styling */
+body {
+    background-color: var(--background-dark);
+    color: var(--text-primary);
+}
+
+/* Flowing, smokey font styling */
+.form-title {
+    font-family: 'Satisfy', cursive;
+    font-size: 2.5rem;
+    color: var(--cannabis-green-light);
+    text-shadow: 2px 2px 8px rgba(74, 124, 89, 0.6);
+    margin-bottom: 1.5rem;
+}
+
+.form-label {
+    font-family: 'Shadows Into Light', cursive;
+    font-size: 1.1rem;
+    color: var(--text-primary);
+    margin-bottom: 0.5rem;
+    display: block;
+    letter-spacing: 0.5px;
+}
+
+/* Base form container */
+.base-form-container {
+    background: linear-gradient(135deg, var(--background-card) 0%, #252525 100%);
+    border-radius: 0;
+    padding: 2.5rem;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    max-width: 800px;
+    margin: 2rem auto;
+    border: 1px solid var(--cannabis-green-dark);
+    position: relative;
+}
+
+/* Input fields */
+.form-input {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    background-color: #1f1f1f;
+    border: 2px solid var(--dead-rose-purple);
+    border-radius: 0;
+    color: var(--text-primary);
+    font-family: 'Shadows Into Light', cursive;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+    margin-bottom: 1.25rem;
+}
+
+.form-input:focus {
+    outline: none;
+    border-color: var(--cannabis-green);
+    box-shadow: 0 0 0 3px rgba(74, 124, 89, 0.2);
+    background-color: #252525;
+}
+
+.form-input:disabled {
+    background-color: #151515;
+    border-color: #444;
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+/* Textarea specific */
+.form-textarea {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    background-color: #1f1f1f;
+    border: 2px solid var(--dead-rose-purple);
+    border-radius: 0;
+    color: var(--text-primary);
+    font-family: 'Shadows Into Light', cursive;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+    margin-bottom: 1.25rem;
+    resize: vertical;
+    min-height: 100px;
+}
+
+.form-textarea:focus {
+    outline: none;
+    border-color: var(--cannabis-green);
+    box-shadow: 0 0 0 3px rgba(74, 124, 89, 0.2);
+    background-color: #252525;
+}
+
+/* Hard-cornered buttons with smooth shading */
+.btn-primary-custom {
+    background: linear-gradient(180deg, var(--cannabis-green-light) 0%, var(--cannabis-green-dark) 100%);
+    border: none;
+    border-radius: 0;
+    padding: 0.875rem 2rem;
+    color: var(--text-primary);
+    font-family: 'Permanent Marker', cursive;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow:
+        0 4px 6px rgba(0, 0, 0, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.3);
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.4);
+    letter-spacing: 1px;
+}
+
+.btn-primary-custom:hover {
+    background: linear-gradient(180deg, var(--cannabis-green) 0%, var(--cannabis-green-dark) 100%);
+    box-shadow:
+        0 6px 10px rgba(0, 0, 0, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.15),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.4);
+    transform: translateY(-2px);
+}
+
+.btn-primary-custom:active {
+    transform: translateY(0);
+    box-shadow:
+        0 2px 4px rgba(0, 0, 0, 0.3),
+        inset 0 1px 0 rgba(0, 0, 0, 0.2);
+}
+
+.btn-primary-custom:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.btn-danger-custom {
+    background: linear-gradient(180deg, var(--ferrari-red-hover) 0%, var(--ferrari-red-faded) 100%);
+    border: none;
+    border-radius: 0;
+    padding: 0.875rem 2rem;
+    color: var(--text-primary);
+    font-family: 'Permanent Marker', cursive;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow:
+        0 4px 6px rgba(0, 0, 0, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.3);
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.4);
+    letter-spacing: 1px;
+}
+
+.btn-danger-custom:hover {
+    background: linear-gradient(180deg, var(--ferrari-red-faded) 0%, #a84440 100%);
+    box-shadow:
+        0 6px 10px rgba(0, 0, 0, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.15),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.4);
+    transform: translateY(-2px);
+}
+
+.btn-danger-custom:active {
+    transform: translateY(0);
+    box-shadow:
+        0 2px 4px rgba(0, 0, 0, 0.3),
+        inset 0 1px 0 rgba(0, 0, 0, 0.2);
+}
+
+.btn-secondary-custom {
+    background: linear-gradient(180deg, var(--dead-rose-purple-light) 0%, var(--dead-rose-purple) 100%);
+    border: none;
+    border-radius: 0;
+    padding: 0.875rem 2rem;
+    color: var(--text-primary);
+    font-family: 'Permanent Marker', cursive;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow:
+        0 4px 6px rgba(0, 0, 0, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.3);
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.4);
+    letter-spacing: 1px;
+}
+
+.btn-secondary-custom:hover {
+    background: linear-gradient(180deg, var(--dead-rose-purple) 0%, #6d4a67 100%);
+    box-shadow:
+        0 6px 10px rgba(0, 0, 0, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.15),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.4);
+    transform: translateY(-2px);
+}
+
+/* Icon button base styles */
+.btn-icon {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.btn-icon img {
+    width: 24px;
+    height: 24px;
+    filter: brightness(0) invert(1);
+    transition: filter 0.3s ease;
+}
+
+.btn-icon:hover img {
+    filter: brightness(0) invert(1) drop-shadow(0 0 4px var(--cannabis-green-light));
+}
+
+/* Button container */
+.form-buttons {
+    display: flex;
+    gap: 1rem;
+    margin-top: 2rem;
+    justify-content: flex-end;
+}
+
+/* Validation messages */
+.validation-message {
+    color: var(--ferrari-red-faded);
+    font-family: 'Shadows Into Light', cursive;
+    font-size: 0.875rem;
+    margin-top: -1rem;
+    margin-bottom: 0.5rem;
+}
+
+/* Form field groups */
+.form-field {
+    margin-bottom: 1.5rem;
+}
+
+/* Decorative elements */
+.form-decoration {
+    position: absolute;
+    opacity: 0.1;
+    pointer-events: none;
+}
+
+.form-decoration.top-left {
+    top: -20px;
+    left: -20px;
+    width: 100px;
+    height: 100px;
+}
+
+.form-decoration.bottom-right {
+    bottom: -20px;
+    right: -20px;
+    width: 120px;
+    height: 120px;
+    transform: rotate(180deg);
+}
+
+/* Loading state icon */
+@keyframes spin-seed {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.loading-icon {
+    animation: spin-seed 2s linear infinite;
+    width: 32px;
+    height: 32px;
+}
+
+/* Card styling for sections */
+.form-section {
+    background: linear-gradient(135deg, #2a2a2a 0%, #1f1f1f 100%);
+    border: 1px solid var(--cannabis-green-dark);
+    border-radius: 0;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.form-section-header {
+    font-family: 'Permanent Marker', cursive;
+    font-size: 1.3rem;
+    color: var(--cannabis-green-light);
+    text-shadow: 1px 1px 4px rgba(74, 124, 89, 0.4);
+    margin-bottom: 1rem;
+    border-bottom: 2px solid var(--dead-rose-purple);
+    padding-bottom: 0.5rem;
+}
+
+/* Alert/message styling */
+.alert-custom {
+    padding: 1rem 1.5rem;
+    margin-bottom: 1.5rem;
+    border-radius: 0;
+    border-left: 4px solid;
+    font-family: 'Shadows Into Light', cursive;
+}
+
+.alert-success-custom {
+    background-color: rgba(74, 124, 89, 0.2);
+    border-color: var(--cannabis-green);
+    color: var(--cannabis-green-light);
+}
+
+.alert-danger-custom {
+    background-color: rgba(199, 84, 80, 0.2);
+    border-color: var(--ferrari-red-faded);
+    color: var(--ferrari-red-hover);
+}
+
+.alert-info-custom {
+    background-color: rgba(139, 94, 131, 0.2);
+    border-color: var(--dead-rose-purple);
+    color: var(--dead-rose-purple-light);
+}
+
+/* Checkbox styling */
+.form-check-custom {
+    display: flex;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.form-check-custom input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    margin-right: 0.5rem;
+    accent-color: var(--cannabis-green);
+}
+
+.form-check-custom label {
+    font-family: 'Shadows Into Light', cursive;
+    color: var(--text-primary);
+    cursor: pointer;
+}
+
+/* Table styling (for lists) */
+.table-custom {
+    width: 100%;
+    background-color: var(--background-card);
+    border-collapse: collapse;
+    margin-bottom: 2rem;
+}
+
+.table-custom thead {
+    background: linear-gradient(180deg, var(--cannabis-green-dark) 0%, var(--cannabis-green) 100%);
+}
+
+.table-custom thead th {
+    padding: 1rem;
+    text-align: left;
+    font-family: 'Permanent Marker', cursive;
+    color: var(--text-primary);
+    border: 1px solid var(--cannabis-green-dark);
+}
+
+.table-custom tbody tr {
+    border-bottom: 1px solid #3a3a3a;
+    transition: background-color 0.2s ease;
+}
+
+.table-custom tbody tr:hover {
+    background-color: rgba(74, 124, 89, 0.1);
+}
+
+.table-custom tbody td {
+    padding: 0.875rem 1rem;
+    font-family: 'Shadows Into Light', cursive;
+    color: var(--text-secondary);
+    border: 1px solid #3a3a3a;
+}
+
+/* Action button in tables */
+.btn-action {
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+    margin-right: 0.5rem;
+}

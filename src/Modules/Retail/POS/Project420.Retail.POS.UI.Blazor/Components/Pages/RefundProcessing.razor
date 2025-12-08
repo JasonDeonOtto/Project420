@@ -1,0 +1,680 @@
+@page "/pos/refund"
+@page "/pos/refund/{TransactionNumber}"
+@using Project420.Retail.POS.BLL.Services
+@using Project420.Retail.POS.BLL.DTOs
+@using Project420.Shared.Core.Enums
+@inject IRefundService RefundService
+@inject ITransactionSearchService TransactionSearchService
+@inject NavigationManager Navigation
+@rendermode InteractiveServer
+
+<PageTitle>Process Refund</PageTitle>
+
+<div class="base-form-container">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+        <h2 class="form-title" style="margin-bottom: 0;">↩️ Process Refund</h2>
+        <div style="display: flex; gap: 1rem;">
+            <button class="btn-secondary-custom btn-icon" @onclick="GoBack">
+                <span>⬅️</span>
+                <span>Back</span>
+            </button>
+        </div>
+    </div>
+
+    @if (isLoading)
+    {
+        <div style="text-align: center; padding: 3rem;">
+            <img src="images/cannabis-seed.svg" class="loading-icon" alt="Loading" />
+            <p style="color: var(--text-secondary); font-family: 'Shadows Into Light', cursive; margin-top: 1rem;">Loading transaction...</p>
+        </div>
+    }
+    else if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert-custom alert-danger-custom">
+            @errorMessage
+        </div>
+    }
+    else
+    {
+        <!-- STEP 1: LOOKUP TRANSACTION -->
+        @if (currentStep == RefundStep.LookupTransaction)
+        {
+            <div class="form-section">
+                <h3 style="color: var(--cannabis-green-light); font-family: 'Permanent Marker', cursive; margin-bottom: 1.5rem;">
+                    🔍 Step 1: Lookup Original Transaction
+                </h3>
+
+                <div style="max-width: 600px;">
+                    <div class="form-field">
+                        <label class="form-label">Transaction Number</label>
+                        <input type="text" class="form-input" placeholder="SALE-20251207-001"
+                               @bind="transactionNumberInput" @bind:event="oninput"
+                               @onkeypress="HandleTransactionLookupKeyPress" />
+                        <small style="color: var(--text-secondary);">
+                            Enter the original sale transaction number
+                        </small>
+                    </div>
+
+                    <button class="btn-primary-custom" @onclick="LookupTransaction" style="margin-top: 1rem;">
+                        🔍 Lookup Transaction
+                    </button>
+                </div>
+            </div>
+        }
+
+        <!-- STEP 2: VERIFY ELIGIBILITY -->
+        @if (currentStep == RefundStep.VerifyEligibility && eligibility != null)
+        {
+            <div class="form-section" style="background: @(eligibility.IsEligible ? "linear-gradient(135deg, var(--cannabis-green) 0%, var(--cannabis-green-dark) 100%)" : "linear-gradient(135deg, var(--dead-rose-purple) 0%, #5a2a4f 100%)"); margin-bottom: 2rem;">
+                <h3 style="color: var(--text-primary); font-family: 'Permanent Marker', cursive; margin-bottom: 1.5rem;">
+                    @if (eligibility.IsEligible)
+                    {
+                        <text>✅ Transaction Eligible for Refund</text>
+                    }
+                    else
+                    {
+                        <text>❌ Transaction NOT Eligible for Refund</text>
+                    }
+                </h3>
+
+                @if (!string.IsNullOrEmpty(eligibility.OriginalTransactionNumber))
+                {
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+                        <div style="background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 8px;">
+                            <div style="font-family: 'Shadows Into Light', cursive; color: var(--text-secondary); font-size: 0.9rem;">Transaction #</div>
+                            <div style="font-family: 'Courier New', monospace; color: var(--text-primary); font-size: 1rem;">
+                                @eligibility.OriginalTransactionNumber
+                            </div>
+                        </div>
+                        <div style="background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 8px;">
+                            <div style="font-family: 'Shadows Into Light', cursive; color: var(--text-secondary); font-size: 0.9rem;">Date</div>
+                            <div style="font-family: 'Permanent Marker', cursive; color: var(--text-primary); font-size: 1rem;">
+                                @eligibility.OriginalTransactionDate.ToString("yyyy-MM-dd")
+                            </div>
+                        </div>
+                        <div style="background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 8px;">
+                            <div style="font-family: 'Shadows Into Light', cursive; color: var(--text-secondary); font-size: 0.9rem;">Days Since</div>
+                            <div style="font-family: 'Permanent Marker', cursive; color: var(--text-primary); font-size: 1rem;">
+                                @eligibility.DaysSinceTransaction days
+                            </div>
+                        </div>
+                        <div style="background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 8px;">
+                            <div style="font-family: 'Shadows Into Light', cursive; color: var(--text-secondary); font-size: 0.9rem;">Total Amount</div>
+                            <div style="font-family: 'Permanent Marker', cursive; color: var(--cannabis-green-light); font-size: 1.2rem;">
+                                R @eligibility.OriginalTotalAmount.ToString("N2")
+                            </div>
+                        </div>
+                        <div style="background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 8px;">
+                            <div style="font-family: 'Shadows Into Light', cursive; color: var(--text-secondary); font-size: 0.9rem;">Payment Method</div>
+                            <div style="font-family: 'Permanent Marker', cursive; color: var(--text-primary); font-size: 1rem;">
+                                @eligibility.OriginalPaymentMethod
+                            </div>
+                        </div>
+                    </div>
+                }
+
+                @if (eligibility.Warnings.Any())
+                {
+                    <div class="alert-custom" style="background-color: var(--accent-purple); margin-bottom: 1rem;">
+                        <strong>⚠️ Warnings:</strong>
+                        <ul style="margin: 0.5rem 0 0 1.5rem;">
+                            @foreach (var warning in eligibility.Warnings)
+                            {
+                                <li>@warning</li>
+                            }
+                        </ul>
+                    </div>
+                }
+
+                @if (eligibility.IneligibilityReasons.Any())
+                {
+                    <div class="alert-custom alert-danger-custom">
+                        <strong>❌ Errors:</strong>
+                        <ul style="margin: 0.5rem 0 0 1.5rem;">
+                            @foreach (var error in eligibility.IneligibilityReasons)
+                            {
+                                <li>@error</li>
+                            }
+                        </ul>
+                    </div>
+                }
+
+                <div style="display: flex; gap: 1rem;">
+                    @if (eligibility.IsEligible)
+                    {
+                        <button class="btn-primary-custom" @onclick="ProceedToSelectItems">
+                            ➡️ Proceed to Select Items
+                        </button>
+                    }
+                    <button class="btn-secondary-custom" @onclick="StartOver">
+                        🔄 Start Over
+                    </button>
+                </div>
+            </div>
+        }
+
+        <!-- STEP 3: SELECT ITEMS TO REFUND -->
+        @if (currentStep == RefundStep.SelectItems && selectedRefundItems.Any())
+        {
+            <div class="form-section" style="margin-bottom: 2rem;">
+                <h3 style="color: var(--cannabis-green-light); font-family: 'Permanent Marker', cursive; margin-bottom: 1.5rem;">
+                    🛒 Step 2: Select Items to Refund
+                </h3>
+
+                <table class="table-custom">
+                    <thead>
+                        <tr>
+                            <th style="width: 50px;">Select</th>
+                            <th>Product</th>
+                            <th>SKU</th>
+                            <th>Batch #</th>
+                            <th>Original Qty</th>
+                            <th>Refund Qty</th>
+                            <th>Unit Price</th>
+                            <th>Refund Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in selectedRefundItems)
+                        {
+                            <tr style="background: @(item.IsSelected ? "rgba(139, 195, 74, 0.1)" : "transparent");">
+                                <td style="text-align: center;">
+                                    <input type="checkbox" style="width: 20px; height: 20px; cursor: pointer;"
+                                           @bind="item.IsSelected" @bind:event="oninput" @bind:after="RecalculateRefundPreview" />
+                                </td>
+                                <td>
+                                    <strong style="color: var(--cannabis-green-light);">@item.ProductName</strong>
+                                </td>
+                                <td style="font-family: 'Courier New', monospace; font-size: 0.9rem;">
+                                    @item.ProductSku
+                                </td>
+                                <td style="font-family: 'Courier New', monospace; font-size: 0.9rem;">
+                                    @if (!string.IsNullOrEmpty(item.BatchNumber))
+                                    {
+                                        <span style="color: var(--accent-purple);">🌿 @item.BatchNumber</span>
+                                    }
+                                    else
+                                    {
+                                        <span>-</span>
+                                    }
+                                </td>
+                                <td style="text-align: center;">
+                                    <span style="padding: 0.25rem 0.5rem; background-color: var(--bg-tertiary); color: var(--text-primary); border-radius: 4px;">
+                                        @item.OriginalQuantity
+                                    </span>
+                                </td>
+                                <td style="text-align: center;">
+                                    @if (item.IsSelected)
+                                    {
+                                        <input type="number" class="form-input" style="width: 80px; padding: 0.25rem; text-align: center;"
+                                               min="1" max="@item.OriginalQuantity"
+                                               @bind="item.QuantityToRefund" @bind:event="oninput" @bind:after="RecalculateRefundPreview" />
+                                    }
+                                    else
+                                    {
+                                        <span>-</span>
+                                    }
+                                </td>
+                                <td style="text-align: right; font-family: 'Courier New', monospace;">
+                                    R @item.UnitPriceInclVAT.ToString("N2")
+                                </td>
+                                <td style="text-align: right;">
+                                    @if (item.IsSelected)
+                                    {
+                                        <strong style="color: var(--dead-rose-purple); font-family: 'Courier New', monospace; font-size: 1.1rem;">
+                                            R @((item.UnitPriceInclVAT * item.QuantityToRefund).ToString("N2"))
+                                        </strong>
+                                    }
+                                    else
+                                    {
+                                        <span>-</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+
+                <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+                    <button class="btn-primary-custom" @onclick="ProceedToRefundDetails"
+                            disabled="@(!selectedRefundItems.Any(x => x.IsSelected))">
+                        ➡️ Continue to Refund Details
+                    </button>
+                    <button class="btn-secondary-custom" @onclick="() => currentStep = RefundStep.VerifyEligibility">
+                        ⬅️ Back
+                    </button>
+                </div>
+            </div>
+        }
+
+        <!-- STEP 4: REFUND DETAILS & PREVIEW -->
+        @if (currentStep == RefundStep.RefundDetails)
+        {
+            <div class="form-section" style="margin-bottom: 2rem;">
+                <h3 style="color: var(--cannabis-green-light); font-family: 'Permanent Marker', cursive; margin-bottom: 1.5rem;">
+                    💳 Step 3: Refund Details
+                </h3>
+
+                <!-- REFUND PREVIEW -->
+                @if (refundPreview != null)
+                {
+                    <div style="background: linear-gradient(135deg, var(--dead-rose-purple) 0%, #5a2a4f 100%); padding: 1.5rem; border-radius: 8px; margin-bottom: 2rem;">
+                        <h4 style="color: var(--text-primary); font-family: 'Permanent Marker', cursive; margin-bottom: 1rem;">
+                            📊 Refund Preview
+                        </h4>
+                        <div style="max-width: 500px; margin: 0 auto;">
+                            <table style="width: 100%; color: var(--text-primary);">
+                                <tr>
+                                    <td style="padding: 0.5rem; font-family: 'Shadows Into Light', cursive;">Items to Refund</td>
+                                    <td style="padding: 0.5rem; text-align: right; font-family: 'Permanent Marker', cursive;">
+                                        @refundPreview.ItemBreakdown.Count items
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 0.5rem; font-family: 'Shadows Into Light', cursive;">Subtotal (excl VAT)</td>
+                                    <td style="padding: 0.5rem; text-align: right; font-family: 'Courier New', monospace;">
+                                        R @refundPreview.RefundSubtotal.ToString("N2")
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 0.5rem; font-family: 'Shadows Into Light', cursive; color: var(--text-secondary);">VAT Amount</td>
+                                    <td style="padding: 0.5rem; text-align: right; font-family: 'Courier New', monospace; color: var(--text-secondary);">
+                                        R @refundPreview.RefundVATAmount.ToString("N2")
+                                    </td>
+                                </tr>
+                                <tr style="border-top: 2px solid var(--cannabis-green-light);">
+                                    <td style="padding: 1rem 0.5rem; font-family: 'Permanent Marker', cursive; font-size: 1.3rem;">
+                                        <strong>Total Refund</strong>
+                                    </td>
+                                    <td style="padding: 1rem 0.5rem; text-align: right; font-family: 'Courier New', monospace; font-size: 1.5rem; color: var(--cannabis-green-light);">
+                                        <strong>R @refundPreview.RefundTotalAmount.ToString("N2")</strong>
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
+
+                        @if (refundPreview.RequiresManagerApproval)
+                        {
+                            <div class="alert-custom" style="margin-top: 1rem; background-color: var(--accent-purple);">
+                                ⚠️ @refundPreview.ManagerApprovalReason
+                            </div>
+                        }
+                    </div>
+                }
+
+                <!-- REFUND FORM -->
+                <div style="max-width: 600px; margin: 0 auto;">
+                    <div class="form-field">
+                        <label class="form-label">Refund Reason *</label>
+                        <select class="form-input" @bind="refundRequest.RefundReason">
+                            <option value="">-- Select Reason --</option>
+                            <option value="@RefundReason.CustomerRequest">Customer Request - Changed Mind</option>
+                            <option value="@RefundReason.DefectiveProduct">Product Defect/Quality Issue</option>
+                            <option value="@RefundReason.WrongProduct">Wrong Product Sold</option>
+                            <option value="@RefundReason.PriceError">Price Error</option>
+                            <option value="@RefundReason.ComplianceIssue">Compliance Issue (Cannabis Act)</option>
+                            <option value="@RefundReason.ManagerOverride">Manager Override</option>
+                            <option value="@RefundReason.DuplicateTransaction">Duplicate Transaction</option>
+                            <option value="@RefundReason.ExpiredProduct">Expired Product</option>
+                        </select>
+                    </div>
+
+                    <div class="form-field">
+                        <label class="form-label">Refund Payment Method *</label>
+                        <select class="form-input" @bind="refundRequest.RefundPaymentMethod">
+                            <option value="@PaymentMethod.Cash">Cash</option>
+                            <option value="@PaymentMethod.Card">Card (Reversal)</option>
+                            <option value="@PaymentMethod.EFT">EFT</option>
+                            <option value="@PaymentMethod.OnAccount">Credit to Account</option>
+                        </select>
+                    </div>
+
+                    <div class="form-field">
+                        <label class="form-label">Notes/Explanation @(refundPreview?.RequiresManagerApproval == true ? "*" : "")</label>
+                        <textarea class="form-input" rows="4" placeholder="Enter reason for refund..."
+                                  @bind="refundRequest.Notes"></textarea>
+                        @if (refundPreview?.RequiresManagerApproval == true)
+                        {
+                            <small style="color: var(--accent-purple);">Required: Manager approval needed</small>
+                        }
+                    </div>
+
+                    @if (refundPreview?.RequiresManagerApproval == true)
+                    {
+                        <div class="form-field">
+                            <label class="form-label">Manager User ID (Approval) *</label>
+                            <input type="number" class="form-input" placeholder="Manager ID"
+                                   @bind="refundRequest.ManagerApprovalUserId" />
+                            <small style="color: var(--accent-purple);">
+                                Manager approval required: @refundPreview.ManagerApprovalReason
+                            </small>
+                        </div>
+                    }
+
+                    <div class="form-field">
+                        <label class="form-label">Processed By (Cashier ID) *</label>
+                        <input type="number" class="form-input" placeholder="1"
+                               @bind="refundRequest.ProcessedByUserId" />
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 1rem; margin-top: 2rem; justify-content: center;">
+                    <button class="btn-primary-custom btn-icon" @onclick="ProcessRefund" style="background-color: var(--dead-rose-purple);">
+                        <span>↩️</span>
+                        <span>Process Refund</span>
+                    </button>
+                    <button class="btn-secondary-custom" @onclick="() => currentStep = RefundStep.SelectItems">
+                        ⬅️ Back to Item Selection
+                    </button>
+                </div>
+            </div>
+        }
+
+        <!-- STEP 5: REFUND RESULT -->
+        @if (currentStep == RefundStep.Complete && refundResult != null)
+        {
+            <div class="form-section" style="background: @(refundResult.Success ? "linear-gradient(135deg, var(--cannabis-green) 0%, var(--cannabis-green-dark) 100%)" : "linear-gradient(135deg, var(--dead-rose-purple) 0%, #5a2a4f 100%)"); margin-bottom: 2rem;">
+                <h3 style="color: var(--text-primary); font-family: 'Permanent Marker', cursive; margin-bottom: 1.5rem;">
+                    @if (refundResult.Success)
+                    {
+                        <text>✅ Refund Processed Successfully!</text>
+                    }
+                    else
+                    {
+                        <text>❌ Refund Processing Failed</text>
+                    }
+                </h3>
+
+                @if (refundResult.Success)
+                {
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+                        <div style="background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 8px;">
+                            <div style="font-family: 'Shadows Into Light', cursive; color: var(--text-secondary); font-size: 0.9rem;">Refund Transaction #</div>
+                            <div style="font-family: 'Courier New', monospace; color: var(--text-primary); font-size: 1rem; font-weight: bold;">
+                                @refundResult.RefundTransactionNumber
+                            </div>
+                        </div>
+                        <div style="background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 8px;">
+                            <div style="font-family: 'Shadows Into Light', cursive; color: var(--text-secondary); font-size: 0.9rem;">Refund Amount</div>
+                            <div style="font-family: 'Permanent Marker', cursive; color: var(--cannabis-green-light); font-size: 1.3rem;">
+                                R @refundResult.RefundTotalAmount.ToString("N2")
+                            </div>
+                        </div>
+                        <div style="background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 8px;">
+                            <div style="font-family: 'Shadows Into Light', cursive; color: var(--text-secondary); font-size: 0.9rem;">Items Refunded</div>
+                            <div style="font-family: 'Permanent Marker', cursive; color: var(--text-primary); font-size: 1.2rem;">
+                                @refundResult.RefundedItems.Count
+                            </div>
+                        </div>
+                        <div style="background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 8px;">
+                            <div style="font-family: 'Shadows Into Light', cursive; color: var(--text-secondary); font-size: 0.9rem;">Payment Method</div>
+                            <div style="font-family: 'Permanent Marker', cursive; color: var(--text-primary); font-size: 1rem;">
+                                @refundResult.RefundPaymentMethod
+                            </div>
+                        </div>
+                    </div>
+                }
+
+                @if (refundResult.ErrorMessages.Any())
+                {
+                    <div class="alert-custom alert-danger-custom">
+                        <strong>Errors:</strong>
+                        <ul style="margin: 0.5rem 0 0 1.5rem;">
+                            @foreach (var error in refundResult.ErrorMessages)
+                            {
+                                <li>@error</li>
+                            }
+                        </ul>
+                    </div>
+                }
+
+                <div style="display: flex; gap: 1rem; justify-content: center; margin-top: 1.5rem;">
+                    @if (refundResult.Success)
+                    {
+                        <button class="btn-primary-custom btn-icon" @onclick="PrintRefundReceipt">
+                            <span>🖨️</span>
+                            <span>Print Receipt</span>
+                        </button>
+                        <button class="btn-secondary-custom btn-icon" @onclick="ViewRefundTransaction">
+                            <span>👁️</span>
+                            <span>View Refund Transaction</span>
+                        </button>
+                    }
+                    <button class="btn-secondary-custom btn-icon" @onclick="ProcessAnotherRefund">
+                        <span>🔄</span>
+                        <span>Process Another Refund</span>
+                    </button>
+                    <button class="btn-secondary-custom" @onclick="GoBack">
+                        ⬅️ Back to Transactions
+                    </button>
+                </div>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    [Parameter]
+    public string? TransactionNumber { get; set; }
+
+    private enum RefundStep
+    {
+        LookupTransaction,
+        VerifyEligibility,
+        SelectItems,
+        RefundDetails,
+        Complete
+    }
+
+    private bool isLoading = false;
+    private string? errorMessage;
+    private RefundStep currentStep = RefundStep.LookupTransaction;
+
+    // Input
+    private string transactionNumberInput = string.Empty;
+
+    // Data
+    private RefundEligibilityDto? eligibility;
+    private RefundPreviewDto? refundPreview;
+    private RefundResultDto? refundResult;
+
+    // Forms
+    private RefundRequestDto refundRequest = new();
+    private List<RefundItemSelection> selectedRefundItems = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        // If transaction number provided in URL, auto-lookup
+        if (!string.IsNullOrWhiteSpace(TransactionNumber))
+        {
+            transactionNumberInput = TransactionNumber;
+            await LookupTransaction();
+        }
+    }
+
+    private async Task HandleTransactionLookupKeyPress(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await LookupTransaction();
+        }
+    }
+
+    private async Task LookupTransaction()
+    {
+        try
+        {
+            isLoading = true;
+            errorMessage = null;
+
+            if (string.IsNullOrWhiteSpace(transactionNumberInput))
+            {
+                errorMessage = "Please enter a transaction number";
+                return;
+            }
+
+            // Validate eligibility
+            eligibility = await RefundService.ValidateRefundEligibilityAsync(transactionNumberInput);
+
+            if (eligibility != null)
+            {
+                currentStep = RefundStep.VerifyEligibility;
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error looking up transaction: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task ProceedToSelectItems()
+    {
+        if (eligibility == null || !eligibility.IsEligible) return;
+
+        // Use refundable items from eligibility
+        selectedRefundItems = eligibility.RefundableItems.Select(item => new RefundItemSelection
+        {
+            ProductId = item.ProductId,
+            ProductSku = item.ProductSku,
+            ProductName = item.ProductName,
+            OriginalQuantity = item.RemainingRefundableQuantity,
+            QuantityToRefund = item.RemainingRefundableQuantity, // Default to full quantity
+            UnitPriceInclVAT = item.UnitPriceInclVAT,
+            BatchNumber = item.BatchNumber,
+            IsSelected = false
+        }).ToList();
+
+        currentStep = RefundStep.SelectItems;
+    }
+
+    private async Task ProceedToRefundDetails()
+    {
+        // Build refund request
+        refundRequest = new RefundRequestDto
+        {
+            OriginalTransactionNumber = transactionNumberInput,
+            RefundItems = selectedRefundItems.Where(x => x.IsSelected).Select(x => new RefundItemDto
+            {
+                ProductId = x.ProductId,
+                ProductSku = x.ProductSku,
+                ProductName = x.ProductName,
+                QuantityToRefund = x.QuantityToRefund,
+                OriginalQuantity = x.OriginalQuantity,
+                UnitPriceInclVAT = x.UnitPriceInclVAT,
+                BatchNumber = x.BatchNumber
+            }).ToList(),
+            CustomerName = eligibility?.OriginalTransactionNumber,
+            ProcessedByUserId = 1 // TODO: Get from authentication
+        };
+
+        // Calculate preview
+        await RecalculateRefundPreview();
+
+        currentStep = RefundStep.RefundDetails;
+    }
+
+    private async Task RecalculateRefundPreview()
+    {
+        if (refundRequest.RefundItems.Any())
+        {
+            try
+            {
+                refundPreview = await RefundService.CalculateRefundPreviewAsync(refundRequest);
+            }
+            catch (Exception ex)
+            {
+                errorMessage = $"Error calculating refund preview: {ex.Message}";
+            }
+        }
+    }
+
+    private async Task ProcessRefund()
+    {
+        try
+        {
+            isLoading = true;
+            errorMessage = null;
+
+            // Final validation
+            if (refundRequest.RefundReason == 0)
+            {
+                errorMessage = "Please select a refund reason";
+                return;
+            }
+
+            if (refundPreview?.RequiresManagerApproval == true && refundRequest.ManagerApprovalUserId == null)
+            {
+                errorMessage = "Manager approval is required for this refund";
+                return;
+            }
+
+            // Process refund
+            refundResult = await RefundService.ProcessRefundAsync(refundRequest);
+
+            currentStep = RefundStep.Complete;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error processing refund: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void PrintRefundReceipt()
+    {
+        if (refundResult != null && !string.IsNullOrEmpty(refundResult.RefundTransactionNumber))
+        {
+            Navigation.NavigateTo($"/pos/receipt/{refundResult.RefundTransactionNumber}", true);
+        }
+    }
+
+    private void ViewRefundTransaction()
+    {
+        if (refundResult != null && !string.IsNullOrEmpty(refundResult.RefundTransactionNumber))
+        {
+            Navigation.NavigateTo($"/pos/transaction/{refundResult.RefundTransactionNumber}");
+        }
+    }
+
+    private void ProcessAnotherRefund()
+    {
+        StartOver();
+    }
+
+    private void StartOver()
+    {
+        transactionNumberInput = string.Empty;
+        eligibility = null;
+        refundPreview = null;
+        refundResult = null;
+        selectedRefundItems.Clear();
+        refundRequest = new RefundRequestDto();
+        currentStep = RefundStep.LookupTransaction;
+        errorMessage = null;
+    }
+
+    private void GoBack()
+    {
+        Navigation.NavigateTo("/pos/transactions");
+    }
+
+    // Helper class for item selection
+    private class RefundItemSelection
+    {
+        public int ProductId { get; set; }
+        public string ProductSku { get; set; } = string.Empty;
+        public string ProductName { get; set; } = string.Empty;
+        public int OriginalQuantity { get; set; }
+        public int QuantityToRefund { get; set; }
+        public decimal UnitPriceInclVAT { get; set; }
+        public string? BatchNumber { get; set; }
+        public bool IsSelected { get; set; }
+    }
+}

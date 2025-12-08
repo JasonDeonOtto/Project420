@@ -1,0 +1,764 @@
+@page "/pos/cash-drawer"
+@using Project420.Retail.POS.BLL.Services
+@using Project420.Retail.POS.BLL.DTOs
+@using Project420.Shared.Core.Enums
+@inject IPaymentReconciliationService ReconciliationService
+@inject NavigationManager Navigation
+@rendermode InteractiveServer
+
+<PageTitle>Cash Drawer Management</PageTitle>
+
+<div class="base-form-container">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+        <h2 class="form-title" style="margin-bottom: 0;">💰 Cash Drawer Management</h2>
+        <div style="display: flex; gap: 1rem;">
+            <button class="btn-secondary-custom btn-icon" @onclick="RefreshData">
+                <span>🔄</span>
+                <span>Refresh</span>
+            </button>
+            <button class="btn-primary-custom btn-icon" @onclick="ShowReconciliationHistory">
+                <span>📊</span>
+                <span>History</span>
+            </button>
+        </div>
+    </div>
+
+    @if (isLoading)
+    {
+        <div style="text-align: center; padding: 3rem;">
+            <img src="images/cannabis-seed.svg" class="loading-icon" alt="Loading" />
+            <p style="color: var(--text-secondary); font-family: 'Shadows Into Light', cursive; margin-top: 1rem;">Loading cash drawer...</p>
+        </div>
+    }
+    else if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert-custom alert-danger-custom">
+            @errorMessage
+        </div>
+    }
+    else
+    {
+        @if (activeCashierSession != null && activeCashierSession.Status == "Open")
+        {
+            <!-- ACTIVE CASH DRAWER SESSION -->
+            <div class="form-section" style="background: linear-gradient(135deg, var(--cannabis-green) 0%, var(--cannabis-green-dark) 100%); margin-bottom: 2rem;">
+                <h3 style="color: var(--text-primary); font-family: 'Permanent Marker', cursive; margin-bottom: 1.5rem;">
+                    ✅ Active Cash Drawer Session
+                </h3>
+
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem;">
+                    <div style="background: rgba(0,0,0,0.2); padding: 1.5rem; border-radius: 8px;">
+                        <div style="font-family: 'Shadows Into Light', cursive; color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 0.5rem;">Cashier</div>
+                        <div style="font-family: 'Permanent Marker', cursive; color: var(--text-primary); font-size: 1.2rem;">
+                            @activeCashierSession.CashierName
+                        </div>
+                    </div>
+
+                    <div style="background: rgba(0,0,0,0.2); padding: 1.5rem; border-radius: 8px;">
+                        <div style="font-family: 'Shadows Into Light', cursive; color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 0.5rem;">Session Started</div>
+                        <div style="font-family: 'Permanent Marker', cursive; color: var(--text-primary); font-size: 1.2rem;">
+                            @activeCashierSession.OpenedAt.ToString("yyyy-MM-dd HH:mm")
+                        </div>
+                    </div>
+
+                    <div style="background: rgba(0,0,0,0.2); padding: 1.5rem; border-radius: 8px;">
+                        <div style="font-family: 'Shadows Into Light', cursive; color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 0.5rem;">Opening Float</div>
+                        <div style="font-family: 'Permanent Marker', cursive; color: var(--text-primary); font-size: 1.5rem;">
+                            R @activeCashierSession.OpeningFloat.ToString("N2")
+                        </div>
+                    </div>
+
+                    <div style="background: rgba(0,0,0,0.2); padding: 1.5rem; border-radius: 8px;">
+                        <div style="font-family: 'Shadows Into Light', cursive; color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 0.5rem;">Expected Cash</div>
+                        <div style="font-family: 'Permanent Marker', cursive; color: var(--cannabis-green-light); font-size: 1.5rem;">
+                            R @activeCashierSession.ExpectedCash.ToString("N2")
+                        </div>
+                    </div>
+
+                    <div style="background: rgba(0,0,0,0.2); padding: 1.5rem; border-radius: 8px;">
+                        <div style="font-family: 'Shadows Into Light', cursive; color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 0.5rem;">Transactions</div>
+                        <div style="font-family: 'Permanent Marker', cursive; color: var(--text-primary); font-size: 1.5rem;">
+                            @activeCashierSession.TransactionCount
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div style="display: flex; gap: 1rem; margin-top: 2rem; flex-wrap: wrap;">
+                    <button class="btn-secondary-custom" @onclick="ShowExpectedAmounts">
+                        📊 View Expected Amounts
+                    </button>
+                    <button class="btn-secondary-custom" @onclick="ShowRecordCashMovement">
+                        💵 Record Cash Movement
+                    </button>
+                    <button class="btn-primary-custom" @onclick="ShowCloseCashDrawer" style="background-color: var(--dead-rose-purple);">
+                        🔒 Close & Reconcile (Cash-Up)
+                    </button>
+                </div>
+
+                <!-- Cash Movements -->
+                @if (activeCashierSession.CashMovements.Any())
+                {
+                    <div style="margin-top: 2rem;">
+                        <h4 style="color: var(--text-primary); font-family: 'Permanent Marker', cursive; margin-bottom: 1rem;">
+                            💸 Cash Movements
+                        </h4>
+                        <table class="table-custom">
+                            <thead>
+                                <tr>
+                                    <th>Time</th>
+                                    <th>Type</th>
+                                    <th>Amount</th>
+                                    <th>Reason</th>
+                                    <th>Performed By</th>
+                                    <th>Approved By</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var movement in activeCashierSession.CashMovements)
+                                {
+                                    <tr>
+                                        <td>@movement.MovementDate.ToString("HH:mm")</td>
+                                        <td>
+                                            <span style="padding: 0.25rem 0.5rem; background-color: var(--bg-tertiary); color: var(--text-primary); font-family: 'Permanent Marker', cursive; font-size: 0.7rem;">
+                                                @movement.MovementType
+                                            </span>
+                                        </td>
+                                        <td style="text-align: right;">
+                                            <strong style="color: @(movement.Amount >= 0 ? "var(--cannabis-green-light)" : "var(--dead-rose-purple)");">
+                                                R @movement.Amount.ToString("N2")
+                                            </strong>
+                                        </td>
+                                        <td>@movement.Reason</td>
+                                        <td>@movement.PerformedBy</td>
+                                        <td>@(movement.ApprovedBy ?? "-")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+
+            <!-- EXPECTED AMOUNTS BREAKDOWN (if showing) -->
+            @if (showExpectedAmounts && expectedAmounts != null)
+            {
+                <div class="form-section" style="margin-bottom: 2rem;">
+                    <h3 style="color: var(--cannabis-green-light); font-family: 'Permanent Marker', cursive; margin-bottom: 1.5rem;">
+                        📊 Expected Cash Breakdown
+                    </h3>
+
+                    <div style="background: var(--bg-tertiary); padding: 1.5rem; border-radius: 8px; margin-bottom: 1.5rem;">
+                        <table style="width: 100%; color: var(--text-primary);">
+                            <tr>
+                                <td style="padding: 0.5rem; font-family: 'Shadows Into Light', cursive;">Opening Float</td>
+                                <td style="padding: 0.5rem; text-align: right; font-family: 'Courier New', monospace;">R @expectedAmounts.OpeningFloat.ToString("N2")</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 0.5rem; font-family: 'Shadows Into Light', cursive; color: var(--cannabis-green-light);">+ Cash Sales</td>
+                                <td style="padding: 0.5rem; text-align: right; font-family: 'Courier New', monospace; color: var(--cannabis-green-light);">R @expectedAmounts.CashSales.ToString("N2")</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 0.5rem; font-family: 'Shadows Into Light', cursive; color: var(--dead-rose-purple);">- Cash Refunds</td>
+                                <td style="padding: 0.5rem; text-align: right; font-family: 'Courier New', monospace; color: var(--dead-rose-purple);">R @expectedAmounts.CashRefunds.ToString("N2")</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 0.5rem; font-family: 'Shadows Into Light', cursive;">± Cash Movements</td>
+                                <td style="padding: 0.5rem; text-align: right; font-family: 'Courier New', monospace;">R @expectedAmounts.CashMovements.ToString("N2")</td>
+                            </tr>
+                            <tr style="border-top: 2px solid var(--cannabis-green); font-size: 1.2rem;">
+                                <td style="padding: 1rem 0.5rem; font-family: 'Permanent Marker', cursive; color: var(--cannabis-green-light);"><strong>= Expected Cash</strong></td>
+                                <td style="padding: 1rem 0.5rem; text-align: right; font-family: 'Courier New', monospace; color: var(--cannabis-green-light);"><strong>R @expectedAmounts.ExpectedCash.ToString("N2")</strong></td>
+                            </tr>
+                        </table>
+                    </div>
+
+                    <h4 style="color: var(--cannabis-green-light); font-family: 'Permanent Marker', cursive; margin-bottom: 1rem;">
+                        Payment Method Breakdown
+                    </h4>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+                        @foreach (var method in expectedAmounts.AmountTotalsByMethod)
+                        {
+                            <div style="background: var(--bg-tertiary); padding: 1rem; border-radius: 8px;">
+                                <div style="font-family: 'Shadows Into Light', cursive; color: var(--text-secondary); font-size: 0.9rem;">@method.Key</div>
+                                <div style="font-family: 'Permanent Marker', cursive; color: var(--text-primary); font-size: 1.2rem;">
+                                    R @method.Value.ToString("N2")
+                                </div>
+                                <div style="font-family: 'Shadows Into Light', cursive; color: var(--text-secondary); font-size: 0.8rem;">
+                                    @expectedAmounts.TransactionCountByMethod.GetValueOrDefault(method.Key, 0) transactions
+                                </div>
+                            </div>
+                        }
+                    </div>
+
+                    <button class="btn-secondary-custom" @onclick="() => showExpectedAmounts = false" style="margin-top: 1rem;">
+                        Close
+                    </button>
+                </div>
+            }
+
+            <!-- RECORD CASH MOVEMENT FORM (if showing) -->
+            @if (showRecordCashMovement)
+            {
+                <div class="form-section" style="margin-bottom: 2rem;">
+                    <h3 style="color: var(--cannabis-green-light); font-family: 'Permanent Marker', cursive; margin-bottom: 1.5rem;">
+                        💸 Record Cash Movement
+                    </h3>
+
+                    <div style="display: grid; grid-template-columns: 1fr; gap: 1rem; max-width: 600px;">
+                        <div class="form-field">
+                            <label class="form-label">Movement Type</label>
+                            <select class="form-input" @bind="cashMovementRequest.MovementType">
+                                <option value="@CashMovementType.Drop">Cash Drop (Remove to Safe)</option>
+                                <option value="@CashMovementType.Loan">Cash Loan (Add from Safe)</option>
+                                <option value="@CashMovementType.PettyCash">Petty Cash (Expense)</option>
+                                <option value="@CashMovementType.Correction">Correction</option>
+                            </select>
+                        </div>
+
+                        <div class="form-field">
+                            <label class="form-label">Amount (R)</label>
+                            <input type="number" class="form-input" step="0.01" placeholder="0.00"
+                                   @bind="cashMovementRequest.Amount" />
+                            <small style="color: var(--text-secondary);">
+                                Enter positive for additions (Loan), negative for removals (Drop, Petty Cash)
+                            </small>
+                        </div>
+
+                        <div class="form-field">
+                            <label class="form-label">Reason</label>
+                            <textarea class="form-input" rows="3" placeholder="Reason for movement..."
+                                      @bind="cashMovementRequest.Reason"></textarea>
+                        </div>
+
+                        <div class="form-field">
+                            <label class="form-label">Cashier User ID</label>
+                            <input type="number" class="form-input" placeholder="1"
+                                   @bind="cashMovementRequest.PerformedByUserId" />
+                        </div>
+
+                        @if (Math.Abs(cashMovementRequest.Amount) > 500)
+                        {
+                            <div class="alert-custom" style="background-color: var(--accent-purple);">
+                                ⚠️ Movements over R500 require manager approval
+                            </div>
+                            <div class="form-field">
+                                <label class="form-label">Manager User ID (Approval)</label>
+                                <input type="number" class="form-input" placeholder="Manager ID"
+                                       @bind="cashMovementRequest.ApprovedByManagerId" />
+                            </div>
+                        }
+                    </div>
+
+                    <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+                        <button class="btn-primary-custom" @onclick="RecordCashMovement">
+                            💾 Record Movement
+                        </button>
+                        <button class="btn-secondary-custom" @onclick="() => showRecordCashMovement = false">
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            }
+
+            <!-- CLOSE & RECONCILE CASH DRAWER (CASH-UP) -->
+            @if (showCloseCashDrawer)
+            {
+                <div class="form-section" style="margin-bottom: 2rem; background: linear-gradient(135deg, var(--dead-rose-purple) 0%, #5a2a4f 100%);">
+                    <h3 style="color: var(--text-primary); font-family: 'Permanent Marker', cursive; margin-bottom: 1.5rem;">
+                        🔒 Close & Reconcile Cash Drawer (Cash-Up)
+                    </h3>
+
+                    @if (expectedAmounts != null)
+                    {
+                        <div style="background: rgba(0,0,0,0.3); padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem;">
+                            <div style="font-family: 'Permanent Marker', cursive; color: var(--text-primary); font-size: 1.2rem;">
+                                Expected Cash: R @expectedAmounts.ExpectedCash.ToString("N2")
+                            </div>
+                        </div>
+                    }
+
+                    <!-- DENOMINATION BREAKDOWN -->
+                    <h4 style="color: var(--text-primary); font-family: 'Permanent Marker', cursive; margin-bottom: 1rem;">
+                        💵 Count Cash (By Denomination)
+                    </h4>
+
+                    <div style="background: rgba(0,0,0,0.2); padding: 1.5rem; border-radius: 8px; margin-bottom: 1.5rem;">
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+                            <!-- Notes -->
+                            <div class="form-field">
+                                <label class="form-label">R200 Notes</label>
+                                <input type="number" class="form-input" min="0" @bind="denominationBreakdown.Notes200" @bind:event="oninput" @bind:after="CalculateDenominationTotal" />
+                                <small style="color: var(--text-secondary);">= R @((denominationBreakdown.Notes200 * 200).ToString("N2"))</small>
+                            </div>
+                            <div class="form-field">
+                                <label class="form-label">R100 Notes</label>
+                                <input type="number" class="form-input" min="0" @bind="denominationBreakdown.Notes100" @bind:event="oninput" @bind:after="CalculateDenominationTotal" />
+                                <small style="color: var(--text-secondary);">= R @((denominationBreakdown.Notes100 * 100).ToString("N2"))</small>
+                            </div>
+                            <div class="form-field">
+                                <label class="form-label">R50 Notes</label>
+                                <input type="number" class="form-input" min="0" @bind="denominationBreakdown.Notes50" @bind:event="oninput" @bind:after="CalculateDenominationTotal" />
+                                <small style="color: var(--text-secondary);">= R @((denominationBreakdown.Notes50 * 50).ToString("N2"))</small>
+                            </div>
+                            <div class="form-field">
+                                <label class="form-label">R20 Notes</label>
+                                <input type="number" class="form-input" min="0" @bind="denominationBreakdown.Notes20" @bind:event="oninput" @bind:after="CalculateDenominationTotal" />
+                                <small style="color: var(--text-secondary);">= R @((denominationBreakdown.Notes20 * 20).ToString("N2"))</small>
+                            </div>
+                            <div class="form-field">
+                                <label class="form-label">R10 Notes</label>
+                                <input type="number" class="form-input" min="0" @bind="denominationBreakdown.Notes10" @bind:event="oninput" @bind:after="CalculateDenominationTotal" />
+                                <small style="color: var(--text-secondary);">= R @((denominationBreakdown.Notes10 * 10).ToString("N2"))</small>
+                            </div>
+
+                            <!-- Coins -->
+                            <div class="form-field">
+                                <label class="form-label">R5 Coins</label>
+                                <input type="number" class="form-input" min="0" @bind="denominationBreakdown.Coins5" @bind:event="oninput" @bind:after="CalculateDenominationTotal" />
+                                <small style="color: var(--text-secondary);">= R @((denominationBreakdown.Coins5 * 5).ToString("N2"))</small>
+                            </div>
+                            <div class="form-field">
+                                <label class="form-label">R2 Coins</label>
+                                <input type="number" class="form-input" min="0" @bind="denominationBreakdown.Coins2" @bind:event="oninput" @bind:after="CalculateDenominationTotal" />
+                                <small style="color: var(--text-secondary);">= R @((denominationBreakdown.Coins2 * 2).ToString("N2"))</small>
+                            </div>
+                            <div class="form-field">
+                                <label class="form-label">R1 Coins</label>
+                                <input type="number" class="form-input" min="0" @bind="denominationBreakdown.Coins1" @bind:event="oninput" @bind:after="CalculateDenominationTotal" />
+                                <small style="color: var(--text-secondary);">= R @((denominationBreakdown.Coins1 * 1).ToString("N2"))</small>
+                            </div>
+                            <div class="form-field">
+                                <label class="form-label">R0.50 Coins</label>
+                                <input type="number" class="form-input" min="0" @bind="denominationBreakdown.Coins050" @bind:event="oninput" @bind:after="CalculateDenominationTotal" />
+                                <small style="color: var(--text-secondary);">= R @((denominationBreakdown.Coins050 * 0.50m).ToString("N2"))</small>
+                            </div>
+                            <div class="form-field">
+                                <label class="form-label">R0.20 Coins</label>
+                                <input type="number" class="form-input" min="0" @bind="denominationBreakdown.Coins020" @bind:event="oninput" @bind:after="CalculateDenominationTotal" />
+                                <small style="color: var(--text-secondary);">= R @((denominationBreakdown.Coins020 * 0.20m).ToString("N2"))</small>
+                            </div>
+                            <div class="form-field">
+                                <label class="form-label">R0.10 Coins</label>
+                                <input type="number" class="form-input" min="0" @bind="denominationBreakdown.Coins010" @bind:event="oninput" @bind:after="CalculateDenominationTotal" />
+                                <small style="color: var(--text-secondary);">= R @((denominationBreakdown.Coins010 * 0.10m).ToString("N2"))</small>
+                            </div>
+                            <div class="form-field">
+                                <label class="form-label">R0.05 Coins</label>
+                                <input type="number" class="form-input" min="0" @bind="denominationBreakdown.Coins005" @bind:event="oninput" @bind:after="CalculateDenominationTotal" />
+                                <small style="color: var(--text-secondary);">= R @((denominationBreakdown.Coins005 * 0.05m).ToString("N2"))</small>
+                            </div>
+                        </div>
+
+                        <!-- TOTAL COUNTED -->
+                        <div style="background: rgba(0,0,0,0.3); padding: 1.5rem; border-radius: 8px; margin-top: 1.5rem; border: 2px solid var(--cannabis-green);">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span style="font-family: 'Permanent Marker', cursive; color: var(--text-primary); font-size: 1.3rem;">
+                                    Actual Cash Counted:
+                                </span>
+                                <span style="font-family: 'Permanent Marker', cursive; color: var(--cannabis-green-light); font-size: 1.8rem;">
+                                    R @actualCashCounted.ToString("N2")
+                                </span>
+                            </div>
+
+                            @if (expectedAmounts != null)
+                            {
+                                var variance = actualCashCounted - expectedAmounts.ExpectedCash;
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.2);">
+                                    <span style="font-family: 'Shadows Into Light', cursive; color: var(--text-secondary);">
+                                        Variance (Actual - Expected):
+                                    </span>
+                                    <span style="font-family: 'Permanent Marker', cursive; font-size: 1.3rem; color: @(variance == 0 ? "var(--cannabis-green-light)" : variance > 0 ? "var(--accent-purple)" : "var(--dead-rose-purple)");">
+                                        @(variance >= 0 ? "+" : "")R @variance.ToString("N2")
+                                    </span>
+                                </div>
+
+                                @if (Math.Abs(variance) > 10)
+                                {
+                                    <div class="alert-custom" style="margin-top: 1rem; background-color: var(--accent-purple);">
+                                        @if (Math.Abs(variance) > 50)
+                                        {
+                                            <text>⚠️ Large variance detected (>R50) - Manager approval required!</text>
+                                        }
+                                        else
+                                        {
+                                            <text>⚠️ Variance detected (>R10) - Please provide a reason.</text>
+                                        }
+                                    </div>
+                                }
+                            }
+                        </div>
+                    </div>
+
+                    <!-- ADDITIONAL FIELDS -->
+                    <div style="display: grid; grid-template-columns: 1fr; gap: 1rem; max-width: 600px; margin-bottom: 1.5rem;">
+                        <div class="form-field">
+                            <label class="form-label">Closed By Cashier ID</label>
+                            <input type="number" class="form-input" placeholder="1"
+                                   @bind="closeRequest.ClosedByCashierId" />
+                        </div>
+
+                        @if (expectedAmounts != null && Math.Abs(actualCashCounted - expectedAmounts.ExpectedCash) > 10)
+                        {
+                            <div class="form-field">
+                                <label class="form-label">Variance Reason</label>
+                                <textarea class="form-input" rows="3" placeholder="Explain the variance..."
+                                          @bind="closeRequest.VarianceReason"></textarea>
+                            </div>
+                        }
+
+                        @if (expectedAmounts != null && Math.Abs(actualCashCounted - expectedAmounts.ExpectedCash) > 50)
+                        {
+                            <div class="form-field">
+                                <label class="form-label">Manager User ID (Approval Required)</label>
+                                <input type="number" class="form-input" placeholder="Manager ID"
+                                       @bind="closeRequest.ApprovedByManagerId" />
+                            </div>
+                        }
+
+                        <div class="form-field">
+                            <label class="form-label">Notes (Optional)</label>
+                            <textarea class="form-input" rows="2" placeholder="Additional notes..."
+                                      @bind="closeRequest.Notes"></textarea>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; gap: 1rem;">
+                        <button class="btn-primary-custom" @onclick="CloseCashDrawer" style="background-color: var(--cannabis-green);">
+                            ✅ Complete Cash-Up
+                        </button>
+                        <button class="btn-secondary-custom" @onclick="() => showCloseCashDrawer = false">
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            }
+        }
+        else
+        {
+            <!-- NO ACTIVE SESSION - OPEN CASH DRAWER -->
+            <div class="form-section" style="text-align: center; padding: 3rem;">
+                <h3 style="color: var(--text-secondary); font-family: 'Shadows Into Light', cursive; font-size: 1.5rem; margin-bottom: 2rem;">
+                    No active cash drawer session
+                </h3>
+                <button class="btn-primary-custom btn-icon" @onclick="ShowOpenCashDrawer">
+                    <img src="images/cannabis-seed.svg" alt="" />
+                    <span>Open Cash Drawer</span>
+                </button>
+            </div>
+
+            <!-- OPEN CASH DRAWER FORM -->
+            @if (showOpenCashDrawer)
+            {
+                <div class="form-section" style="margin-top: 2rem; background: linear-gradient(135deg, var(--cannabis-green) 0%, var(--cannabis-green-dark) 100%);">
+                    <h3 style="color: var(--text-primary); font-family: 'Permanent Marker', cursive; margin-bottom: 1.5rem;">
+                        💰 Open New Cash Drawer Session
+                    </h3>
+
+                    <div style="display: grid; grid-template-columns: 1fr; gap: 1rem; max-width: 600px;">
+                        <div class="form-field">
+                            <label class="form-label">Cashier User ID</label>
+                            <input type="number" class="form-input" placeholder="1"
+                                   @bind="openRequest.CashierId" />
+                        </div>
+
+                        <div class="form-field">
+                            <label class="form-label">Opening Float Amount (R)</label>
+                            <input type="number" class="form-input" step="0.01" placeholder="500.00"
+                                   @bind="openRequest.OpeningFloat" />
+                        </div>
+
+                        <div class="form-field">
+                            <label class="form-label">Notes (Optional)</label>
+                            <textarea class="form-input" rows="2" placeholder="Opening notes..."
+                                      @bind="openRequest.Notes"></textarea>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+                        <button class="btn-primary-custom" @onclick="OpenCashDrawer">
+                            🔓 Open Cash Drawer
+                        </button>
+                        <button class="btn-secondary-custom" @onclick="() => showOpenCashDrawer = false">
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            }
+        }
+
+        <!-- RECONCILIATION RESULT (after closing) -->
+        @if (reconciliationResult != null)
+        {
+            <div class="form-section" style="background: linear-gradient(135deg, var(--cannabis-green) 0%, var(--cannabis-green-dark) 100%); margin-bottom: 2rem;">
+                <h3 style="color: var(--text-primary); font-family: 'Permanent Marker', cursive; margin-bottom: 1.5rem;">
+                    @if (reconciliationResult.Success)
+                    {
+                        <text>✅ Cash-Up Completed Successfully!</text>
+                    }
+                    else
+                    {
+                        <text>❌ Cash-Up Failed</text>
+                    }
+                </h3>
+
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+                    <div style="background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 8px;">
+                        <div style="font-family: 'Shadows Into Light', cursive; color: var(--text-secondary); font-size: 0.9rem;">Expected Cash</div>
+                        <div style="font-family: 'Permanent Marker', cursive; color: var(--text-primary); font-size: 1.3rem;">
+                            R @reconciliationResult.ExpectedCash.ToString("N2")
+                        </div>
+                    </div>
+
+                    <div style="background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 8px;">
+                        <div style="font-family: 'Shadows Into Light', cursive; color: var(--text-secondary); font-size: 0.9rem;">Actual Cash</div>
+                        <div style="font-family: 'Permanent Marker', cursive; color: var(--cannabis-green-light); font-size: 1.3rem;">
+                            R @reconciliationResult.ActualCash.ToString("N2")
+                        </div>
+                    </div>
+
+                    <div style="background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 8px;">
+                        <div style="font-family: 'Shadows Into Light', cursive; color: var(--text-secondary); font-size: 0.9rem;">Variance</div>
+                        <div style="font-family: 'Permanent Marker', cursive; font-size: 1.3rem; color: @(reconciliationResult.Variance == 0 ? "var(--cannabis-green-light)" : reconciliationResult.Variance > 0 ? "var(--accent-purple)" : "var(--dead-rose-purple)");">
+                            @(reconciliationResult.Variance >= 0 ? "+" : "")R @reconciliationResult.Variance.ToString("N2")
+                        </div>
+                    </div>
+
+                    <div style="background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 8px;">
+                        <div style="font-family: 'Shadows Into Light', cursive; color: var(--text-secondary); font-size: 0.9rem;">Variance Status</div>
+                        <div style="font-family: 'Permanent Marker', cursive; color: var(--text-primary); font-size: 1rem;">
+                            @reconciliationResult.VarianceStatus
+                        </div>
+                    </div>
+                </div>
+
+                @if (reconciliationResult.ValidationMessages.Any())
+                {
+                    <div class="alert-custom alert-danger-custom">
+                        <strong>Validation Messages:</strong>
+                        <ul style="margin: 0.5rem 0 0 1.5rem;">
+                            @foreach (var msg in reconciliationResult.ValidationMessages)
+                            {
+                                <li>@msg</li>
+                            }
+                        </ul>
+                    </div>
+                }
+
+                <button class="btn-primary-custom" @onclick="() => { reconciliationResult = null; RefreshData(); }">
+                    OK
+                </button>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    private bool isLoading = true;
+    private string? errorMessage;
+    private int currentCashierId = 1; // TODO: Get from authentication
+
+    // Active session
+    private CashDrawerSessionDto? activeCashierSession;
+
+    // UI state
+    private bool showOpenCashDrawer = false;
+    private bool showExpectedAmounts = false;
+    private bool showRecordCashMovement = false;
+    private bool showCloseCashDrawer = false;
+
+    // Data
+    private ReconciliationExpectedDto? expectedAmounts;
+    private ReconciliationResultDto? reconciliationResult;
+
+    // Forms
+    private CashDrawerOpenRequestDto openRequest = new();
+    private CashDrawerCloseRequestDto closeRequest = new();
+    private CashMovementRequestDto cashMovementRequest = new();
+    private DenominationBreakdownDto denominationBreakdown = new();
+
+    // Calculated
+    private decimal actualCashCounted => denominationBreakdown.CalculateTotal();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadActiveCashDrawerSession();
+    }
+
+    private async Task LoadActiveCashDrawerSession()
+    {
+        try
+        {
+            isLoading = true;
+            errorMessage = null;
+
+            activeCashierSession = await ReconciliationService.GetActiveCashDrawerSessionAsync(currentCashierId);
+
+            if (activeCashierSession != null)
+            {
+                // Load expected amounts automatically
+                await LoadExpectedAmounts();
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error loading cash drawer session: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task RefreshData()
+    {
+        reconciliationResult = null;
+        await LoadActiveCashDrawerSession();
+    }
+
+    // OPEN CASH DRAWER
+    private void ShowOpenCashDrawer()
+    {
+        openRequest = new CashDrawerOpenRequestDto
+        {
+            CashierId = currentCashierId,
+            OpeningFloat = 500.00m // Default float
+        };
+        showOpenCashDrawer = true;
+    }
+
+    private async Task OpenCashDrawer()
+    {
+        try
+        {
+            isLoading = true;
+            errorMessage = null;
+
+            activeCashierSession = await ReconciliationService.OpenCashDrawerAsync(openRequest);
+
+            showOpenCashDrawer = false;
+            await LoadExpectedAmounts();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error opening cash drawer: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    // EXPECTED AMOUNTS
+    private async Task ShowExpectedAmounts()
+    {
+        await LoadExpectedAmounts();
+        showExpectedAmounts = true;
+    }
+
+    private async Task LoadExpectedAmounts()
+    {
+        if (activeCashierSession != null)
+        {
+            try
+            {
+                expectedAmounts = await ReconciliationService.CalculateExpectedAmountsAsync(activeCashierSession.SessionId);
+            }
+            catch (Exception ex)
+            {
+                errorMessage = $"Error calculating expected amounts: {ex.Message}";
+            }
+        }
+    }
+
+    // RECORD CASH MOVEMENT
+    private void ShowRecordCashMovement()
+    {
+        cashMovementRequest = new CashMovementRequestDto
+        {
+            PerformedByUserId = currentCashierId,
+            MovementType = CashMovementType.Drop
+        };
+        showRecordCashMovement = true;
+    }
+
+    private async Task RecordCashMovement()
+    {
+        try
+        {
+            if (activeCashierSession == null) return;
+
+            isLoading = true;
+            errorMessage = null;
+
+            activeCashierSession = await ReconciliationService.RecordCashMovementAsync(
+                activeCashierSession.SessionId,
+                cashMovementRequest);
+
+            showRecordCashMovement = false;
+            await LoadExpectedAmounts();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error recording cash movement: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    // CLOSE & RECONCILE
+    private async Task ShowCloseCashDrawer()
+    {
+        if (activeCashierSession == null) return;
+
+        await LoadExpectedAmounts();
+
+        closeRequest = new CashDrawerCloseRequestDto
+        {
+            SessionId = activeCashierSession.SessionId,
+            ClosedByCashierId = currentCashierId
+        };
+
+        denominationBreakdown = new DenominationBreakdownDto();
+        showCloseCashDrawer = true;
+    }
+
+    private void CalculateDenominationTotal()
+    {
+        // Auto-recalculate when denominations change
+        StateHasChanged();
+    }
+
+    private async Task CloseCashDrawer()
+    {
+        try
+        {
+            isLoading = true;
+            errorMessage = null;
+
+            // Set calculated values
+            closeRequest.ActualCash = actualCashCounted;
+            closeRequest.DenominationBreakdown = denominationBreakdown;
+
+            reconciliationResult = await ReconciliationService.ReconcileCashDrawerAsync(closeRequest);
+
+            showCloseCashDrawer = false;
+            activeCashierSession = null; // Session closed
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error closing cash drawer: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void ShowReconciliationHistory()
+    {
+        Navigation.NavigateTo("/pos/cash-drawer/history");
+    }
+}

@@ -1,0 +1,473 @@
+@page "/pricelist-form"
+@page "/pricelist-form/{PricelistId:int}"
+@using Project420.Management.BLL.Sales.Retail.Services
+@using Project420.Management.BLL.Sales.Retail.DTOs
+@using Project420.Management.BLL.StockManagement.Services
+@using Project420.Management.BLL.StockManagement.DTOs
+@using FluentValidation
+@inject IPricelistService PricelistService
+@inject IProductService ProductService
+@inject IValidator<CreatePricelistDto> CreateValidator
+@inject IValidator<UpdatePricelistDto> UpdateValidator
+@inject NavigationManager Navigation
+@rendermode InteractiveServer
+
+<PageTitle>@(IsEditMode ? "Edit Pricelist" : "Create Pricelist")</PageTitle>
+
+@if (!string.IsNullOrEmpty(successMessage))
+{
+    <div class="alert-custom alert-success-custom">
+        @successMessage
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="alert-custom alert-danger-custom">
+        @errorMessage
+    </div>
+}
+
+@if (validationErrors.Any())
+{
+    <div class="alert-custom alert-danger-custom">
+        <strong>Validation Errors:</strong>
+        <ul style="margin-bottom: 0; margin-top: 0.5rem;">
+            @foreach (var error in validationErrors)
+            {
+                <li>@error</li>
+            }
+        </ul>
+    </div>
+}
+
+@if (isLoading)
+{
+    <div class="base-form-container" style="text-align: center;">
+        <img src="images/cannabis-seed.svg" class="loading-icon" alt="Loading" />
+        <p style="color: var(--text-secondary); font-family: 'Shadows Into Light', cursive; margin-top: 1rem;">Loading pricelist...</p>
+    </div>
+}
+else
+{
+    <BaseForm TModel="object"
+              Model="@model"
+              Title="@(IsEditMode ? "Edit Pricelist" : "Create Pricelist")"
+              Subtitle="Manage pricing strategies - Retail, VIP, Medical, Wholesale"
+              SubmitText="@(IsEditMode ? "Update Pricelist" : "Create Pricelist")"
+              SubmittingText="@(IsEditMode ? "Updating..." : "Creating...")"
+              OnValidSubmit="@HandleSubmit"
+              OnCancel="@Cancel"
+              IsSubmitting="@isSubmitting"
+              ShowDecorations="false">
+
+        <!-- Basic Information -->
+        <div class="form-section">
+            <h3 class="form-section-header">Pricelist Information</h3>
+
+            <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 1rem;">
+                <div class="form-field">
+                    <label class="form-label">Pricelist Code</label>
+                    <InputText class="form-input" @bind-Value="Code"
+                               placeholder="e.g., RETAIL-01" />
+                    <small style="color: var(--text-secondary); font-family: 'Shadows Into Light', cursive; font-size: 0.85rem;">
+                        Optional unique identifier
+                    </small>
+                </div>
+
+                <div class="form-field">
+                    <label class="form-label">Pricelist Name *</label>
+                    <InputText class="form-input" @bind-Value="Name"
+                               placeholder="e.g., Standard Retail Prices" />
+                </div>
+            </div>
+
+            <div class="form-field">
+                <label class="form-label">Description</label>
+                <InputTextArea class="form-textarea" @bind-Value="Description"
+                               rows="2" placeholder="Detailed description..." />
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 1rem;">
+                <div class="form-field">
+                    <label class="form-label">Priority</label>
+                    <InputNumber class="form-input" @bind-Value="Priority" />
+                    <small style="color: var(--text-secondary); font-family: 'Shadows Into Light', cursive; font-size: 0.85rem;">
+                        Higher = more priority
+                    </small>
+                </div>
+
+                <div class="form-check-custom" style="margin-top: 2rem;">
+                    <InputCheckbox id="isDefault" @bind-Value="IsDefault" />
+                    <label for="isDefault">
+                        <strong>Default Pricelist</strong>
+                    </label>
+                </div>
+
+                <div class="form-field">
+                    <label class="form-label">Pricing Strategy</label>
+                    <InputSelect class="form-input" @bind-Value="PricingStrategy">
+                        <option value="Fixed">Fixed Price</option>
+                        <option value="Percentage">Percentage</option>
+                        <option value="Tiered">Tiered</option>
+                    </InputSelect>
+                </div>
+
+                <div class="form-check-custom" style="margin-top: 2rem;">
+                    <InputCheckbox id="isActive" @bind-Value="IsActive" />
+                    <label for="isActive">
+                        <strong>Active</strong>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Effective Dates -->
+        <div class="form-section" style="border: 2px solid var(--dead-rose-purple);">
+            <h3 class="form-section-header" style="color: var(--dead-rose-purple-light);">Effective Dates</h3>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="form-field">
+                    <label class="form-label">Effective From</label>
+                    <InputDate class="form-input" @bind-Value="EffectiveFrom" />
+                    <small style="color: var(--text-secondary); font-family: 'Shadows Into Light', cursive; font-size: 0.85rem;">
+                        When this pricelist becomes active
+                    </small>
+                </div>
+
+                <div class="form-field">
+                    <label class="form-label">Effective To (Optional)</label>
+                    <InputDate class="form-input" @bind-Value="EffectiveTo" />
+                    <small style="color: var(--text-secondary); font-family: 'Shadows Into Light', cursive; font-size: 0.85rem;">
+                        Leave empty for no end date
+                    </small>
+                </div>
+            </div>
+
+            @if (EffectiveFrom.HasValue && EffectiveTo.HasValue && EffectiveTo.Value < EffectiveFrom.Value)
+            {
+                <div class="alert-custom alert-danger-custom" style="margin-top: 1rem; padding: 0.5rem;">
+                    End date cannot be before start date!
+                </div>
+            }
+        </div>
+
+    </BaseForm>
+
+    @if (IsEditMode && currentPricelist != null)
+    {
+        <!-- Pricelist Items Section (outside BaseForm) -->
+        <div class="base-form-container" style="margin-top: 2rem;">
+            <h2 class="form-title">Pricelist Items (@pricelistItems.Count products)</h2>
+
+            <!-- Add Product to Pricelist -->
+            <div class="form-section" style="border: 2px solid var(--cannabis-green);">
+                <h3 class="form-section-header" style="color: var(--cannabis-green-light);">Add Product to Pricelist</h3>
+
+                <div style="display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: 1rem; align-items: end;">
+                    <div class="form-field">
+                        <label class="form-label">Product</label>
+                        <select class="form-input" @bind="selectedProductId">
+                            <option value="">-- Select Product --</option>
+                            @foreach (var product in availableProducts.Where(p => p.IsActive))
+                            {
+                                <option value="@product.Id">@product.SKU - @product.Name (Cost: R@product.CostPrice.ToString("N2"))</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="form-field">
+                        <label class="form-label">Price</label>
+                        <div style="display: flex; align-items: center;">
+                            <span style="padding: 0.75rem 1rem; background-color: #2a2a2a; border: 2px solid var(--dead-rose-purple); border-right: none; color: var(--text-primary); font-family: 'Permanent Marker', cursive;">R</span>
+                            <input type="number" class="form-input" style="border-top-left-radius: 0; border-bottom-left-radius: 0; margin-bottom: 0;" @bind="newItemPrice" step="0.01" placeholder="0.00" />
+                        </div>
+                    </div>
+
+                    <div class="form-field">
+                        <label class="form-label">Min Qty</label>
+                        <input type="number" class="form-input" @bind="newItemMinQty" placeholder="1" />
+                    </div>
+
+                    <button type="button" class="btn-primary-custom btn-icon" style="margin-bottom: 1.25rem;" @onclick="AddItem" disabled="@(string.IsNullOrEmpty(selectedProductId) || newItemPrice <= 0)">
+                        <img src="images/cannabis-seed.svg" alt="" />
+                        <span>Add</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Existing Items -->
+            @if (pricelistItems.Any())
+            {
+                <div class="form-section">
+                    <h3 class="form-section-header">Current Products</h3>
+
+                    <table class="table-custom">
+                        <thead>
+                            <tr>
+                                <th>SKU</th>
+                                <th>Product Name</th>
+                                <th>Cost Price</th>
+                                <th>Selling Price</th>
+                                <th>Margin</th>
+                                <th>Min Qty</th>
+                                <th>Max Qty</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in pricelistItems)
+                            {
+                                <tr>
+                                    <td><code style="color: var(--cannabis-green-light);">@item.ProductSKU</code></td>
+                                    <td>@item.ProductName</td>
+                                    <td>R @(item.ProductBasePrice?.ToString("N2") ?? "0.00")</td>
+                                    <td><strong style="color: var(--cannabis-green-light);">R @item.Price.ToString("N2")</strong></td>
+                                    <td>
+                                        @if (item.PercentageDifference.HasValue)
+                                        {
+                                            <span style="padding: 0.25rem 0.5rem; background-color: @(item.PercentageDifference.Value > 0 ? "var(--cannabis-green)" : item.PercentageDifference.Value < 0 ? "var(--ferrari-red-faded)" : "var(--dead-rose-purple)"); color: var(--text-primary); font-family: 'Permanent Marker', cursive; font-size: 0.85rem;">
+                                                @item.PercentageDifference.Value.ToString("N1")%
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span style="color: var(--text-secondary);">N/A</span>
+                                        }
+                                    </td>
+                                    <td>@item.MinimumQuantity</td>
+                                    <td>@(item.MaximumQuantity?.ToString() ?? "-")</td>
+                                    <td>
+                                        <button type="button" class="btn-danger-custom btn-action btn-icon" @onclick="() => RemoveItem(item.Id)">
+                                            <img src="images/cannabis-flower.svg" alt="" />
+                                            <span>Remove</span>
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            else
+            {
+                <div class="alert-custom alert-info-custom" style="text-align: center;">
+                    No products added to this pricelist yet.
+                </div>
+            }
+        </div>
+    }
+}
+
+@code {
+    [Parameter]
+    public int? PricelistId { get; set; }
+
+    private CreatePricelistDto createModel = new();
+    private UpdatePricelistDto updateModel = new();
+    private object model => IsEditMode ? (object)updateModel : createModel;
+
+    private PricelistDto? currentPricelist;
+    private List<PricelistItemDto> pricelistItems = new();
+    private List<ProductDto> availableProducts = new();
+
+    private string selectedProductId = string.Empty;
+    private decimal newItemPrice = 0;
+    private int newItemMinQty = 1;
+
+    private string? Code { get => IsEditMode ? updateModel.Code : createModel.Code; set { if (IsEditMode) updateModel.Code = value; else createModel.Code = value; } }
+    private string Name { get => IsEditMode ? updateModel.Name : createModel.Name; set { if (IsEditMode) updateModel.Name = value; else createModel.Name = value; } }
+    private string? Description { get => IsEditMode ? updateModel.Description : createModel.Description; set { if (IsEditMode) updateModel.Description = value; else createModel.Description = value; } }
+    private bool IsActive { get => IsEditMode ? updateModel.IsActive : createModel.IsActive; set { if (IsEditMode) updateModel.IsActive = value; else createModel.IsActive = value; } }
+    private bool IsDefault { get => IsEditMode ? updateModel.IsDefault : createModel.IsDefault; set { if (IsEditMode) updateModel.IsDefault = value; else createModel.IsDefault = value; } }
+    private string PricingStrategy { get => IsEditMode ? updateModel.PricingStrategy : createModel.PricingStrategy; set { if (IsEditMode) updateModel.PricingStrategy = value; else createModel.PricingStrategy = value; } }
+    private int Priority { get => IsEditMode ? updateModel.Priority : createModel.Priority; set { if (IsEditMode) updateModel.Priority = value; else createModel.Priority = value; } }
+    private DateTime? EffectiveFrom { get => IsEditMode ? updateModel.EffectiveFrom : createModel.EffectiveFrom; set { if (IsEditMode) updateModel.EffectiveFrom = value; else createModel.EffectiveFrom = value; } }
+    private DateTime? EffectiveTo { get => IsEditMode ? updateModel.EffectiveTo : createModel.EffectiveTo; set { if (IsEditMode) updateModel.EffectiveTo = value; else createModel.EffectiveTo = value; } }
+
+    private List<string> validationErrors = new();
+    private string successMessage = string.Empty;
+    private string errorMessage = string.Empty;
+    private bool isSubmitting = false;
+    private bool isLoading = false;
+    private bool IsEditMode => PricelistId.HasValue;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadProducts();
+
+        if (IsEditMode)
+        {
+            await LoadPricelist();
+        }
+        else
+        {
+            createModel = new CreatePricelistDto { IsActive = true, Priority = 1, IsDefault = false, PricingStrategy = "Fixed" };
+        }
+    }
+
+    private async Task LoadProducts()
+    {
+        try
+        {
+            availableProducts = (await ProductService.GetAllProductsAsync()).ToList();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error loading products: {ex.Message}";
+        }
+    }
+
+    private async Task LoadPricelist()
+    {
+        isLoading = true;
+        try
+        {
+            currentPricelist = await PricelistService.GetPricelistByIdAsync(PricelistId!.Value);
+            if (currentPricelist != null)
+            {
+                updateModel = new UpdatePricelistDto
+                    {
+                        Id = currentPricelist.Id,
+                        Code = currentPricelist.Code,
+                        Name = currentPricelist.Name,
+                        Description = currentPricelist.Description,
+                        IsActive = currentPricelist.IsActive,
+                        IsDefault = currentPricelist.IsDefault,
+                        PricingStrategy = currentPricelist.PricingStrategy,
+                        Priority = currentPricelist.Priority,
+                        EffectiveFrom = currentPricelist.EffectiveFrom,
+                        EffectiveTo = currentPricelist.EffectiveTo
+                    };
+
+                await LoadPricelistItems();
+            }
+            else
+            {
+                errorMessage = "Pricelist not found";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error loading pricelist: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task LoadPricelistItems()
+    {
+        if (!IsEditMode) return;
+
+        try
+        {
+            pricelistItems = (await PricelistService.GetPricelistItemsAsync(PricelistId!.Value)).ToList();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error loading pricelist items: {ex.Message}";
+        }
+    }
+
+    private async Task HandleSubmit(object submittedModel)
+    {
+        validationErrors.Clear();
+        errorMessage = string.Empty;
+        successMessage = string.Empty;
+        isSubmitting = true;
+
+        try
+        {
+            if (IsEditMode)
+            {
+                var validationResult = await UpdateValidator.ValidateAsync(updateModel);
+
+                if (!validationResult.IsValid)
+                {
+                    validationErrors = validationResult.Errors.Select(e => e.ErrorMessage).ToList();
+                    return;
+                }
+
+                var updated = await PricelistService.UpdatePricelistAsync(updateModel);
+                successMessage = $"Pricelist '{updated.Name}' updated successfully!";
+                await Task.Delay(1500);
+                StateHasChanged();
+            }
+            else
+            {
+                var validationResult = await CreateValidator.ValidateAsync(createModel);
+
+                if (!validationResult.IsValid)
+                {
+                    validationErrors = validationResult.Errors.Select(e => e.ErrorMessage).ToList();
+                    return;
+                }
+
+                var created = await PricelistService.CreatePricelistAsync(createModel);
+                successMessage = $"Pricelist '{created.Name}' created successfully!";
+                await Task.Delay(1500);
+                Navigation.NavigateTo($"/pricelist-form/{created.Id}");
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+
+    private async Task AddItem()
+    {
+        if (string.IsNullOrEmpty(selectedProductId) || newItemPrice <= 0 || !IsEditMode)
+            return;
+
+        try
+        {
+            var productId = int.Parse(selectedProductId);
+            var dto = new CreatePricelistItemDto
+                {
+                    PricelistId = PricelistId!.Value,
+                    ProductId = productId,
+                    Price = newItemPrice,
+                    MinimumQuantity = newItemMinQty
+                };
+
+            await PricelistService.AddProductToPricelistAsync(dto);
+            successMessage = "Product added to pricelist!";
+
+            selectedProductId = string.Empty;
+            newItemPrice = 0;
+            newItemMinQty = 1;
+
+            await LoadPricelistItems();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error adding item: {ex.Message}";
+        }
+    }
+
+    private async Task RemoveItem(int itemId)
+    {
+        try
+        {
+            await PricelistService.RemoveProductFromPricelistAsync(itemId);
+            successMessage = "Product removed from pricelist!";
+            await LoadPricelistItems();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error removing item: {ex.Message}";
+        }
+    }
+
+    private void Cancel()
+    {
+        Navigation.NavigateTo("/pricelists");
+    }
+}

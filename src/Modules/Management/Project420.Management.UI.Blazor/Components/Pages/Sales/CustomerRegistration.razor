@@ -1,0 +1,298 @@
+@page "/customer-registration"
+@using Project420.Management.BLL.Sales.SalesCommon.Services
+@using Project420.Management.BLL.Sales.SalesCommon.DTOs
+@using FluentValidation
+@inject CustomerService CustomerService
+@inject IValidator<CustomerRegistrationDto> Validator
+@inject NavigationManager Navigation
+@rendermode InteractiveServer
+
+<PageTitle>Customer Registration</PageTitle>
+
+@if (!string.IsNullOrEmpty(successMessage))
+{
+    <div class="alert-custom alert-success-custom">
+        @successMessage
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="alert-custom alert-danger-custom">
+        @errorMessage
+    </div>
+}
+
+@if (validationErrors.Any())
+{
+    <div class="alert-custom alert-danger-custom">
+        <strong>Validation Errors:</strong>
+        <ul style="margin-bottom: 0; margin-top: 0.5rem;">
+            @foreach (var error in validationErrors)
+            {
+                <li>@error</li>
+            }
+        </ul>
+    </div>
+}
+
+<BaseForm TModel="CustomerRegistrationDto"
+          Model="@model"
+          Title="Customer Registration"
+          Subtitle="Register a new customer - Cannabis Act & POPIA compliant"
+          SubmitText="Register Customer"
+          SubmittingText="Registering..."
+          OnValidSubmit="@HandleRegistration"
+          OnCancel="@Cancel"
+          IsSubmitting="@isSubmitting">
+
+    <!-- Personal Information Section -->
+    <div class="form-section">
+        <h3 class="form-section-header">Personal Information</h3>
+
+        <div class="form-field">
+            <label class="form-label">Full Name *</label>
+            <InputText class="form-input" @bind-Value="model.Name" placeholder="Enter full name" />
+            <ValidationMessage For="@(() => model.Name)" class="validation-message" />
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-field">
+                <label class="form-label">SA ID Number * (Age 18+ required)</label>
+                <InputText class="form-input" @bind-Value="model.IdNumber"
+                           placeholder="13-digit SA ID" maxlength="13" @oninput="OnIdNumberChanged" />
+                <ValidationMessage For="@(() => model.IdNumber)" class="validation-message" />
+                @if (isUnder18)
+                {
+                    <div class="alert-custom alert-danger-custom" style="padding: 0.5rem; margin-top: 0.5rem;">
+                        <strong>Age Restriction:</strong> Customer must be 18 years or older (Cannabis Act requirement)
+                    </div>
+                }
+            </div>
+
+            <div class="form-field">
+                <label class="form-label">Date of Birth (Auto-extracted from ID)</label>
+                <InputDate class="form-input" @bind-Value="model.DateOfBirth" disabled />
+                <ValidationMessage For="@(() => model.DateOfBirth)" class="validation-message" />
+            </div>
+        </div>
+    </div>
+
+    <!-- Contact Information Section -->
+    <div class="form-section">
+        <h3 class="form-section-header">Contact Information</h3>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-field">
+                <label class="form-label">Mobile Number *</label>
+                <InputText class="form-input" @bind-Value="model.Mobile"
+                           placeholder="0XX XXX XXXX" maxlength="10" />
+                <ValidationMessage For="@(() => model.Mobile)" class="validation-message" />
+            </div>
+
+            <div class="form-field">
+                <label class="form-label">Email Address *</label>
+                <InputText class="form-input" type="email" @bind-Value="model.Email"
+                           placeholder="customer@example.com" />
+                <ValidationMessage For="@(() => model.Email)" class="validation-message" />
+            </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-field">
+                <label class="form-label">Physical Address</label>
+                <InputTextArea class="form-textarea" @bind-Value="model.PhysicalAddress"
+                               rows="3" placeholder="Street address" />
+                <ValidationMessage For="@(() => model.PhysicalAddress)" class="validation-message" />
+            </div>
+
+            <div class="form-field">
+                <label class="form-label">Postal Address</label>
+                <InputTextArea class="form-textarea" @bind-Value="model.PostalAddress"
+                               rows="3" placeholder="If different from physical" />
+                <ValidationMessage For="@(() => model.PostalAddress)" class="validation-message" />
+            </div>
+        </div>
+    </div>
+
+    <!-- Medical Cannabis Section (Optional) -->
+    <div class="form-section">
+        <h3 class="form-section-header">Medical Cannabis (Optional - Section 21)</h3>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem;">
+            <div class="form-field">
+                <label class="form-label">Medical Permit Number</label>
+                <InputText class="form-input" @bind-Value="model.MedicalPermitNumber"
+                           placeholder="SAHPRA Section 21 permit" />
+                <ValidationMessage For="@(() => model.MedicalPermitNumber)" class="validation-message" />
+            </div>
+
+            <div class="form-field">
+                <label class="form-label">Permit Expiry Date</label>
+                <InputDate class="form-input" @bind-Value="model.MedicalPermitExpiryDate" />
+                <ValidationMessage For="@(() => model.MedicalPermitExpiryDate)" class="validation-message" />
+            </div>
+
+            <div class="form-field">
+                <label class="form-label">Prescribing Doctor</label>
+                <InputText class="form-input" @bind-Value="model.PrescribingDoctor"
+                           placeholder="Dr. Name" />
+                <ValidationMessage For="@(() => model.PrescribingDoctor)" class="validation-message" />
+            </div>
+        </div>
+    </div>
+
+    <!-- Credit/Account Section (Optional) -->
+    <div class="form-section">
+        <h3 class="form-section-header">Account & Credit (Optional)</h3>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-field">
+                <label class="form-label">Credit Limit (R)</label>
+                <InputNumber class="form-input" @bind-Value="model.CreditLimit"
+                             placeholder="0.00" step="0.01" />
+                <small style="color: var(--text-secondary); font-family: 'Shadows Into Light', cursive;">0 = Cash customer only</small>
+                <ValidationMessage For="@(() => model.CreditLimit)" class="validation-message" />
+            </div>
+
+            <div class="form-field">
+                <label class="form-label">Payment Terms (Days)</label>
+                <InputNumber class="form-input" @bind-Value="model.PaymentTerms"
+                             placeholder="0" />
+                <small style="color: var(--text-secondary); font-family: 'Shadows Into Light', cursive;">0 = Immediate, 30 = Net 30</small>
+                <ValidationMessage For="@(() => model.PaymentTerms)" class="validation-message" />
+            </div>
+        </div>
+    </div>
+
+    <!-- POPIA Consent Section (REQUIRED) -->
+    <div class="form-section" style="border: 2px solid var(--ferrari-red-faded);">
+        <h3 class="form-section-header" style="color: var(--ferrari-red-hover);">POPIA Consent (REQUIRED)</h3>
+
+        <div class="alert-custom alert-info-custom">
+            <strong>Why we need your information:</strong>
+            <p style="margin-bottom: 0; margin-top: 0.5rem;">
+                We collect and process your personal information for: @model.ConsentPurpose
+            </p>
+        </div>
+
+        <div class="form-check-custom">
+            <InputCheckbox id="consentGiven" @bind-Value="model.ConsentGiven" />
+            <label for="consentGiven">
+                <strong>I consent to the collection and processing of my personal information * (Required by POPIA)</strong>
+            </label>
+        </div>
+
+        <div class="form-check-custom">
+            <InputCheckbox id="marketingConsent" @bind-Value="model.MarketingConsent" />
+            <label for="marketingConsent">
+                I consent to receive marketing communications (Optional)
+            </label>
+        </div>
+
+        @if (!model.ConsentGiven)
+        {
+            <div class="alert-custom alert-danger-custom" style="padding: 0.5rem; margin-top: 0.5rem;">
+                <small>Consent is required to create a customer account</small>
+            </div>
+        }
+    </div>
+
+    <!-- Notes Section (Optional) -->
+    <div class="form-section">
+        <h3 class="form-section-header">Internal Notes (Optional)</h3>
+
+        <div class="form-field">
+            <InputTextArea class="form-textarea" @bind-Value="model.Notes"
+                           rows="4" placeholder="Internal notes (not visible to customer)" />
+            <ValidationMessage For="@(() => model.Notes)" class="validation-message" />
+        </div>
+    </div>
+
+</BaseForm>
+
+@code {
+    private CustomerRegistrationDto model = new();
+    private List<string> validationErrors = new();
+    private string successMessage = string.Empty;
+    private string errorMessage = string.Empty;
+    private bool isSubmitting = false;
+    private bool isUnder18 = false;
+
+    protected override void OnInitialized()
+    {
+        model.ConsentPurpose = "Customer account management, purchase history, and legal compliance";
+    }
+
+    private void OnIdNumberChanged(ChangeEventArgs e)
+    {
+        var idNumber = e.Value?.ToString() ?? string.Empty;
+        model.IdNumber = idNumber;
+
+        if (idNumber.Length >= 6)
+        {
+            try
+            {
+                var year = int.Parse(idNumber.Substring(0, 2));
+                var month = int.Parse(idNumber.Substring(2, 2));
+                var day = int.Parse(idNumber.Substring(4, 2));
+
+                var fullYear = year <= 24 ? 2000 + year : 1900 + year;
+                var dob = new DateTime(fullYear, month, day);
+
+                model.DateOfBirth = dob;
+
+                var age = DateTime.Today.Year - dob.Year;
+                if (dob.Date > DateTime.Today.AddYears(-age))
+                    age--;
+
+                isUnder18 = age < 18;
+            }
+            catch
+            {
+                model.DateOfBirth = null;
+                isUnder18 = false;
+            }
+        }
+    }
+
+    private async Task HandleRegistration(CustomerRegistrationDto submittedModel)
+    {
+        validationErrors.Clear();
+        errorMessage = string.Empty;
+        successMessage = string.Empty;
+        isSubmitting = true;
+
+        try
+        {
+            var validationResult = await Validator.ValidateAsync(submittedModel);
+
+            if (!validationResult.IsValid)
+            {
+                validationErrors = validationResult.Errors.Select(e => e.ErrorMessage).ToList();
+                return;
+            }
+
+            var registeredCustomer = await CustomerService.RegisterCustomerAsync(submittedModel);
+
+            successMessage = $"Customer '{registeredCustomer.Name}' registered successfully! Customer ID: {registeredCustomer.Id}";
+
+            model = new();
+            model.ConsentPurpose = "Customer account management, purchase history, and legal compliance";
+            isUnder18 = false;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+
+    private void Cancel()
+    {
+        Navigation.NavigateTo("/");
+    }
+}

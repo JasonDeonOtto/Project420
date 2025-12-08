@@ -1,0 +1,29 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.0">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="9.0.0" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Project420.Shared.Core\Project420.Shared.Core.csproj" />
+    <ProjectReference Include="..\..\Modules\Management\Project420.Management.DAL\Project420.Management.DAL.csproj" />
+    <ProjectReference Include="..\..\Modules\Management\Project420.Management.Models\Project420.Management.Models.csproj" />
+    <ProjectReference Include="..\..\Modules\Retail\POS\Project420.Retail.POS.DAL\Project420.Retail.POS.DAL.csproj" />
+    <ProjectReference Include="..\..\Modules\Retail\POS\Project420.Retail.POS.Models\Project420.Retail.POS.Models.csproj" />
+    <ProjectReference Include="..\Project420.Shared.Infrastructure\Project420.Shared.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>

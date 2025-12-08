@@ -1,0 +1,493 @@
+/* ============================================
+   Project420 Professional Cannabis-Green Theme
+   ============================================ */
+
+:root {
+    /* Primary Color Palette */
+    --primary-green: #1FAF5B;
+    --dark-green: #128644;
+    --light-green: #D5F5E3;
+    --neutral-grey: #F3F3F3;
+    --accent-charcoal: #1E1E1E;
+    --white: #FFFFFF;
+
+    /* Error Colors */
+    --error-red: #DC3545;
+    --error-bg: #F8D7DA;
+    --error-border: #F5C2C7;
+
+    /* Success Colors */
+    --success-green: #198754;
+    --success-bg: #D1E7DD;
+    --success-border: #BADBCC;
+
+    /* Warning Colors */
+    --warning-yellow: #FFC107;
+    --warning-bg: #FFF3CD;
+    --warning-border: #FFECB5;
+
+    /* Spacing Scale (8px base) */
+    --space-xs: 4px;
+    --space-sm: 8px;
+    --space-md: 12px;
+    --space-lg: 16px;
+    --space-xl: 24px;
+
+    /* Border Radius */
+    --radius-sm: 4px;
+
+    /* Font Stack */
+    --font-primary: 'Inter', 'Segoe UI', 'Roboto', -apple-system, BlinkMacSystemFont, sans-serif;
+
+    /* Shadows */
+    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+/* ============================================
+   Global Resets & Base Styles
+   ============================================ */
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    font-family: var(--font-primary);
+    background-color: var(--neutral-grey);
+    color: var(--accent-charcoal);
+    line-height: 1.6;
+    margin: 0;
+    padding: 0;
+}
+
+/* ============================================
+   Scrollbar Styling (Green Accented)
+   ============================================ */
+
+::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--neutral-grey);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--primary-green);
+    border-radius: 6px;
+    border: 2px solid var(--neutral-grey);
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--dark-green);
+}
+
+/* Firefox */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: var(--primary-green) var(--neutral-grey);
+}
+
+/* ============================================
+   Navbar Theme (Cannabis-Green)
+   ============================================ */
+
+.navbar-cannabis {
+    background-color: var(--primary-green);
+    color: var(--white);
+    padding: var(--space-lg);
+    box-shadow: var(--shadow-md);
+}
+
+.navbar-cannabis a {
+    color: var(--white);
+    text-decoration: none;
+    transition: opacity 0.2s ease;
+}
+
+.navbar-cannabis a:hover {
+    opacity: 0.85;
+}
+
+/* ============================================
+   Button Styles (Squared, Modern)
+   ============================================ */
+
+.btn {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-sm);
+    padding: var(--space-md) var(--space-lg);
+    font-family: var(--font-primary);
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1.5;
+    text-align: center;
+    text-decoration: none;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all 0.15s ease-in-out;
+    user-select: none;
+}
+
+.btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Primary Button (Cannabis-Green) */
+.btn-primary {
+    background-color: var(--primary-green);
+    border-color: var(--primary-green);
+    color: var(--white);
+}
+
+.btn-primary:hover:not(:disabled) {
+    background-color: var(--dark-green);
+    border-color: var(--dark-green);
+}
+
+.btn-primary:focus {
+    box-shadow: 0 0 0 3px rgba(31, 175, 91, 0.25);
+}
+
+/* Secondary Button (Outline) */
+.btn-secondary {
+    background-color: var(--white);
+    border-color: var(--accent-charcoal);
+    color: var(--accent-charcoal);
+}
+
+.btn-secondary:hover:not(:disabled) {
+    background-color: var(--neutral-grey);
+}
+
+.btn-secondary:focus {
+    box-shadow: 0 0 0 3px rgba(30, 30, 30, 0.15);
+}
+
+/* Danger Button (Errors/Delete) */
+.btn-danger {
+    background-color: var(--error-red);
+    border-color: var(--error-red);
+    color: var(--white);
+}
+
+.btn-danger:hover:not(:disabled) {
+    background-color: #C82333;
+    border-color: #BD2130;
+}
+
+.btn-danger:focus {
+    box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.25);
+}
+
+/* Success Button */
+.btn-success {
+    background-color: var(--success-green);
+    border-color: var(--success-green);
+    color: var(--white);
+}
+
+.btn-success:hover:not(:disabled) {
+    background-color: #157347;
+    border-color: #146C43;
+}
+
+/* ============================================
+   Form Elements
+   ============================================ */
+
+.form-group {
+    margin-bottom: var(--space-lg);
+}
+
+.form-label {
+    display: block;
+    margin-bottom: var(--space-sm);
+    font-weight: 500;
+    color: var(--accent-charcoal);
+}
+
+.form-control {
+    display: block;
+    width: 100%;
+    padding: var(--space-md);
+    font-family: var(--font-primary);
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--accent-charcoal);
+    background-color: var(--white);
+    border: 1px solid #CED4DA;
+    border-radius: var(--radius-sm);
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.form-control:focus {
+    border-color: var(--primary-green);
+    outline: 0;
+    box-shadow: 0 0 0 3px rgba(31, 175, 91, 0.15);
+}
+
+.form-control:disabled {
+    background-color: var(--neutral-grey);
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* Validation States */
+.form-control.is-valid {
+    border-color: var(--success-green);
+}
+
+.form-control.is-invalid {
+    border-color: var(--error-red);
+}
+
+/* ============================================
+   BaseForm Component Styles
+   ============================================ */
+
+.base-form-container {
+    background-color: var(--white);
+    border-radius: var(--radius-sm);
+    padding: var(--space-xl);
+    box-shadow: var(--shadow-md);
+    margin-bottom: var(--space-xl);
+}
+
+.base-form-title {
+    font-size: 24px;
+    font-weight: 600;
+    color: var(--accent-charcoal);
+    margin-bottom: var(--space-sm);
+    padding-bottom: var(--space-md);
+    border-bottom: 2px solid var(--neutral-grey);
+}
+
+.base-form-subtitle {
+    font-size: 14px;
+    color: #6C757D;
+    margin-bottom: var(--space-lg);
+}
+
+.base-form-toolbar {
+    display: flex;
+    gap: var(--space-md);
+    justify-content: flex-end;
+    padding-top: var(--space-lg);
+    border-top: 1px solid var(--neutral-grey);
+    margin-top: var(--space-xl);
+}
+
+/* ============================================
+   Alerts & Messages
+   ============================================ */
+
+.alert {
+    position: relative;
+    padding: var(--space-lg);
+    margin-bottom: var(--space-lg);
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+}
+
+.alert-success {
+    background-color: var(--success-bg);
+    border-color: var(--success-border);
+    color: #0F5132;
+}
+
+.alert-danger {
+    background-color: var(--error-bg);
+    border-color: var(--error-border);
+    color: #842029;
+}
+
+.alert-warning {
+    background-color: var(--warning-bg);
+    border-color: var(--warning-border);
+    color: #664D03;
+}
+
+.alert-dismissible {
+    padding-right: 48px;
+}
+
+.alert-dismissible .btn-close {
+    position: absolute;
+    top: 0;
+    right: 0;
+    padding: var(--space-lg);
+    background: transparent;
+    border: 0;
+    cursor: pointer;
+    font-size: 20px;
+    font-weight: 700;
+    line-height: 1;
+    color: inherit;
+    opacity: 0.5;
+}
+
+.alert-dismissible .btn-close:hover {
+    opacity: 0.75;
+}
+
+/* ============================================
+   Validation Messages
+   ============================================ */
+
+.validation-message {
+    display: block;
+    margin-top: var(--space-xs);
+    font-size: 13px;
+    color: var(--error-red);
+}
+
+.validation-summary {
+    background-color: var(--warning-bg);
+    border: 1px solid var(--warning-border);
+    border-radius: var(--radius-sm);
+    padding: var(--space-lg);
+    margin-bottom: var(--space-lg);
+}
+
+.validation-summary ul {
+    margin: var(--space-sm) 0 0 0;
+    padding-left: var(--space-xl);
+}
+
+.validation-summary li {
+    color: var(--error-red);
+    margin-bottom: var(--space-xs);
+}
+
+/* ============================================
+   Tables (White background, Black text)
+   ============================================ */
+
+.table {
+    width: 100%;
+    background-color: var(--white);
+    border-collapse: collapse;
+    margin-bottom: var(--space-xl);
+    box-shadow: var(--shadow-sm);
+}
+
+.table thead {
+    background-color: var(--neutral-grey);
+    border-bottom: 2px solid var(--primary-green);
+}
+
+.table thead th {
+    padding: var(--space-lg);
+    text-align: left;
+    font-weight: 600;
+    color: var(--accent-charcoal);
+}
+
+.table tbody tr {
+    border-bottom: 1px solid var(--neutral-grey);
+}
+
+.table tbody tr:hover {
+    background-color: var(--light-green);
+}
+
+.table tbody td {
+    padding: var(--space-md) var(--space-lg);
+    color: var(--accent-charcoal);
+}
+
+/* ============================================
+   Loading Spinner
+   ============================================ */
+
+.spinner-border {
+    display: inline-block;
+    width: 1rem;
+    height: 1rem;
+    vertical-align: text-bottom;
+    border: 0.15em solid currentColor;
+    border-right-color: transparent;
+    border-radius: 50%;
+    animation: spinner-border 0.75s linear infinite;
+}
+
+.spinner-border-sm {
+    width: 0.875rem;
+    height: 0.875rem;
+    border-width: 0.125em;
+}
+
+@keyframes spinner-border {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* ============================================
+   Utility Classes
+   ============================================ */
+
+.text-center {
+    text-align: center;
+}
+
+.text-right {
+    text-align: right;
+}
+
+.mt-1 { margin-top: var(--space-xs); }
+.mt-2 { margin-top: var(--space-sm); }
+.mt-3 { margin-top: var(--space-md); }
+.mt-4 { margin-top: var(--space-lg); }
+.mt-5 { margin-top: var(--space-xl); }
+
+.mb-1 { margin-bottom: var(--space-xs); }
+.mb-2 { margin-bottom: var(--space-sm); }
+.mb-3 { margin-bottom: var(--space-md); }
+.mb-4 { margin-bottom: var(--space-lg); }
+.mb-5 { margin-bottom: var(--space-xl); }
+
+.d-flex {
+    display: flex;
+}
+
+.gap-1 { gap: var(--space-xs); }
+.gap-2 { gap: var(--space-sm); }
+.gap-3 { gap: var(--space-md); }
+.gap-4 { gap: var(--space-lg); }
+.gap-5 { gap: var(--space-xl); }
+
+.justify-content-end {
+    justify-content: flex-end;
+}
+
+.justify-content-between {
+    justify-content: space-between;
+}
+
+.align-items-center {
+    align-items: center;
+}
+
+/* ============================================
+   Bootstrap Overrides (Reset unwanted styles)
+   ============================================ */
+
+.btn:not(.btn-primary):not(.btn-secondary):not(.btn-danger):not(.btn-success) {
+    background-color: var(--neutral-grey);
+    border-color: #CED4DA;
+    color: var(--accent-charcoal);
+}
+
+/* Override Bootstrap's rounded pills */
+.btn-group > .btn,
+.input-group > .form-control {
+    border-radius: var(--radius-sm);
+}

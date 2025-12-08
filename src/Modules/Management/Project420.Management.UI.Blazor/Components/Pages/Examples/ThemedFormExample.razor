@@ -1,0 +1,150 @@
+@page "/themed-form-example"
+@using System.ComponentModel.DataAnnotations
+
+<PageTitle>Themed Form Example</PageTitle>
+
+@* Example: Using the BaseForm component with themed styling *@
+
+<BaseForm TModel="ExampleModel"
+          Model="@model"
+          Title="Cannabis-Themed Form"
+          Subtitle="Example of the new themed styling"
+          SubmitText="Save Changes"
+          OnValidSubmit="@HandleSubmit"
+          OnCancel="@HandleCancel"
+          IsSubmitting="@isSubmitting">
+
+    @* Personal Info Section *@
+    <div class="form-section">
+        <h3 class="form-section-header">Personal Information</h3>
+
+        <div class="form-field">
+            <label class="form-label">Full Name</label>
+            <InputText class="form-input" @bind-Value="model.Name" placeholder="Enter your name" />
+            <ValidationMessage For="@(() => model.Name)" class="validation-message" />
+        </div>
+
+        <div class="form-field">
+            <label class="form-label">Email Address</label>
+            <InputText class="form-input" @bind-Value="model.Email" type="email" placeholder="your@email.com" />
+            <ValidationMessage For="@(() => model.Email)" class="validation-message" />
+        </div>
+    </div>
+
+    @* Additional Info Section *@
+    <div class="form-section">
+        <h3 class="form-section-header">Additional Details</h3>
+
+        <div class="form-field">
+            <label class="form-label">Bio</label>
+            <InputTextArea class="form-textarea" @bind-Value="model.Bio" placeholder="Tell us about yourself..." rows="4" />
+            <ValidationMessage For="@(() => model.Bio)" class="validation-message" />
+        </div>
+
+        <div class="form-check-custom">
+            <InputCheckbox id="newsletter" @bind-Value="model.Newsletter" />
+            <label for="newsletter">Subscribe to newsletter</label>
+        </div>
+    </div>
+
+    @* Success/Error Messages *@
+    @if (!string.IsNullOrEmpty(successMessage))
+    {
+        <div class="alert-custom alert-success-custom">
+            @successMessage
+        </div>
+    }
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert-custom alert-danger-custom">
+            @errorMessage
+        </div>
+    }
+
+</BaseForm>
+
+@* Alternative: Manual themed styling without BaseForm component *@
+@* Uncomment to see manual approach *@
+@*
+<div class="base-form-container">
+    <h2 class="form-title">Manual Themed Form</h2>
+
+    <EditForm Model="@model" OnValidSubmit="@HandleSubmit">
+        <div class="form-field">
+            <label class="form-label">Field Label</label>
+            <InputText class="form-input" @bind-Value="model.Name" />
+        </div>
+
+        <div class="form-buttons">
+            <button type="button" class="btn-danger-custom btn-icon">
+                <img src="images/cannabis-flower.svg" alt="" />
+                <span>Cancel</span>
+            </button>
+            <button type="submit" class="btn-primary-custom btn-icon">
+                <img src="images/cannabis-bud.svg" alt="" />
+                <span>Submit</span>
+            </button>
+        </div>
+    </EditForm>
+</div>
+*@
+
+@code {
+    private ExampleModel model = new();
+    private bool isSubmitting = false;
+    private string successMessage = string.Empty;
+    private string errorMessage = string.Empty;
+
+    private async Task HandleSubmit(ExampleModel submittedModel)
+    {
+        isSubmitting = true;
+        errorMessage = string.Empty;
+        successMessage = string.Empty;
+
+        try
+        {
+            // Simulate API call
+            await Task.Delay(1500);
+
+            successMessage = $"Successfully saved data for {submittedModel.Name}!";
+
+            // Reset form after success
+            await Task.Delay(2000);
+            model = new ExampleModel();
+            successMessage = string.Empty;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+
+    private void HandleCancel()
+    {
+        // Reset form or navigate away
+        model = new ExampleModel();
+        successMessage = string.Empty;
+        errorMessage = string.Empty;
+    }
+
+    public class ExampleModel
+    {
+        [Required(ErrorMessage = "Name is required")]
+        [StringLength(100, MinimumLength = 2)]
+        public string Name { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Email is required")]
+        [EmailAddress(ErrorMessage = "Invalid email format")]
+        public string Email { get; set; } = string.Empty;
+
+        [StringLength(500)]
+        public string? Bio { get; set; }
+
+        public bool Newsletter { get; set; } = false;
+    }
+}

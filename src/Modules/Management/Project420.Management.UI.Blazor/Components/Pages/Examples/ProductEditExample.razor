@@ -1,0 +1,165 @@
+@page "/example/product-edit"
+@using Project420.Shared.UI.Blazor.Components.Base
+
+<PageTitle>Product Edit Example</PageTitle>
+
+<div class="container">
+    <BaseFormComponent TModel="ProductModel"
+                       Model="@product"
+                       Title="Edit Product"
+                       Subtitle="Update product information and pricing"
+                       OnValidSubmit="@HandleSave"
+                       OnCancel="@HandleCancel"
+                       IsSubmitting="@isSubmitting">
+
+        <div class="row">
+            <div class="col-md-6">
+                <div class="form-group">
+                    <label class="form-label" for="productName">Product Name</label>
+                    <InputText id="productName" class="form-control" @bind-Value="product.Name" />
+                    <ValidationMessage For="@(() => product.Name)" />
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="form-group">
+                    <label class="form-label" for="productSku">SKU</label>
+                    <InputText id="productSku" class="form-control" @bind-Value="product.Sku" />
+                    <ValidationMessage For="@(() => product.Sku)" />
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-12">
+                <div class="form-group">
+                    <label class="form-label" for="productDescription">Description</label>
+                    <InputTextArea id="productDescription" class="form-control" rows="4" @bind-Value="product.Description" />
+                    <ValidationMessage For="@(() => product.Description)" />
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-4">
+                <div class="form-group">
+                    <label class="form-label" for="productPrice">Price</label>
+                    <InputNumber id="productPrice" class="form-control" @bind-Value="product.Price" />
+                    <ValidationMessage For="@(() => product.Price)" />
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="form-group">
+                    <label class="form-label" for="productCost">Cost</label>
+                    <InputNumber id="productCost" class="form-control" @bind-Value="product.Cost" />
+                    <ValidationMessage For="@(() => product.Cost)" />
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="form-group">
+                    <label class="form-label" for="productStock">Stock Quantity</label>
+                    <InputNumber id="productStock" class="form-control" @bind-Value="product.StockQuantity" />
+                    <ValidationMessage For="@(() => product.StockQuantity)" />
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-6">
+                <div class="form-group">
+                    <div class="form-check">
+                        <InputCheckbox id="productActive" class="form-check-input" @bind-Value="product.IsActive" />
+                        <label class="form-check-label" for="productActive">
+                            Active Product
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </BaseFormComponent>
+</div>
+
+@code {
+    private ProductModel product = new();
+    private bool isSubmitting = false;
+
+    protected override void OnInitialized()
+    {
+        // Simulate loading a product
+        product = new ProductModel
+        {
+            Id = 1,
+            Name = "Cannabis Flower - Indica",
+            Sku = "CF-IND-001",
+            Description = "Premium indoor-grown indica strain with rich terpene profile.",
+            Price = 125.00m,
+            Cost = 75.00m,
+            StockQuantity = 50,
+            IsActive = true
+        };
+    }
+
+    private async Task HandleSave(ProductModel model)
+    {
+        isSubmitting = true;
+
+        try
+        {
+            // Simulate API call
+            await Task.Delay(1500);
+
+            // Success - in real implementation, you'd save to database
+            Console.WriteLine($"Product saved: {model.Name}");
+
+            // Navigate back or show success message
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error saving product: {ex.Message}");
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+
+    private void HandleCancel()
+    {
+        // Navigate back to product list or reset form
+        Console.WriteLine("Product edit cancelled");
+    }
+
+    // Example model class
+    public class ProductModel
+    {
+        public int Id { get; set; }
+
+        [Required(ErrorMessage = "Product name is required")]
+        [StringLength(100, ErrorMessage = "Product name cannot exceed 100 characters")]
+        public string Name { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "SKU is required")]
+        [StringLength(50, ErrorMessage = "SKU cannot exceed 50 characters")]
+        public string Sku { get; set; } = string.Empty;
+
+        [StringLength(500, ErrorMessage = "Description cannot exceed 500 characters")]
+        public string? Description { get; set; }
+
+        [Required]
+        [Range(0.01, 999999.99, ErrorMessage = "Price must be between 0.01 and 999,999.99")]
+        public decimal Price { get; set; }
+
+        [Required]
+        [Range(0.01, 999999.99, ErrorMessage = "Cost must be between 0.01 and 999,999.99")]
+        public decimal Cost { get; set; }
+
+        [Required]
+        [Range(0, 99999, ErrorMessage = "Stock quantity must be between 0 and 99,999")]
+        public int StockQuantity { get; set; }
+
+        public bool IsActive { get; set; }
+    }
+}

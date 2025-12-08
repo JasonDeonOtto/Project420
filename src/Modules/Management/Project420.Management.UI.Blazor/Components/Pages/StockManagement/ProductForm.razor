@@ -1,0 +1,414 @@
+@page "/product-form"
+@page "/product-form/{ProductId:int}"
+@using Project420.Management.BLL.StockManagement.Services
+@using Project420.Management.BLL.StockManagement.DTOs
+@using FluentValidation
+@inject IProductService ProductService
+@inject IProductCategoryService CategoryService
+@inject IValidator<CreateProductDto> CreateValidator
+@inject IValidator<UpdateProductDto> UpdateValidator
+@inject NavigationManager Navigation
+@rendermode InteractiveServer
+
+<PageTitle>@(IsEditMode ? "Edit Product" : "Create Product")</PageTitle>
+
+@if (!string.IsNullOrEmpty(successMessage))
+{
+    <div class="alert-custom alert-success-custom">
+        @successMessage
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="alert-custom alert-danger-custom">
+        @errorMessage
+    </div>
+}
+
+@if (validationErrors.Any())
+{
+    <div class="alert-custom alert-danger-custom">
+        <strong>Validation Errors:</strong>
+        <ul style="margin-bottom: 0; margin-top: 0.5rem;">
+            @foreach (var error in validationErrors)
+            {
+                <li>@error</li>
+            }
+        </ul>
+    </div>
+}
+
+@if (isLoading)
+{
+    <div class="base-form-container" style="text-align: center;">
+        <img src="images/cannabis-seed.svg" class="loading-icon" alt="Loading" />
+        <p style="color: var(--text-secondary); font-family: 'Shadows Into Light', cursive; margin-top: 1rem;">Loading product...</p>
+    </div>
+}
+else
+{
+    <BaseForm TModel="object"
+              Model="@model"
+              Title="@(IsEditMode ? "Edit Product" : "Create Product")"
+              Subtitle="Cannabis Act compliant - Product management with seed-to-sale traceability"
+              SubmitText="@(IsEditMode ? "Update Product" : "Create Product")"
+              SubmittingText="@(IsEditMode ? "Updating..." : "Creating...")"
+              OnValidSubmit="@HandleSubmit"
+              OnCancel="@Cancel"
+              IsSubmitting="@isSubmitting">
+
+        <!-- Basic Information -->
+        <div class="form-section">
+            <h3 class="form-section-header">Basic Information</h3>
+
+            <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 1rem;">
+                <div class="form-field">
+                    <label class="form-label">SKU (Stock Keeping Unit) *</label>
+                    <InputText class="form-input" @bind-Value="SKU"
+                               placeholder="e.g., FLWR-IND-001" />
+                    <small style="color: var(--text-secondary); font-family: 'Shadows Into Light', cursive; font-size: 0.85rem;">
+                        Unique product identifier
+                    </small>
+                </div>
+
+                <div class="form-field">
+                    <label class="form-label">Product Name *</label>
+                    <InputText class="form-input" @bind-Value="Name"
+                               placeholder="e.g., Blue Dream - Indoor Flower" />
+                </div>
+            </div>
+
+            <div class="form-field">
+                <label class="form-label">Description</label>
+                <InputTextArea class="form-textarea" @bind-Value="Description"
+                               rows="3" placeholder="Detailed product description..." />
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="form-field">
+                    <label class="form-label">Category</label>
+                    <InputSelect class="form-input" @bind-Value="CategoryId">
+                        <option value="">-- Select Category --</option>
+                        @foreach (var cat in categories.Where(c => c.IsActive))
+                        {
+                            <option value="@cat.Id">@cat.Name (@cat.CategoryCode)</option>
+                        }
+                    </InputSelect>
+                </div>
+
+                <div class="form-check-custom" style="margin-top: 2rem;">
+                    <InputCheckbox id="isActive" @bind-Value="IsActive" />
+                    <label for="isActive">
+                        <strong>Product is Active</strong>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Cannabis Compliance -->
+        <div class="form-section" style="border: 2px solid var(--cannabis-green);">
+            <h3 class="form-section-header" style="color: var(--cannabis-green-light);">Cannabis Compliance (SA Cannabis Act)</h3>
+
+            <div class="alert-custom alert-info-custom">
+                <strong>Required for Cannabis Products:</strong>
+                THC/CBD content, batch numbers, and lab testing dates are mandatory for SAHPRA reporting and compliance.
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr 2fr; gap: 1rem;">
+                <div class="form-field">
+                    <label class="form-label">THC Content</label>
+                    <InputText class="form-input" @bind-Value="THCPercentage"
+                               placeholder="e.g., 15% or 150mg" />
+                    <small style="color: var(--text-secondary); font-family: 'Shadows Into Light', cursive; font-size: 0.85rem;">
+                        Tetrahydrocannabinol
+                    </small>
+                </div>
+
+                <div class="form-field">
+                    <label class="form-label">CBD Content</label>
+                    <InputText class="form-input" @bind-Value="CBDPercentage"
+                               placeholder="e.g., 0.5% or 50mg" />
+                    <small style="color: var(--text-secondary); font-family: 'Shadows Into Light', cursive; font-size: 0.85rem;">
+                        Cannabidiol
+                    </small>
+                </div>
+
+                <div class="form-field">
+                    <label class="form-label">Strain Name</label>
+                    <InputText class="form-input" @bind-Value="StrainName"
+                               placeholder="e.g., Blue Dream, OG Kush" />
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem;">
+                <div class="form-field">
+                    <label class="form-label">Batch Number</label>
+                    <InputText class="form-input" @bind-Value="BatchNumber"
+                               placeholder="e.g., BATCH-2024-11-001" />
+                    <small style="color: var(--text-secondary); font-family: 'Shadows Into Light', cursive; font-size: 0.85rem;">
+                        Seed-to-sale traceability
+                    </small>
+                </div>
+
+                <div class="form-field">
+                    <label class="form-label">Lab Test Date</label>
+                    <InputDate class="form-input" @bind-Value="LabTestDate" />
+                    <small style="color: var(--text-secondary); font-family: 'Shadows Into Light', cursive; font-size: 0.85rem;">
+                        Certificate of Analysis (COA)
+                    </small>
+                </div>
+
+                <div class="form-field">
+                    <label class="form-label">Expiry Date</label>
+                    <InputDate class="form-input" @bind-Value="ExpiryDate" />
+                    <small style="color: var(--text-secondary); font-family: 'Shadows Into Light', cursive; font-size: 0.85rem;">
+                        Best before date
+                    </small>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pricing -->
+        <div class="form-section" style="border: 2px solid var(--cannabis-green-dark);">
+            <h3 class="form-section-header" style="color: var(--cannabis-green-light);">Pricing</h3>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem;">
+                <div class="form-field">
+                    <label class="form-label">Cost Price (excl. VAT) *</label>
+                    <div style="display: flex; align-items: center;">
+                        <span style="padding: 0.75rem 1rem; background-color: #2a2a2a; border: 2px solid var(--dead-rose-purple); border-right: none; color: var(--text-primary); font-family: 'Permanent Marker', cursive;">R</span>
+                        <InputNumber class="form-input" style="border-top-left-radius: 0; border-bottom-left-radius: 0; margin-bottom: 0;" @bind-Value="CostPrice"
+                                     placeholder="0.00" step="0.01" />
+                    </div>
+                    <small style="color: var(--text-secondary); font-family: 'Shadows Into Light', cursive; font-size: 0.85rem;">
+                        What you paid for this product
+                    </small>
+                </div>
+
+                <div class="form-field">
+                    <label class="form-label">Selling Price (incl. VAT) *</label>
+                    <div style="display: flex; align-items: center;">
+                        <span style="padding: 0.75rem 1rem; background-color: #2a2a2a; border: 2px solid var(--dead-rose-purple); border-right: none; color: var(--text-primary); font-family: 'Permanent Marker', cursive;">R</span>
+                        <InputNumber class="form-input" style="border-top-left-radius: 0; border-bottom-left-radius: 0; margin-bottom: 0;" @bind-Value="Price"
+                                     placeholder="0.00" step="0.01" />
+                    </div>
+                    <small style="color: var(--text-secondary); font-family: 'Shadows Into Light', cursive; font-size: 0.85rem;">
+                        Customer pays this amount
+                    </small>
+                </div>
+
+                <div class="form-field">
+                    <label class="form-label">Profit Margin</label>
+                    <div style="padding: 0.75rem 1rem; background-color: #252525; border: 2px solid var(--cannabis-green); color: var(--text-primary); font-family: 'Permanent Marker', cursive; text-align: center; font-size: 1.2rem;">
+                        @if (Price > 0 && CostPrice > 0)
+                        {
+                            var margin = Math.Round(((Price - CostPrice) / Price) * 100, 2);
+                            <strong style="color: @(margin > 0 ? "var(--cannabis-green-light)" : "var(--ferrari-red-faded)")">@margin.ToString("N2")%</strong>
+                        }
+                        else
+                        {
+                            <span style="color: var(--text-secondary);">-</span>
+                        }
+                    </div>
+                    <small style="color: var(--text-secondary); font-family: 'Shadows Into Light', cursive; font-size: 0.85rem;">
+                        Calculated automatically
+                    </small>
+                </div>
+            </div>
+        </div>
+
+        <!-- Inventory/Stock -->
+        <div class="form-section">
+            <h3 class="form-section-header">Inventory Management</h3>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="form-field">
+                    <label class="form-label">Stock on Hand</label>
+                    <InputNumber class="form-input" @bind-Value="StockOnHand"
+                                 placeholder="0" />
+                    <small style="color: var(--text-secondary); font-family: 'Shadows Into Light', cursive; font-size: 0.85rem;">
+                        Current quantity in stock
+                    </small>
+                </div>
+
+                <div class="form-field">
+                    <label class="form-label">Reorder Level</label>
+                    <InputNumber class="form-input" @bind-Value="ReorderLevel"
+                                 placeholder="0" />
+                    <small style="color: var(--text-secondary); font-family: 'Shadows Into Light', cursive; font-size: 0.85rem;">
+                        Alert when stock falls below this level
+                    </small>
+                </div>
+            </div>
+
+            @if (StockOnHand <= ReorderLevel && ReorderLevel > 0)
+            {
+                <div class="alert-custom alert-danger-custom" style="margin-top: 1rem;">
+                    <strong>Low Stock Warning:</strong> Stock level is at or below reorder point!
+                </div>
+            }
+        </div>
+
+    </BaseForm>
+}
+
+@code {
+    [Parameter]
+    public int? ProductId { get; set; }
+
+    private CreateProductDto createModel = new();
+    private UpdateProductDto updateModel = new();
+    private object model => IsEditMode ? (object)updateModel : createModel;
+
+    private string SKU { get => IsEditMode ? updateModel.SKU : createModel.SKU; set { if (IsEditMode) updateModel.SKU = value; else createModel.SKU = value; } }
+    private string Name { get => IsEditMode ? updateModel.Name : createModel.Name; set { if (IsEditMode) updateModel.Name = value; else createModel.Name = value; } }
+    private string? Description { get => IsEditMode ? updateModel.Description : createModel.Description; set { if (IsEditMode) updateModel.Description = value; else createModel.Description = value; } }
+    private bool IsActive { get => IsEditMode ? updateModel.IsActive : createModel.IsActive; set { if (IsEditMode) updateModel.IsActive = value; else createModel.IsActive = value; } }
+    private string? THCPercentage { get => IsEditMode ? updateModel.THCPercentage : createModel.THCPercentage; set { if (IsEditMode) updateModel.THCPercentage = value; else createModel.THCPercentage = value; } }
+    private string? CBDPercentage { get => IsEditMode ? updateModel.CBDPercentage : createModel.CBDPercentage; set { if (IsEditMode) updateModel.CBDPercentage = value; else createModel.CBDPercentage = value; } }
+    private string? BatchNumber { get => IsEditMode ? updateModel.BatchNumber : createModel.BatchNumber; set { if (IsEditMode) updateModel.BatchNumber = value; else createModel.BatchNumber = value; } }
+    private string? StrainName { get => IsEditMode ? updateModel.StrainName : createModel.StrainName; set { if (IsEditMode) updateModel.StrainName = value; else createModel.StrainName = value; } }
+    private DateTime? LabTestDate { get => IsEditMode ? updateModel.LabTestDate : createModel.LabTestDate; set { if (IsEditMode) updateModel.LabTestDate = value; else createModel.LabTestDate = value; } }
+    private DateTime? ExpiryDate { get => IsEditMode ? updateModel.ExpiryDate : createModel.ExpiryDate; set { if (IsEditMode) updateModel.ExpiryDate = value; else createModel.ExpiryDate = value; } }
+    private decimal Price { get => IsEditMode ? updateModel.Price : createModel.Price; set { if (IsEditMode) updateModel.Price = value; else createModel.Price = value; } }
+    private decimal CostPrice { get => IsEditMode ? updateModel.CostPrice : createModel.CostPrice; set { if (IsEditMode) updateModel.CostPrice = value; else createModel.CostPrice = value; } }
+    private int StockOnHand { get => IsEditMode ? updateModel.StockOnHand : createModel.StockOnHand; set { if (IsEditMode) updateModel.StockOnHand = value; else createModel.StockOnHand = value; } }
+    private int ReorderLevel { get => IsEditMode ? updateModel.ReorderLevel : createModel.ReorderLevel; set { if (IsEditMode) updateModel.ReorderLevel = value; else createModel.ReorderLevel = value; } }
+    private int? CategoryId { get => IsEditMode ? updateModel.CategoryId : createModel.CategoryId; set { if (IsEditMode) updateModel.CategoryId = value; else createModel.CategoryId = value; } }
+
+    private List<ProductCategoryDto> categories = new();
+    private List<string> validationErrors = new();
+    private string successMessage = string.Empty;
+    private string errorMessage = string.Empty;
+    private bool isSubmitting = false;
+    private bool isLoading = false;
+    private bool IsEditMode => ProductId.HasValue;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadCategories();
+
+        if (IsEditMode)
+        {
+            await LoadProduct();
+        }
+        else
+        {
+            createModel = new CreateProductDto { IsActive = true, StockOnHand = 0, ReorderLevel = 0 };
+        }
+    }
+
+    private async Task LoadCategories()
+    {
+        try
+        {
+            var result = await CategoryService.GetAllCategoriesAsync();
+            categories = result.ToList();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error loading categories: {ex.Message}";
+        }
+    }
+
+    private async Task LoadProduct()
+    {
+        isLoading = true;
+        try
+        {
+            var product = await ProductService.GetProductByIdAsync(ProductId!.Value);
+            if (product != null)
+            {
+                updateModel = new UpdateProductDto
+                    {
+                        Id = product.Id,
+                        SKU = product.SKU,
+                        Name = product.Name,
+                        Description = product.Description,
+                        IsActive = product.IsActive,
+                        THCPercentage = product.THCPercentage,
+                        CBDPercentage = product.CBDPercentage,
+                        BatchNumber = product.BatchNumber,
+                        StrainName = product.StrainName,
+                        LabTestDate = product.LabTestDate,
+                        ExpiryDate = product.ExpiryDate,
+                        Price = product.Price,
+                        CostPrice = product.CostPrice,
+                        StockOnHand = product.StockOnHand,
+                        ReorderLevel = product.ReorderLevel,
+                        CategoryId = product.CategoryId
+                    };
+            }
+            else
+            {
+                errorMessage = "Product not found";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error loading product: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task HandleSubmit(object submittedModel)
+    {
+        validationErrors.Clear();
+        errorMessage = string.Empty;
+        successMessage = string.Empty;
+        isSubmitting = true;
+
+        try
+        {
+            if (IsEditMode)
+            {
+                var validationResult = await UpdateValidator.ValidateAsync(updateModel);
+
+                if (!validationResult.IsValid)
+                {
+                    validationErrors = validationResult.Errors.Select(e => e.ErrorMessage).ToList();
+                    return;
+                }
+
+                var updated = await ProductService.UpdateProductAsync(updateModel);
+                successMessage = $"Product '{updated.Name}' updated successfully!";
+
+                await Task.Delay(1500);
+                Navigation.NavigateTo("/products");
+            }
+            else
+            {
+                var validationResult = await CreateValidator.ValidateAsync(createModel);
+
+                if (!validationResult.IsValid)
+                {
+                    validationErrors = validationResult.Errors.Select(e => e.ErrorMessage).ToList();
+                    return;
+                }
+
+                var created = await ProductService.CreateProductAsync(createModel);
+                successMessage = $"Product '{created.Name}' created successfully! SKU: {created.SKU}";
+
+                await Task.Delay(1500);
+                Navigation.NavigateTo("/products");
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+
+    private void Cancel()
+    {
+        Navigation.NavigateTo("/products");
+    }
+}

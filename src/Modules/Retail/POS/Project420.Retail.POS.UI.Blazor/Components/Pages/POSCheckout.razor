@@ -1,0 +1,358 @@
+@page "/pos/checkout"
+@using Project420.Retail.POS.BLL.Services
+@using Project420.Retail.POS.BLL.DTOs
+@using Project420.Shared.Core.Enums
+@inject ITransactionService TransactionService
+
+<PageTitle>POS Checkout</PageTitle>
+
+<div class="container-fluid">
+    <h2>Point of Sale - Checkout</h2>
+
+    @if (checkoutResult != null && checkoutResult.Success)
+    {
+        <!-- RECEIPT DISPLAY -->
+        <div class="alert alert-success">
+            <h4>✅ Sale Completed Successfully!</h4>
+            <div class="card mt-3">
+                <div class="card-header bg-success text-white">
+                    <h5>Receipt - @checkoutResult.TransactionNumber</h5>
+                </div>
+                <div class="card-body">
+                    <p><strong>Date:</strong> @checkoutResult.TransactionDate.ToString("yyyy-MM-dd HH:mm")</p>
+                    <p><strong>Customer:</strong> @checkoutResult.CustomerName</p>
+                    <p><strong>Payment Method:</strong> @checkoutResult.PaymentMethod</p>
+
+                    <hr />
+
+                    <h6>Items (@checkoutResult.ItemCount)</h6>
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Product</th>
+                                <th>Qty</th>
+                                <th>Price</th>
+                                <th>Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in checkoutResult.LineItems)
+                            {
+                                <tr>
+                                    <td>@item.ProductName</td>
+                                    <td>@item.Quantity</td>
+                                    <td>R @item.UnitPriceInclVAT.ToString("F2")</td>
+                                    <td>R @item.LineTotal.ToString("F2")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+
+                    <hr />
+
+                    <div class="row">
+                        <div class="col-md-6 offset-md-6">
+                            <table class="table table-sm">
+                                <tr>
+                                    <td>Subtotal:</td>
+                                    <td class="text-end">R @checkoutResult.Subtotal.ToString("F2")</td>
+                                </tr>
+                                <tr>
+                                    <td>VAT (15%):</td>
+                                    <td class="text-end">R @checkoutResult.VATAmount.ToString("F2")</td>
+                                </tr>
+                                @if (checkoutResult.DiscountAmount > 0)
+                                {
+                                    <tr>
+                                        <td>Discount:</td>
+                                        <td class="text-end text-danger">-R @checkoutResult.DiscountAmount.ToString("F2")</td>
+                                    </tr>
+                                }
+                                <tr class="fw-bold">
+                                    <td>TOTAL:</td>
+                                    <td class="text-end">R @checkoutResult.TotalAmount.ToString("F2")</td>
+                                </tr>
+                                @if (checkoutResult.ChangeDue.HasValue && checkoutResult.ChangeDue.Value > 0)
+                                {
+                                    <tr>
+                                        <td>Tendered:</td>
+                                        <td class="text-end">R @checkoutResult.AmountTendered?.ToString("F2")</td>
+                                    </tr>
+                                    <tr class="text-success fw-bold">
+                                        <td>CHANGE:</td>
+                                        <td class="text-end">R @checkoutResult.ChangeDue?.ToString("F2")</td>
+                                    </tr>
+                                }
+                            </table>
+                        </div>
+                    </div>
+
+                    @if (!string.IsNullOrEmpty(checkoutResult.BatchNumbers))
+                    {
+                        <div class="alert alert-info mt-2">
+                            <small><strong>Batch Numbers:</strong> @checkoutResult.BatchNumbers</small>
+                        </div>
+                    }
+                </div>
+                <div class="card-footer">
+                    <button class="btn btn-primary" @onclick="StartNewSale">New Sale</button>
+                </div>
+            </div>
+        </div>
+    }
+    else
+    {
+        <!-- CHECKOUT FORM -->
+        <div class="row">
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>Shopping Cart</h5>
+                    </div>
+                    <div class="card-body">
+                        @if (cart.Count == 0)
+                        {
+                            <div class="alert alert-warning">
+                                Cart is empty. Add products to continue.
+                            </div>
+
+                            <!-- DEMO: Quick add products -->
+                            <div class="mt-3">
+                                <h6>Quick Add (Demo Data)</h6>
+                                <button class="btn btn-sm btn-outline-primary" @onclick="() => AddDemoProduct(1, 100.00m)">
+                                    Add Cannabis Flower - R100.00
+                                </button>
+                                <button class="btn btn-sm btn-outline-primary ms-2" @onclick="() => AddDemoProduct(2, 50.00m)">
+                                    Add Pre-Roll - R50.00
+                                </button>
+                            </div>
+                        }
+                        else
+                        {
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Product</th>
+                                        <th>Quantity</th>
+                                        <th>Price</th>
+                                        <th>Total</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var item in cart)
+                                    {
+                                        <tr>
+                                            <td>@item.ProductName</td>
+                                            <td>
+                                                <input type="number" class="form-control form-control-sm" style="width: 80px;"
+                                                       @bind="item.Quantity" min="1" />
+                                            </td>
+                                            <td>R @item.UnitPriceInclVAT.ToString("F2")</td>
+                                            <td>R @((item.UnitPriceInclVAT * item.Quantity).ToString("F2"))</td>
+                                            <td>
+                                                <button class="btn btn-sm btn-danger" @onclick="() => RemoveFromCart(item)">Remove</button>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+
+                            <div class="text-end">
+                                <h5>Cart Total: R @cart.Sum(c => c.UnitPriceInclVAT * c.Quantity).ToString("F2")</h5>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header bg-primary text-white">
+                        <h5>Complete Sale</h5>
+                    </div>
+                    <div class="card-body">
+                        <!-- Customer Info -->
+                        <div class="mb-3">
+                            <label class="form-label">Customer Name</label>
+                            <input type="text" class="form-control" @bind="customerName"
+                                   placeholder="Walk-In Customer" />
+                        </div>
+
+                        <!-- Age Verification (Cannabis Act Requirement) -->
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input @(ageVerified ? "border-success" : "border-danger")"
+                                       type="checkbox"
+                                       id="ageVerified"
+                                       @bind="ageVerified" />
+                                <label class="form-check-label fw-bold @(ageVerified ? "text-success" : "text-danger")" for="ageVerified">
+                                    ✓ Age Verified (18+) - REQUIRED
+                                </label>
+                            </div>
+                            @if (!ageVerified)
+                            {
+                                <small class="text-danger">Cannabis Act compliance: Must verify customer is 18+</small>
+                            }
+                        </div>
+
+                        <!-- Payment Method -->
+                        <div class="mb-3">
+                            <label class="form-label">Payment Method</label>
+                            <select class="form-select" @bind="paymentMethod">
+                                <option value="@PaymentMethod.Cash">Cash</option>
+                                <option value="@PaymentMethod.Card">Card</option>
+                                <option value="@PaymentMethod.EFT">EFT</option>
+                                <option value="@PaymentMethod.MobilePayment">Mobile Payment</option>
+                            </select>
+                        </div>
+
+                        <!-- Cash Tendered (if cash payment) -->
+                        @if (paymentMethod == PaymentMethod.Cash)
+                        {
+                            <div class="mb-3">
+                                <label class="form-label">Amount Tendered</label>
+                                <input type="number" class="form-control" @bind="amountTendered"
+                                       step="0.01" min="0" placeholder="0.00" />
+                                @if (amountTendered > 0)
+                                {
+                                    var total = cart.Sum(c => c.UnitPriceInclVAT * c.Quantity);
+                                    var change = amountTendered - total;
+                                    <small class="@(change >= 0 ? "text-success" : "text-danger")">
+                                        Change: R @change.ToString("F2")
+                                    </small>
+                                }
+                            </div>
+                        }
+
+                        <!-- Error Messages -->
+                        @if (errorMessages.Any())
+                        {
+                            <div class="alert alert-danger">
+                                <ul class="mb-0">
+                                    @foreach (var error in errorMessages)
+                                    {
+                                        <li>@error</li>
+                                    }
+                                </ul>
+                            </div>
+                        }
+
+                        <!-- Checkout Button -->
+                        <button class="btn btn-success btn-lg w-100"
+                                @onclick="ProcessCheckout"
+                                disabled="@(cart.Count == 0 || !ageVerified || isProcessing)">
+                            @if (isProcessing)
+                            {
+                                <span class="spinner-border spinner-border-sm me-2"></span>
+                                <text>Processing...</text>
+                            }
+                            else
+                            {
+                                <text>Complete Sale</text>
+                            }
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    // Cart state
+    private List<CartItemDto> cart = new();
+
+    // Checkout form state
+    private string customerName = "Walk-In Customer";
+    private bool ageVerified = false;
+    private PaymentMethod paymentMethod = PaymentMethod.Cash;
+    private decimal amountTendered = 0;
+
+    // Processing state
+    private bool isProcessing = false;
+    private List<string> errorMessages = new();
+    private CheckoutResultDto? checkoutResult = null;
+
+    // Demo product counter
+    private int demoProductId = 1;
+
+    /// <summary>
+    /// Add demo product to cart (for testing)
+    /// </summary>
+    private void AddDemoProduct(int id, decimal price)
+    {
+        cart.Add(new CartItemDto
+        {
+            ProductId = id,
+            ProductSku = $"DEMO-{id:D3}",
+            ProductName = id == 1 ? "Cannabis Flower - Indica" : "Cannabis Pre-Roll",
+            UnitPriceInclVAT = price,
+            Quantity = 1,
+            BatchNumber = $"BATCH-{DateTime.Now:yyyyMMdd}-{id:D3}",
+            CostPrice = price * 0.6m // 40% margin
+        });
+    }
+
+    /// <summary>
+    /// Remove item from cart
+    /// </summary>
+    private void RemoveFromCart(CartItemDto item)
+    {
+        cart.Remove(item);
+    }
+
+    /// <summary>
+    /// Process the checkout
+    /// </summary>
+    private async Task ProcessCheckout()
+    {
+        errorMessages.Clear();
+        isProcessing = true;
+
+        try
+        {
+            // Build checkout request
+            var request = new CheckoutRequestDto
+            {
+                CustomerName = string.IsNullOrWhiteSpace(customerName) ? "Walk-In Customer" : customerName,
+                AgeVerified = ageVerified,
+                AgeVerificationDate = DateTime.UtcNow,
+                CartItems = cart,
+                PaymentMethod = paymentMethod,
+                AmountTendered = paymentMethod == PaymentMethod.Cash ? amountTendered : null,
+                ProcessedBy = 1 // TODO: Get from logged-in user
+            };
+
+            // Call service
+            checkoutResult = await TransactionService.ProcessCheckoutAsync(request);
+
+            if (!checkoutResult.Success)
+            {
+                errorMessages = checkoutResult.ErrorMessages;
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessages.Add($"System error: {ex.Message}");
+        }
+        finally
+        {
+            isProcessing = false;
+        }
+    }
+
+    /// <summary>
+    /// Start a new sale (reset form)
+    /// </summary>
+    private void StartNewSale()
+    {
+        cart.Clear();
+        customerName = "Walk-In Customer";
+        ageVerified = false;
+        paymentMethod = PaymentMethod.Cash;
+        amountTendered = 0;
+        errorMessages.Clear();
+        checkoutResult = null;
+    }
+}

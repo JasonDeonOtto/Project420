@@ -1,0 +1,280 @@
+@page "/customers"
+@using Project420.Management.BLL.Sales.SalesCommon.Services
+@using Project420.Management.Models.Entities.Sales.Common
+@using Project420.Shared.Core.Services.DataProtection
+@inject CustomerService CustomerService
+@inject NavigationManager Navigation
+@inject IDataProtectionService DataProtection
+@rendermode InteractiveServer
+
+<PageTitle>Customer List</PageTitle>
+
+<div class="base-form-container">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+        <h2 class="form-title" style="margin-bottom: 0;">Customer List</h2>
+        <button class="btn-primary-custom btn-icon" @onclick="NavigateToRegistration">
+            <img src="images/cannabis-seed.svg" alt="" />
+            <span>Register New Customer</span>
+        </button>
+    </div>
+
+    @if (isLoading)
+    {
+        <div style="text-align: center; padding: 3rem;">
+            <img src="images/cannabis-seed.svg" class="loading-icon" alt="Loading" />
+            <p style="color: var(--text-secondary); font-family: 'Shadows Into Light', cursive; margin-top: 1rem;">Loading customers...</p>
+        </div>
+    }
+    else if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert-custom alert-danger-custom">
+            @errorMessage
+        </div>
+    }
+    else
+    {
+        <!-- Search Bar -->
+        <div class="form-section" style="margin-bottom: 2rem;">
+            <div style="display: grid; grid-template-columns: 1fr auto; gap: 1rem; align-items: center;">
+                <div class="form-field" style="margin-bottom: 0;">
+                    <input type="text" class="form-input" placeholder="Search by name, email, or mobile..."
+                           @bind="searchTerm" @bind:event="oninput" @bind:after="ApplyFilter"
+                           style="margin-bottom: 0;" />
+                </div>
+                <div>
+                    <span style="padding: 0.5rem 1rem; background-color: var(--cannabis-green); color: var(--text-primary); font-family: 'Permanent Marker', cursive; font-size: 1rem;">
+                        Total: @filteredCustomers.Count()
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        @if (filteredCustomers.Any())
+        {
+            <div class="form-section">
+                <table class="table-custom">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Name</th>
+                            <th>ID Number</th>
+                            <th>Mobile</th>
+                            <th>Email</th>
+                            <th>Age Verified</th>
+                            <th>Medical Patient</th>
+                            <th>Credit Limit</th>
+                            <th>Balance</th>
+                            <th>POPIA Consent</th>
+                            <th>Created</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var customer in filteredCustomers)
+                        {
+                            <tr>
+                                <td>@customer.Id</td>
+                                <td>
+                                    <strong style="color: var(--cannabis-green-light);">@customer.Name</strong>
+                                    @if (!customer.IsActive)
+                                    {
+                                        <span style="padding: 0.25rem 0.5rem; background-color: var(--dead-rose-purple); color: var(--text-primary); font-family: 'Permanent Marker', cursive; font-size: 0.7rem; margin-left: 0.5rem;">Inactive</span>
+                                    }
+                                </td>
+                                <td>
+                                    <span title="ID Number masked for POPIA compliance">
+                                        @DataProtection.MaskIdNumber(customer.IdNumber)
+                                    </span>
+                                </td>
+                                <td>
+                                    <span title="Mobile number masked for POPIA compliance">
+                                        @DataProtection.MaskMobile(customer.Mobile)
+                                    </span>
+                                </td>
+                                <td>
+                                    <span title="Email masked for POPIA compliance">
+                                        @DataProtection.MaskEmail(customer.Email)
+                                    </span>
+                                </td>
+                                <td>
+                                    @if (customer.AgeVerified)
+                                    {
+                                        <span style="padding: 0.25rem 0.5rem; background-color: var(--cannabis-green); color: var(--text-primary); font-family: 'Permanent Marker', cursive; font-size: 0.75rem;">
+                                            Verified
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span style="padding: 0.25rem 0.5rem; background-color: var(--ferrari-red-faded); color: var(--text-primary); font-family: 'Permanent Marker', cursive; font-size: 0.75rem;">
+                                            Not Verified
+                                        </span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (!string.IsNullOrEmpty(customer.MedicalPermitNumber))
+                                    {
+                                        <span style="padding: 0.25rem 0.5rem; background-color: var(--cannabis-green); color: var(--text-primary); font-family: 'Permanent Marker', cursive; font-size: 0.75rem;" title="@DataProtection.MaskMedicalPermit(customer.MedicalPermitNumber)">
+                                            Section 21
+                                        </span>
+                                        @if (customer.MedicalPermitExpiryDate.HasValue)
+                                        {
+                                            var daysUntilExpiry = (customer.MedicalPermitExpiryDate.Value - DateTime.Today).Days;
+                                            @if (daysUntilExpiry <= 30 && daysUntilExpiry >= 0)
+                                            {
+                                                <span style="padding: 0.25rem 0.5rem; background-color: var(--ferrari-red-hover); color: var(--text-primary); font-family: 'Permanent Marker', cursive; font-size: 0.7rem; margin-left: 0.25rem;">Expires Soon</span>
+                                            }
+                                            else if (daysUntilExpiry < 0)
+                                            {
+                                                <span style="padding: 0.25rem 0.5rem; background-color: var(--ferrari-red-faded); color: var(--text-primary); font-family: 'Permanent Marker', cursive; font-size: 0.7rem; margin-left: 0.25rem;">Expired</span>
+                                            }
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <span style="color: var(--text-secondary);">-</span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (customer.CreditLimit > 0)
+                                    {
+                                        <span style="color: var(--cannabis-green-light);">R @customer.CreditLimit.ToString("N2")</span>
+                                    }
+                                    else
+                                    {
+                                        <span style="color: var(--text-secondary);">Cash Only</span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (customer.CurrentBalance > 0)
+                                    {
+                                        <span style="color: var(--ferrari-red-faded);">R @customer.CurrentBalance.ToString("N2")</span>
+                                    }
+                                    else if (customer.CurrentBalance < 0)
+                                    {
+                                        <span style="color: var(--cannabis-green-light);">R @customer.CurrentBalance.ToString("N2")</span>
+                                    }
+                                    else
+                                    {
+                                        <span>R 0.00</span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (customer.ConsentGiven)
+                                    {
+                                        <span style="padding: 0.25rem 0.5rem; background-color: var(--cannabis-green); color: var(--text-primary); font-family: 'Permanent Marker', cursive; font-size: 0.75rem;">
+                                            Given
+                                        </span>
+                                        @if (customer.ConsentDate.HasValue)
+                                        {
+                                            <br />
+                                            <small style="color: var(--text-secondary); font-size: 0.75rem;">@customer.ConsentDate.Value.ToString("yyyy-MM-dd")</small>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <span style="padding: 0.25rem 0.5rem; background-color: var(--ferrari-red-faded); color: var(--text-primary); font-family: 'Permanent Marker', cursive; font-size: 0.75rem;">
+                                            Not Given
+                                        </span>
+                                    }
+                                </td>
+                                <td>
+                                    <small style="font-size: 0.85rem;">@customer.CreatedAt.ToString("yyyy-MM-dd HH:mm")</small>
+                                    <br />
+                                    <small style="color: var(--text-secondary); font-size: 0.75rem;">by @customer.CreatedBy</small>
+                                </td>
+                                <td>
+                                    <button class="btn-secondary-custom btn-action btn-icon" @onclick="() => ViewDetails(customer.Id)" title="View Details">
+                                        <img src="images/cannabis-leaf.svg" alt="" />
+                                        <span>View</span>
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+        else
+        {
+            <div class="alert-custom alert-info-custom" style="text-align: center;">
+                @if (string.IsNullOrWhiteSpace(searchTerm))
+                {
+                    <p style="margin-bottom: 0;">No customers registered yet. Click "Register New Customer" to add one.</p>
+                }
+                else
+                {
+                    <p style="margin-bottom: 0;">No customers found matching "@searchTerm"</p>
+                }
+            </div>
+        }
+    }
+</div>
+
+@code {
+    private List<Debtor> customers = new();
+    private IEnumerable<Debtor> filteredCustomers = Enumerable.Empty<Debtor>();
+    private string searchTerm = string.Empty;
+    private bool isLoading = true;
+    private string errorMessage = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadCustomers();
+    }
+
+    private async Task LoadCustomers()
+    {
+        isLoading = true;
+        errorMessage = string.Empty;
+
+        try
+        {
+            var result = await CustomerService.GetAllCustomersAsync();
+            customers = result.ToList();
+            filteredCustomers = customers;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error loading customers: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void OnSearchChanged(ChangeEventArgs e)
+    {
+        searchTerm = e.Value?.ToString() ?? string.Empty;
+        ApplyFilter();
+    }
+
+    private void ApplyFilter()
+    {
+        if (string.IsNullOrWhiteSpace(searchTerm))
+        {
+            filteredCustomers = customers;
+        }
+        else
+        {
+            var term = searchTerm.ToLower();
+            filteredCustomers = customers.Where(c =>
+                c.Name.ToLower().Contains(term) ||
+                (c.Email != null && c.Email.ToLower().Contains(term)) ||
+                (c.Mobile != null && c.Mobile.Contains(term)) ||
+                (c.IdNumber != null && c.IdNumber.Contains(term))
+            );
+        }
+    }
+
+    private void NavigateToRegistration()
+    {
+        Navigation.NavigateTo("/customer-registration");
+    }
+
+    private void ViewDetails(int customerId)
+    {
+        // TODO: Navigate to customer details page
+        // Navigation.NavigateTo($"/customers/{customerId}");
+    }
+}

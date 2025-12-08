@@ -8,6 +8,9 @@ using Project420.Retail.POS.UI.Blazor.Components;
 using Project420.Retail.POS.BLL.Services;
 using Project420.Shared.Infrastructure.Services;
 using Project420.Shared.Infrastructure.Interfaces;
+using Project420.Cultivation.DAL;
+using Project420.Production.DAL;
+using Project420.Inventory.DAL;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -33,6 +36,21 @@ builder.Services.AddDbContext<ManagementDbContext>(options =>
 // Uses SharedConnection → Project420_Shared database (separate DB)
 builder.Services.AddDbContext<SharedDbContext>(options =>
     options.UseSqlServer(sharedConnection));
+
+// Register CultivationDbContext (Cannabis plant tracking, grow cycles, harvest batches)
+// Uses BusinessConnection → Project420_Dev database
+builder.Services.AddDbContext<CultivationDbContext>(options =>
+    options.UseSqlServer(businessConnection));
+
+// Register ProductionDbContext (Processing workflow, QC, lab testing)
+// Uses BusinessConnection → Project420_Dev database
+builder.Services.AddDbContext<ProductionDbContext>(options =>
+    options.UseSqlServer(businessConnection));
+
+// Register InventoryDbContext (Stock movements, transfers, adjustments, counts)
+// Uses BusinessConnection → Project420_Dev database
+builder.Services.AddDbContext<InventoryDbContext>(options =>
+    options.UseSqlServer(businessConnection));
 
 // Register DatabaseSeeder
 builder.Services.AddScoped<DatabaseSeeder>();

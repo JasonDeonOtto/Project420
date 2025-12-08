@@ -7,6 +7,9 @@
     <ProjectReference Include="..\..\..\..\Shared\Project420.Shared.Database\Project420.Shared.Database.csproj" />
     <ProjectReference Include="..\..\..\..\Shared\Project420.Shared.Infrastructure\Project420.Shared.Infrastructure.csproj" />
     <ProjectReference Include="..\..\..\..\Shared\Project420.Shared.UI.Blazor\Project420.Shared.UI.Blazor.csproj" />
+    <ProjectReference Include="..\..\..\Cultivation\Project420.Cultivation.DAL\Project420.Cultivation.DAL.csproj" />
+    <ProjectReference Include="..\..\..\Production\Project420.Production.DAL\Project420.Production.DAL.csproj" />
+    <ProjectReference Include="..\..\..\Inventory\Project420.Inventory.DAL\Project420.Inventory.DAL.csproj" />
   </ItemGroup>
 
   <ItemGroup>

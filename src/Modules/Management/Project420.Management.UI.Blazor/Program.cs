@@ -17,6 +17,9 @@ using Project420.Management.DAL.Repositories.Sales.Retail;
 using Project420.Management.BLL.Sales.Retail.Services;
 using Project420.Management.BLL.Sales.Retail.DTOs;
 using Project420.Management.BLL.Sales.Retail.Validators;
+using Project420.Cultivation.DAL;
+using Project420.Production.DAL;
+using Project420.Inventory.DAL;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -28,6 +31,16 @@ builder.Services.AddRazorComponents()
 // DATABASE CONFIGURATION
 // ============================================================
 builder.Services.AddDbContext<ManagementDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("BusinessConnection")));
+
+// Phase 5 MVP Modules - Seed-to-Sale Traceability
+builder.Services.AddDbContext<CultivationDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("BusinessConnection")));
+
+builder.Services.AddDbContext<ProductionDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("BusinessConnection")));
+
+builder.Services.AddDbContext<InventoryDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("BusinessConnection")));
 
 // ============================================================

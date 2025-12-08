@@ -5,6 +5,9 @@
     <ProjectReference Include="..\Project420.Management.BLL\Project420.Management.BLL.csproj" />
     <ProjectReference Include="..\..\..\Shared\Project420.Shared.Core\Project420.Shared.Core.csproj" />
     <ProjectReference Include="..\..\..\Shared\Project420.Shared.UI.Blazor\Project420.Shared.UI.Blazor.csproj" />
+    <ProjectReference Include="..\..\Cultivation\Project420.Cultivation.DAL\Project420.Cultivation.DAL.csproj" />
+    <ProjectReference Include="..\..\Production\Project420.Production.DAL\Project420.Production.DAL.csproj" />
+    <ProjectReference Include="..\..\Inventory\Project420.Inventory.DAL\Project420.Inventory.DAL.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -14,6 +17,13 @@
     <Folder Include="Components\Pages\SystemAdministration\" />
     <Folder Include="Components\Pages\StockManagement\" />
     <Folder Include="Components\Pages\Purchasing\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.0">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
   </ItemGroup>
 
   <PropertyGroup>

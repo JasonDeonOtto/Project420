@@ -10,6 +10,10 @@
     <PackageReference Include="FluentValidation.AspNetCore" Version="11.3.0" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.0" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.11" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.0">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
     <PackageReference Include="Swashbuckle.AspNetCore" Version="7.2.0" />
   </ItemGroup>
 
@@ -17,6 +21,13 @@
     <ProjectReference Include="..\..\Modules\OnlineOrders\Project420.OnlineOrders.BLL\Project420.OnlineOrders.BLL.csproj" />
     <ProjectReference Include="..\..\Shared\Project420.Shared.Core\Project420.Shared.Core.csproj" />
     <ProjectReference Include="..\..\Shared\Project420.Shared.Infrastructure\Project420.Shared.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\Modules\Cultivation\Project420.Cultivation.DAL\Project420.Cultivation.DAL.csproj" />
+    <ProjectReference Include="..\..\Modules\Cultivation\Project420.Cultivation.BLL\Project420.Cultivation.BLL.csproj" />
+    <ProjectReference Include="..\..\Modules\Production\Project420.Production.DAL\Project420.Production.DAL.csproj" />
+    <ProjectReference Include="..\..\Modules\Production\Project420.Production.BLL\Project420.Production.BLL.csproj" />
+    <ProjectReference Include="..\..\Modules\Inventory\Project420.Inventory.DAL\Project420.Inventory.DAL.csproj" />
+    <ProjectReference Include="..\..\Modules\Inventory\Project420.Inventory.BLL\Project420.Inventory.BLL.csproj" />
+    <ProjectReference Include="..\..\Modules\Management\Project420.Management.BLL\Project420.Management.BLL.csproj" />
   </ItemGroup>
 
 </Project>

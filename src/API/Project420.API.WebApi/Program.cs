@@ -1,5 +1,6 @@
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Project420.API.WebApi.Configuration;
@@ -17,6 +18,93 @@ builder.Services.AddSingleton(jwtSettings);
 // ===== Services =====
 
 builder.Services.AddControllers();
+
+// Database Contexts
+builder.Services.AddDbContext<Project420.Cultivation.DAL.CultivationDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+builder.Services.AddDbContext<Project420.Production.DAL.ProductionDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+builder.Services.AddDbContext<Project420.Inventory.DAL.InventoryDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+// Cultivation Module - Repositories & Services
+builder.Services.AddScoped<Project420.Cultivation.DAL.Repositories.IPlantRepository, Project420.Cultivation.DAL.Repositories.PlantRepository>();
+builder.Services.AddScoped<Project420.Cultivation.DAL.Repositories.IGrowCycleRepository, Project420.Cultivation.DAL.Repositories.GrowCycleRepository>();
+builder.Services.AddScoped<Project420.Cultivation.DAL.Repositories.IGrowRoomRepository, Project420.Cultivation.DAL.Repositories.GrowRoomRepository>();
+builder.Services.AddScoped<Project420.Cultivation.DAL.Repositories.IHarvestBatchRepository, Project420.Cultivation.DAL.Repositories.HarvestBatchRepository>();
+builder.Services.AddScoped<Project420.Cultivation.BLL.Services.IPlantService, Project420.Cultivation.BLL.Services.PlantService>();
+builder.Services.AddScoped<Project420.Cultivation.BLL.Services.IGrowCycleService, Project420.Cultivation.BLL.Services.GrowCycleService>();
+builder.Services.AddScoped<Project420.Cultivation.BLL.Services.IGrowRoomService, Project420.Cultivation.BLL.Services.GrowRoomService>();
+builder.Services.AddScoped<Project420.Cultivation.BLL.Services.IHarvestBatchService, Project420.Cultivation.BLL.Services.HarvestBatchService>();
+
+// Production Module - Repositories & Services
+builder.Services.AddScoped<Project420.Production.DAL.Repositories.IProductionBatchRepository, Project420.Production.DAL.Repositories.ProductionBatchRepository>();
+builder.Services.AddScoped<Project420.Production.DAL.Repositories.IProcessingStepRepository, Project420.Production.DAL.Repositories.ProcessingStepRepository>();
+builder.Services.AddScoped<Project420.Production.DAL.Repositories.IQualityControlRepository, Project420.Production.DAL.Repositories.QualityControlRepository>();
+builder.Services.AddScoped<Project420.Production.DAL.Repositories.ILabTestRepository, Project420.Production.DAL.Repositories.LabTestRepository>();
+builder.Services.AddScoped<Project420.Production.BLL.Services.IProductionBatchService, Project420.Production.BLL.Services.ProductionBatchService>();
+builder.Services.AddScoped<Project420.Production.BLL.Services.IProcessingStepService, Project420.Production.BLL.Services.ProcessingStepService>();
+builder.Services.AddScoped<Project420.Production.BLL.Services.IQualityControlService, Project420.Production.BLL.Services.QualityControlService>();
+builder.Services.AddScoped<Project420.Production.BLL.Services.ILabTestService, Project420.Production.BLL.Services.LabTestService>();
+
+// Inventory Module - Repositories & Services
+builder.Services.AddScoped<Project420.Inventory.DAL.Repositories.IStockMovementRepository, Project420.Inventory.DAL.Repositories.StockMovementRepository>();
+builder.Services.AddScoped<Project420.Inventory.DAL.Repositories.IStockTransferRepository, Project420.Inventory.DAL.Repositories.StockTransferRepository>();
+builder.Services.AddScoped<Project420.Inventory.DAL.Repositories.IStockAdjustmentRepository, Project420.Inventory.DAL.Repositories.StockAdjustmentRepository>();
+builder.Services.AddScoped<Project420.Inventory.DAL.Repositories.IStockCountRepository, Project420.Inventory.DAL.Repositories.StockCountRepository>();
+builder.Services.AddScoped<Project420.Inventory.BLL.Services.IStockMovementService, Project420.Inventory.BLL.Services.StockMovementService>();
+builder.Services.AddScoped<Project420.Inventory.BLL.Services.IStockTransferService, Project420.Inventory.BLL.Services.StockTransferService>();
+builder.Services.AddScoped<Project420.Inventory.BLL.Services.IStockAdjustmentService, Project420.Inventory.BLL.Services.StockAdjustmentService>();
+builder.Services.AddScoped<Project420.Inventory.BLL.Services.IStockCountService, Project420.Inventory.BLL.Services.StockCountService>();
+
+// FluentValidation - Cultivation Module
+builder.Services.AddScoped<FluentValidation.IValidator<Project420.Cultivation.BLL.DTOs.CreatePlantDto>, Project420.Cultivation.BLL.Validators.CreatePlantValidator>();
+builder.Services.AddScoped<FluentValidation.IValidator<Project420.Cultivation.BLL.DTOs.UpdatePlantDto>, Project420.Cultivation.BLL.Validators.UpdatePlantValidator>();
+builder.Services.AddScoped<FluentValidation.IValidator<Project420.Cultivation.BLL.DTOs.CreateGrowCycleDto>, Project420.Cultivation.BLL.Validators.CreateGrowCycleValidator>();
+builder.Services.AddScoped<FluentValidation.IValidator<Project420.Cultivation.BLL.DTOs.UpdateGrowCycleDto>, Project420.Cultivation.BLL.Validators.UpdateGrowCycleValidator>();
+builder.Services.AddScoped<FluentValidation.IValidator<Project420.Cultivation.BLL.DTOs.CreateGrowRoomDto>, Project420.Cultivation.BLL.Validators.CreateGrowRoomValidator>();
+builder.Services.AddScoped<FluentValidation.IValidator<Project420.Cultivation.BLL.DTOs.UpdateGrowRoomDto>, Project420.Cultivation.BLL.Validators.UpdateGrowRoomValidator>();
+builder.Services.AddScoped<FluentValidation.IValidator<Project420.Cultivation.BLL.DTOs.CreateHarvestBatchDto>, Project420.Cultivation.BLL.Validators.CreateHarvestBatchValidator>();
+builder.Services.AddScoped<FluentValidation.IValidator<Project420.Cultivation.BLL.DTOs.UpdateHarvestBatchDto>, Project420.Cultivation.BLL.Validators.UpdateHarvestBatchValidator>();
+
+// FluentValidation - Production Module
+builder.Services.AddScoped<FluentValidation.IValidator<Project420.Production.BLL.DTOs.CreateProductionBatchDto>, Project420.Production.BLL.Validators.CreateProductionBatchValidator>();
+builder.Services.AddScoped<FluentValidation.IValidator<Project420.Production.BLL.DTOs.UpdateProductionBatchDto>, Project420.Production.BLL.Validators.UpdateProductionBatchValidator>();
+builder.Services.AddScoped<FluentValidation.IValidator<Project420.Production.BLL.DTOs.CreateProcessingStepDto>, Project420.Production.BLL.Validators.CreateProcessingStepValidator>();
+builder.Services.AddScoped<FluentValidation.IValidator<Project420.Production.BLL.DTOs.UpdateProcessingStepDto>, Project420.Production.BLL.Validators.UpdateProcessingStepValidator>();
+builder.Services.AddScoped<FluentValidation.IValidator<Project420.Production.BLL.DTOs.CreateQualityControlDto>, Project420.Production.BLL.Validators.CreateQualityControlValidator>();
+builder.Services.AddScoped<FluentValidation.IValidator<Project420.Production.BLL.DTOs.UpdateQualityControlDto>, Project420.Production.BLL.Validators.UpdateQualityControlValidator>();
+builder.Services.AddScoped<FluentValidation.IValidator<Project420.Production.BLL.DTOs.CreateLabTestDto>, Project420.Production.BLL.Validators.CreateLabTestValidator>();
+builder.Services.AddScoped<FluentValidation.IValidator<Project420.Production.BLL.DTOs.UpdateLabTestDto>, Project420.Production.BLL.Validators.UpdateLabTestValidator>();
+
+// FluentValidation - Inventory Module
+builder.Services.AddScoped<FluentValidation.IValidator<Project420.Inventory.BLL.DTOs.CreateStockMovementDto>, Project420.Inventory.BLL.Validators.CreateStockMovementValidator>();
+builder.Services.AddScoped<FluentValidation.IValidator<Project420.Inventory.BLL.DTOs.UpdateStockMovementDto>, Project420.Inventory.BLL.Validators.UpdateStockMovementValidator>();
+builder.Services.AddScoped<FluentValidation.IValidator<Project420.Inventory.BLL.DTOs.CreateStockTransferDto>, Project420.Inventory.BLL.Validators.CreateStockTransferValidator>();
+builder.Services.AddScoped<FluentValidation.IValidator<Project420.Inventory.BLL.DTOs.UpdateStockTransferDto>, Project420.Inventory.BLL.Validators.UpdateStockTransferValidator>();
+builder.Services.AddScoped<FluentValidation.IValidator<Project420.Inventory.BLL.DTOs.CreateStockAdjustmentDto>, Project420.Inventory.BLL.Validators.CreateStockAdjustmentValidator>();
+builder.Services.AddScoped<FluentValidation.IValidator<Project420.Inventory.BLL.DTOs.UpdateStockAdjustmentDto>, Project420.Inventory.BLL.Validators.UpdateStockAdjustmentValidator>();
+builder.Services.AddScoped<FluentValidation.IValidator<Project420.Inventory.BLL.DTOs.CreateStockCountDto>, Project420.Inventory.BLL.Validators.CreateStockCountValidator>();
+builder.Services.AddScoped<FluentValidation.IValidator<Project420.Inventory.BLL.DTOs.UpdateStockCountDto>, Project420.Inventory.BLL.Validators.UpdateStockCountValidator>();
+
+// FluentValidation - Management Module - Sales (Retail)
+builder.Services.AddScoped<FluentValidation.IValidator<Project420.Management.BLL.Sales.Retail.DTOs.CreatePricelistDto>, Project420.Management.BLL.Sales.Retail.Validators.CreatePricelistValidator>();
+builder.Services.AddScoped<FluentValidation.IValidator<Project420.Management.BLL.Sales.Retail.DTOs.UpdatePricelistDto>, Project420.Management.BLL.Sales.Retail.Validators.UpdatePricelistValidator>();
+builder.Services.AddScoped<FluentValidation.IValidator<Project420.Management.BLL.Sales.Retail.DTOs.CreatePricelistItemDto>, Project420.Management.BLL.Sales.Retail.Validators.CreatePricelistItemValidator>();
+builder.Services.AddScoped<FluentValidation.IValidator<Project420.Management.BLL.Sales.Retail.DTOs.UpdatePricelistItemDto>, Project420.Management.BLL.Sales.Retail.Validators.UpdatePricelistItemValidator>();
+
+// FluentValidation - Management Module - Sales (Common)
+builder.Services.AddScoped<FluentValidation.IValidator<Project420.Management.BLL.Sales.SalesCommon.DTOs.CustomerRegistrationDto>, Project420.Management.BLL.Sales.SalesCommon.Validators.CustomerRegistrationValidator>();
+builder.Services.AddScoped<FluentValidation.IValidator<Project420.Management.BLL.Sales.SalesCommon.DTOs.CreateDebtorCategoryDto>, Project420.Management.BLL.Sales.SalesCommon.Validators.CreateDebtorCategoryValidator>();
+builder.Services.AddScoped<FluentValidation.IValidator<Project420.Management.BLL.Sales.SalesCommon.DTOs.UpdateDebtorCategoryDto>, Project420.Management.BLL.Sales.SalesCommon.Validators.UpdateDebtorCategoryValidator>();
+
+// FluentValidation - Management Module - Stock Management
+builder.Services.AddScoped<FluentValidation.IValidator<Project420.Management.BLL.StockManagement.DTOs.CreateProductDto>, Project420.Management.BLL.StockManagement.Validators.CreateProductValidator>();
+builder.Services.AddScoped<FluentValidation.IValidator<Project420.Management.BLL.StockManagement.DTOs.UpdateProductDto>, Project420.Management.BLL.StockManagement.Validators.UpdateProductValidator>();
+builder.Services.AddScoped<FluentValidation.IValidator<Project420.Management.BLL.StockManagement.DTOs.CreateProductCategoryDto>, Project420.Management.BLL.StockManagement.Validators.CreateProductCategoryValidator>();
+builder.Services.AddScoped<FluentValidation.IValidator<Project420.Management.BLL.StockManagement.DTOs.UpdateProductCategoryDto>, Project420.Management.BLL.StockManagement.Validators.UpdateProductCategoryValidator>();
 
 // JWT Authentication
 builder.Services.AddAuthentication(options =>

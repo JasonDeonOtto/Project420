@@ -40,6 +40,8 @@ public class DatabaseSeeder
         await SeedManagementDataAsync();
         await SeedPosDataAsync();
         await SeedSharedDataAsync();
+        // NOTE: Cultivation, Production, and Inventory seeding available in separate seeder
+        // See docs/SEED-DATA-PHASE-5.md for SQL scripts
 
         Console.WriteLine("✅ Database seeding complete!");
     }
@@ -467,4 +469,434 @@ public class DatabaseSeeder
     }
 
     #endregion
+
+    // NOTE: Seed data for Cultivation, Production, and Inventory modules
+    // is available as SQL scripts in docs/SEED-DATA-PHASE-5.md
+    // These modules cannot be seeded here due to circular dependency constraints.
+
+    /* COMMENTED OUT - Seed code moved to separate script
+    #region Cultivation Database Seeding
+
+    private async Task SeedCultivationDataAsync()
+    {
+        Console.WriteLine("\n🌱 Seeding Cultivation database...");
+
+        // Check if already seeded
+        if (await _cultivationContext.Plants.AnyAsync())
+        {
+            Console.WriteLine("⏭️  Cultivation data already exists. Skipping...");
+            return;
+        }
+
+        var now = DateTime.UtcNow;
+
+        // 1. Create Grow Rooms
+        var growRooms = new List<GrowRoom>
+        {
+            new GrowRoom
+            {
+                RoomCode = "GR-MOTHER-01",
+                Name = "Mother Room 1",
+                RoomType = GrowRoomType.MotherRoom,
+                RoomSizeSquareMeters = 50,
+                MaxCapacity = 100,
+                TargetTemperature = "22-24°C",
+                TargetHumidity = "60-70%",
+                LightCycle = "18/6",
+                Location = "Building A - Floor 1",
+                IsActive = true,
+                CreatedBy = "System",
+                CreatedAt = now
+            },
+            new GrowRoom
+            {
+                RoomCode = "GR-VEG-01",
+                Name = "Vegetative Room 1",
+                RoomType = GrowRoomType.VegetativeRoom,
+                RoomSizeSquareMeters = 100,
+                MaxCapacity = 300,
+                TargetTemperature = "22-25°C",
+                TargetHumidity = "60-65%",
+                LightCycle = "18/6",
+                Location = "Building A - Floor 2",
+                IsActive = true,
+                CreatedBy = "System",
+                CreatedAt = now
+            },
+            new GrowRoom
+            {
+                RoomCode = "GR-FLOWER-01",
+                Name = "Flowering Room 1",
+                RoomType = GrowRoomType.FloweringRoom,
+                RoomSizeSquareMeters = 150,
+                MaxCapacity = 250,
+                TargetTemperature = "20-24°C",
+                TargetHumidity = "45-55%",
+                LightCycle = "12/12",
+                Location = "Building A - Floor 3",
+                IsActive = true,
+                CreatedBy = "System",
+                CreatedAt = now
+            }
+        };
+
+        await _cultivationContext.GrowRooms.AddRangeAsync(growRooms);
+        await _cultivationContext.SaveChangesAsync();
+
+        // 2. Create Grow Cycle
+        var growCycle = new GrowCycle
+        {
+            CycleCode = "GC-2024-001",
+            Name = "Durban Poison - Batch 1",
+            StrainName = "Durban Poison",
+            StartDate = now.AddDays(-90), // Started 90 days ago
+            PlannedHarvestDate = now.AddDays(-10),
+            ActualHarvestDate = now.AddDays(-15), // Harvested 15 days ago
+            EndDate = now.AddDays(-15),
+            GrowRoomId = growRooms[2].Id, // Flowering Room
+            TotalPlantsStarted = 20,
+            PlantsHarvested = 18, // 2 plants removed (males/issues)
+            TotalWetWeightGrams = 7200, // 400g wet per plant average
+            TotalDryWeightGrams = 1800, // 25% dry weight (100g per plant)
+            IsActive = false, // Cycle complete
+            CreatedBy = "System",
+            CreatedAt = now.AddDays(-90)
+        };
+
+        await _cultivationContext.GrowCycles.AddAsync(growCycle);
+        await _cultivationContext.SaveChangesAsync();
+
+        // 3. Create Harvest Batch
+        var harvestBatch = new HarvestBatch
+        {
+            BatchNumber = "HB-2024-001",
+            Name = "Durban Poison Harvest - Dec 2024",
+            GrowCycleId = growCycle.Id,
+            StrainName = "Durban Poison",
+            HarvestDate = now.AddDays(-15),
+            DryDate = now.AddDays(-8), // 7 days drying
+            CureDate = now.AddDays(-1), // 7 days curing (total 14 days)
+            TotalWetWeightGrams = 7200,
+            TotalDryWeightGrams = 1800,
+            PlantCount = 18,
+            THCPercentage = "18.5",
+            CBDPercentage = "0.8",
+            LabTestDate = now.AddDays(-2),
+            LabTestCertificateNumber = "LAB-2024-12-001",
+            LabTestPassed = true,
+            ProcessingStatus = "Completed",
+            StorageLocation = "Drying Room - Shelf A",
+            IsActive = true,
+            CreatedBy = "System",
+            CreatedAt = now.AddDays(-15)
+        };
+
+        await _cultivationContext.HarvestBatches.AddAsync(harvestBatch);
+        await _cultivationContext.SaveChangesAsync();
+
+        // 4. Create Sample Plants
+        var plants = new List<Plant>();
+        for (int i = 1; i <= 18; i++)
+        {
+            plants.Add(new Plant
+            {
+                PlantTag = $"PLT-2024-{i:D3}",
+                GrowCycleId = growCycle.Id,
+                StrainName = "Durban Poison",
+                CurrentStage = PlantStage.Harvested,
+                PlantedDate = now.AddDays(-90),
+                HarvestDate = now.AddDays(-15),
+                CurrentGrowRoomId = growRooms[2].Id, // Flowering Room
+                PlantSource = "Clone",
+                PlantSex = "Female",
+                WetWeightGrams = 400,
+                DryWeightGrams = 100,
+                HarvestBatchId = harvestBatch.Id,
+                HealthStatus = "Excellent",
+                IsActive = false, // Harvested
+                CreatedBy = "System",
+                CreatedAt = now.AddDays(-90)
+            });
+        }
+
+        await _cultivationContext.Plants.AddRangeAsync(plants);
+        await _cultivationContext.SaveChangesAsync();
+
+        Console.WriteLine($"✅ Seeded {growRooms.Count} grow rooms");
+        Console.WriteLine($"✅ Seeded 1 grow cycle");
+        Console.WriteLine($"✅ Seeded 1 harvest batch");
+        Console.WriteLine($"✅ Seeded {plants.Count} plants");
+    }
+
+    #endregion
+
+    #region Production Database Seeding
+
+    private async Task SeedProductionDataAsync()
+    {
+        Console.WriteLine("\n🏭 Seeding Production database...");
+
+        // Check if already seeded
+        if (await _productionContext.ProductionBatches.AnyAsync())
+        {
+            Console.WriteLine("⏭️  Production data already exists. Skipping...");
+            return;
+        }
+
+        var now = DateTime.UtcNow;
+
+        // 1. Create Production Batch
+        var productionBatch = new ProductionBatch
+        {
+            BatchNumber = "PB-2024-001",
+            Name = "Durban Poison - Production Batch 1",
+            HarvestBatchNumber = "HB-2024-001", // Links to cultivation
+            StrainName = "Durban Poison",
+            StartingWeightGrams = 1800, // From harvest
+            CurrentWeightGrams = 1440, // After processing (20% loss)
+            FinalWeightGrams = 1440,
+            WasteWeightGrams = 360, // Stems, trim, etc.
+            StartDate = now.AddDays(-10),
+            CompletionDate = now.AddDays(-1),
+            Status = "Completed",
+            QualityControlPassed = true,
+            LabTestPassed = true,
+            THCPercentage = "18.5",
+            CBDPercentage = "0.8",
+            UnitsPackaged = 144, // 10g units
+            PackageSize = "10g",
+            PackagingDate = now.AddDays(-1),
+            IsActive = true,
+            CreatedBy = "System",
+            CreatedAt = now.AddDays(-10)
+        };
+
+        await _productionContext.ProductionBatches.AddAsync(productionBatch);
+        await _productionContext.SaveChangesAsync();
+
+        // 2. Create Processing Steps
+        var processingSteps = new List<ProcessingStep>
+        {
+            new ProcessingStep
+            {
+                ProductionBatchId = productionBatch.Id,
+                StepType = ProcessingStepType.Drying,
+                StepNumber = 1,
+                StartTime = now.AddDays(-10),
+                EndTime = now.AddDays(-3),
+                DurationHours = 168, // 7 days
+                StartWeightGrams = 1800,
+                EndWeightGrams = 1800,
+                Temperature = "18-21°C",
+                Humidity = "45-55%",
+                Status = "Completed",
+                PerformedBy = "Production Team",
+                CreatedBy = "System",
+                CreatedAt = now.AddDays(-10)
+            },
+            new ProcessingStep
+            {
+                ProductionBatchId = productionBatch.Id,
+                StepType = ProcessingStepType.Curing,
+                StepNumber = 2,
+                StartTime = now.AddDays(-3),
+                EndTime = now.AddDays(-2),
+                DurationHours = 24, // 1 day (fast cure for demo)
+                StartWeightGrams = 1800,
+                EndWeightGrams = 1800,
+                Temperature = "18-21°C",
+                Humidity = "58-62%",
+                Status = "Completed",
+                PerformedBy = "Production Team",
+                CreatedBy = "System",
+                CreatedAt = now.AddDays(-3)
+            },
+            new ProcessingStep
+            {
+                ProductionBatchId = productionBatch.Id,
+                StepType = ProcessingStepType.Trimming,
+                StepNumber = 3,
+                StartTime = now.AddDays(-2),
+                EndTime = now.AddDays(-1),
+                DurationHours = 8,
+                StartWeightGrams = 1800,
+                EndWeightGrams = 1440,
+                WasteGrams = 360, // Trim waste
+                Status = "Completed",
+                PerformedBy = "Production Team",
+                CreatedBy = "System",
+                CreatedAt = now.AddDays(-2)
+            },
+            new ProcessingStep
+            {
+                ProductionBatchId = productionBatch.Id,
+                StepType = ProcessingStepType.Packaging,
+                StepNumber = 4,
+                StartTime = now.AddDays(-1),
+                EndTime = now.AddDays(-1),
+                DurationHours = 4,
+                StartWeightGrams = 1440,
+                EndWeightGrams = 1440,
+                Status = "Completed",
+                PerformedBy = "Production Team",
+                CreatedBy = "System",
+                CreatedAt = now.AddDays(-1)
+            }
+        };
+
+        await _productionContext.ProcessingSteps.AddRangeAsync(processingSteps);
+        await _productionContext.SaveChangesAsync();
+
+        // 3. Create Quality Control Checks
+        var qualityChecks = new List<QualityControl>
+        {
+            new QualityControl
+            {
+                ProductionBatchId = productionBatch.Id,
+                CheckType = QualityCheckType.VisualInspection,
+                CheckDate = now.AddDays(-2),
+                Inspector = "QC Manager",
+                Passed = true,
+                Results = "No mold, pests, or defects found. Excellent trichome coverage.",
+                CreatedBy = "System",
+                CreatedAt = now.AddDays(-2)
+            },
+            new QualityControl
+            {
+                ProductionBatchId = productionBatch.Id,
+                CheckType = QualityCheckType.MoistureTest,
+                CheckDate = now.AddDays(-2),
+                Inspector = "QC Technician",
+                Passed = true,
+                Results = "Moisture content: 11.5% (Target: 10-12%)",
+                CreatedBy = "System",
+                CreatedAt = now.AddDays(-2)
+            }
+        };
+
+        await _productionContext.QualityControls.AddRangeAsync(qualityChecks);
+        await _productionContext.SaveChangesAsync();
+
+        // 4. Create Lab Test
+        var labTest = new LabTest
+        {
+            ProductionBatchId = productionBatch.Id,
+            LabName = "SA Cannabis Testing Lab (ISO/IEC 17025 Accredited)",
+            LabCertificateNumber = "ISO-17025-2024-SA-001",
+            COANumber = "COA-2024-12-001",
+            SampleDate = now.AddDays(-3),
+            ResultsDate = now.AddDays(-2),
+            THCPercentage = 18.5m,
+            CBDPercentage = 0.8m,
+            TotalCannabinoidsPercentage = 19.8m,
+            PesticidesPassed = true,
+            HeavyMetalsPassed = true,
+            MicrobialPassed = true,
+            OverallPass = true,
+            COADocumentPath = "/docs/coa/COA-2024-12-001.pdf",
+            Notes = "All tests passed. Cleared for sale.",
+            CreatedBy = "System",
+            CreatedAt = now.AddDays(-3)
+        };
+
+        await _productionContext.LabTests.AddAsync(labTest);
+        await _productionContext.SaveChangesAsync();
+
+        Console.WriteLine($"✅ Seeded 1 production batch");
+        Console.WriteLine($"✅ Seeded {processingSteps.Count} processing steps");
+        Console.WriteLine($"✅ Seeded {qualityChecks.Count} quality checks");
+        Console.WriteLine($"✅ Seeded 1 lab test (COA)");
+    }
+
+    #endregion
+
+    #region Inventory Database Seeding
+
+    private async Task SeedInventoryDataAsync()
+    {
+        Console.WriteLine("\n📦 Seeding Inventory database...");
+
+        // Check if already seeded
+        if (await _inventoryContext.StockMovements.AnyAsync())
+        {
+            Console.WriteLine("⏭️  Inventory data already exists. Skipping...");
+            return;
+        }
+
+        var now = DateTime.UtcNow;
+
+        // 1. Create Stock Movement (Goods Received from Production)
+        var goodsReceived = new StockMovement
+        {
+            MovementNumber = "GRV-2024-001",
+            MovementType = StockMovementType.GoodsReceived,
+            MovementDate = now.AddDays(-1),
+            ProductSKU = "CAN-SAT-001",
+            ProductName = "Durban Poison",
+            BatchNumber = "PB-2024-001", // Links to production
+            Quantity = 144, // 144 x 10g units
+            WeightGrams = 1440,
+            FromLocation = "Production",
+            ToLocation = "Warehouse - Section A",
+            ReferenceNumber = "PB-2024-001",
+            ReferenceType = "ProductionBatch",
+            UnitCost = 90.00m,
+            TotalValue = 12960.00m, // 144 * R90
+            Reason = "Completed production batch received into inventory",
+            CreatedBy = "System",
+            CreatedAt = now.AddDays(-1)
+        };
+
+        await _inventoryContext.StockMovements.AddAsync(goodsReceived);
+        await _inventoryContext.SaveChangesAsync();
+
+        // 2. Create Stock Transfer (Warehouse to Retail Store)
+        var transfer = new StockTransfer
+        {
+            TransferNumber = "TRF-2024-001",
+            TransferDate = now,
+            FromLocation = "Warehouse - Section A",
+            ToLocation = "Retail Store - Main Floor",
+            Status = "Completed",
+            RequestedBy = "Store Manager",
+            AuthorizedBy = "Warehouse Manager",
+            Notes = "Initial stock for retail floor",
+            CreatedBy = "System",
+            CreatedAt = now
+        };
+
+        await _inventoryContext.StockTransfers.AddAsync(transfer);
+        await _inventoryContext.SaveChangesAsync();
+
+        // 3. Create Stock Movement for Transfer
+        var transferMovement = new StockMovement
+        {
+            MovementNumber = "TRF-2024-001-OUT",
+            MovementType = StockMovementType.TransferOut,
+            MovementDate = now,
+            ProductSKU = "CAN-SAT-001",
+            ProductName = "Durban Poison",
+            BatchNumber = "PB-2024-001",
+            Quantity = 50, // Transfer 50 units to retail
+            WeightGrams = 500,
+            FromLocation = "Warehouse - Section A",
+            ToLocation = "Retail Store - Main Floor",
+            ReferenceNumber = "TRF-2024-001",
+            ReferenceType = "StockTransfer",
+            UnitCost = 90.00m,
+            TotalValue = 4500.00m,
+            CreatedBy = "System",
+            CreatedAt = now
+        };
+
+        await _inventoryContext.StockMovements.AddAsync(transferMovement);
+        await _inventoryContext.SaveChangesAsync();
+
+        Console.WriteLine($"✅ Seeded 2 stock movements (GRV + Transfer)");
+        Console.WriteLine($"✅ Seeded 1 stock transfer");
+        Console.WriteLine($"✅ Inventory ready for POS sales");
+    }
+
+    #endregion
+    */
 }

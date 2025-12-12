@@ -1,9 +1,10 @@
 # CLAUDE INITIALIZATION & WORKFLOW - PROJECT420
 
-**Last Updated**: 2025-12-08
-**Status**: ACTIVE - Phase 6 (Validators & Migrations) Complete ✅
+**Last Updated**: 2025-12-12
+**Status**: ACTIVE - Phase 7A Complete ✅ | Movement Architecture Foundation Implemented
 **Project**: Project420 - Cannabis Management System for South Africa
-**Version**: 0.1.0 - Proof of Concept (Phase 6 - All MVP Modules with Database Backing)
+**Version**: 0.1.0 - Proof of Concept (Phase 7A - Movement Architecture)
+**Documentation**: 11 comprehensive specification files in docs/ClaudeExternReferences/PoCHomeStretch/
 
 ---
 
@@ -55,6 +56,61 @@
 6. ✅ Future-proof for expected 2026-2027 commercial regulations
 7. ✅ Implement required tax calculation capabilities
 8. ✅ Follow prescribed development phases from the guides
+
+---
+
+### MANDATORY QUICK REFERENCE: POC HOMESTRETCH DOCUMENTATION
+
+**REQUIRED GLOSSARY CHECK** (CRITICAL for terminology consistency):
+
+**Location**: `docs/ClaudeExternReferences/PoCHomeStretch/10-GLOSSARY.md`
+
+**⚠️ ABSOLUTE REQUIREMENT**: The glossary MUST be checked when:
+- ✅ **Using any technical term** (SOH, Movement, Batch, Serial Number, Transaction, etc.)
+- ✅ **Implementing any feature** (verify terminology matches specification)
+- ✅ **Writing documentation** (use consistent terms across all docs)
+- ✅ **Discussing architecture** (ensure clear understanding of system concepts)
+- ✅ **Communicating with user** (use precise, defined terminology)
+
+**GLOSSARY ENFORCEMENT RULE**:
+- If you encounter ANY ambiguous term, CHECK THE GLOSSARY FIRST
+- The glossary defines the SINGLE SOURCE OF TRUTH for all Project420 terminology
+- Examples: "SOH vs Stock on Hand", "Transaction vs Movement", "Batch vs Serial Number"
+
+**ADDITIONAL POC HOMESTRETCH DOCUMENTATION** (Comprehensive specification suite):
+
+All documents located in: `docs/ClaudeExternReferences/PoCHomeStretch/`
+
+**Core Architectural Documents** (Check when working on related features):
+1. **00-MAIN-SPECIFICATION.md** - Central index, 6-week roadmap (Phases 7-12)
+2. **01-MODULE-DESCRIPTIONS.md** - All 7 modules detailed (6,000+ lines)
+3. **03-MOVEMENT-ARCHITECTURE.md** - Option A architecture (CRITICAL DESIGN DECISION)
+4. **02-INVENTORY-MODULE-SPEC.md** - SOH calculation, movement tracking (18,000+ lines)
+5. **04-RETAIL-POS-REQUIREMENTS.md** - Transaction workflow, compliance (15,000+ lines)
+6. **05-PRODUCTION-MODEL.md** - Single-batch multi-step manufacturing (12,000+ lines)
+7. **07-DATABASE-SCHEMA.md** - Complete ERD, 38 tables, indexing strategy (10,000+ lines)
+
+**Implementation Roadmaps**:
+- **POC-TODO-ROADMAP.md** - 450+ tasks across Phases 7-12 (9,000+ lines)
+- **IMMEDIATE-ACTION-TODO.md** - 7-day actionable plan (Phase 7 focus)
+- **PRODUCTION-DAL-VALIDATION.md** - Production module gap analysis
+
+**Specialized Specifications**:
+- **06-SERIAL-BATCH-GENERATION.md** - Batch/SN number formats with embedded traceability
+- **08-LICENSING-MODEL.md** - Module-based SaaS licensing (commercial strategy)
+- **09-COMPLIANCE-FUTURE-PROOFING.md** - SAHPRA/DALRRD/POPIA compliance (11,000+ lines)
+
+**WHEN TO REFERENCE THESE DOCS**:
+- **Before starting ANY new feature**: Check relevant specification for requirements
+- **When unsure about architecture**: Reference Movement Architecture or Main Specification
+- **When implementing compliance**: Reference Compliance & Future-Proofing
+- **When designing database changes**: Reference Database Schema
+- **For terminology questions**: ALWAYS check Glossary first
+
+**DOCUMENTATION STATISTICS**:
+- **Total**: 88,500+ lines across 11 specification files
+- **Coverage**: Inventory (90%), Retail POS (85-90%), Production (60-75%), All modules spec'd
+- **Key Decisions**: Option A Movement Architecture, Single-Batch Multi-Step, Movement-Based SOH
 
 ---
 
@@ -432,12 +488,30 @@ Design architecture to easily add (when regulations permit):
 ### Project-Specific (CRITICAL)
 - **SA Cannabis Software Guide**: `SA_Cannabis_Software_Guide.md` ⚠️ MANDATORY REFERENCE
 - **SA Cultivation & Production Laws**: `south-africa-cannabis-cultivation-production-laws-guide.md` ⚠️ MANDATORY REFERENCE
+- **Glossary (Terminology)**: `docs/ClaudeExternReferences/PoCHomeStretch/10-GLOSSARY.md` ⚠️ MANDATORY FOR TERMINOLOGY
 - **Coding Structure Template**: `docs/CODING-STRUCTURE.md` ⚠️ MANDATORY FOR ALL DEVELOPMENT
 - **Coding Standards**: `docs/CODING-STANDARDS.md` - Complete architecture patterns (if exists)
 - **Project Status**: `docs/PROJECT-STATUS.md`
 - **UI Standards**: `docs/PROJECT_STANDARDS.md` - Blazor UI guidelines
 - **Agent Assignments**: `docs/AGENT-ASSIGNMENTS.md`
 - **Technical Architecture**: `docs/ARCHITECTURE.md`
+
+### PoCHomeStretch Specifications (COMPREHENSIVE)
+**Location**: `docs/ClaudeExternReferences/PoCHomeStretch/`
+- **00-MAIN-SPECIFICATION.md** - Central index, roadmap (8,500+ lines)
+- **01-MODULE-DESCRIPTIONS.md** - All 7 modules (6,000+ lines)
+- **02-INVENTORY-MODULE-SPEC.md** - SOH, movements (18,000+ lines)
+- **03-MOVEMENT-ARCHITECTURE.md** - Option A design (5,500+ lines) ⚠️ CRITICAL
+- **04-RETAIL-POS-REQUIREMENTS.md** - Transaction workflow (15,000+ lines)
+- **05-PRODUCTION-MODEL.md** - Single-batch manufacturing (12,000+ lines)
+- **06-SERIAL-BATCH-GENERATION.md** - Number formats & traceability
+- **07-DATABASE-SCHEMA.md** - Complete ERD (10,000+ lines)
+- **08-LICENSING-MODEL.md** - Commercial strategy (9,000+ lines)
+- **09-COMPLIANCE-FUTURE-PROOFING.md** - SAHPRA/DALRRD/POPIA (11,000+ lines)
+- **10-GLOSSARY.md** - Terminology reference ⚠️ REQUIRED FOR CONSISTENCY
+- **POC-TODO-ROADMAP.md** - 450+ tasks, Phases 7-12 (9,000+ lines)
+- **IMMEDIATE-ACTION-TODO.md** - 7-day action plan
+- **PRODUCTION-DAL-VALIDATION.md** - Production gap analysis
 
 ### Central ClaudeCode Hub
 - **Location**: `../../ClaudeCode/`
@@ -457,8 +531,15 @@ When Claude starts working on Project420, verify:
 - [ ] **BOTH** compliance guides have been read and understood:
   - [ ] SA_Cannabis_Software_Guide.md
   - [ ] south-africa-cannabis-cultivation-production-laws-guide.md
+- [ ] **GLOSSARY checked for terminology consistency**:
+  - [ ] docs/ClaudeExternReferences/PoCHomeStretch/10-GLOSSARY.md
+  - [ ] All technical terms match glossary definitions (SOH, Movement, Batch, Transaction, etc.)
 - [ ] **Coding Structure Template** loaded and understood:
   - [ ] docs/CODING-STRUCTURE.md
+- [ ] **PoCHomeStretch documentation** referenced for task-specific requirements:
+  - [ ] Check relevant specification (Inventory, Retail POS, Production, etc.)
+  - [ ] Verify architectural decisions (Movement Architecture, Database Schema)
+  - [ ] Review roadmap for context (POC-TODO-ROADMAP.md, IMMEDIATE-ACTION-TODO.md)
 - [ ] Current task aligns with legal compliance requirements (SAHPRA, DALRRD, POPIA)
 - [ ] POPIA data protection requirements considered
 - [ ] GMP compliance requirements understood (for cultivation/production modules)
@@ -475,21 +556,24 @@ When Claude starts working on Project420, verify:
 
 ## 🚨 CRITICAL RULES FOR PROJECT420
 
-1. **ALWAYS Reference BOTH Compliance Guides** - SA_Cannabis_Software_Guide.md AND south-africa-cannabis-cultivation-production-laws-guide.md are mandatory reading
-2. **ALWAYS Follow Coding Structure Template** - docs/CODING-STRUCTURE.md defines ALL architecture patterns, folder structure, and development standards
-3. **POPIA Compliance First** - Data protection is non-negotiable (R10M penalty / 10 years imprisonment)
-4. **GMP Compliance Required** - Cultivation/production modules MUST follow SAHPRA GMP standards
-5. **Seed-to-Sale Traceability** - Every plant, batch, and package MUST be tracked (SAHPRA/DALRRD requirement)
-6. **Future-Proof Everything** - 2026-2027 commercial regs coming
-7. **Audit Everything** - Immutable logs for 7 years minimum (SAHPRA/SARS requirement)
-8. **Age Verification** - 18+ required, no exceptions (Cannabis Act 2024)
-9. **Tax Accuracy** - Current VAT + future excise capabilities
-10. **Legal Limits** - Enforce possession/cultivation limits in code
-11. **Security Standards** - AES-256 + TLS 1.3 + RBAC mandatory
-12. **Laboratory Testing** - ISO/IEC 17025 accredited labs, COA required for every batch
-13. **Test Thoroughly** - Compliance scenarios must be tested
-14. **Document Professionally** - Legal liability requires clear documentation
-15. **Consistent Architecture** - New modules MUST match existing patterns from CODING-STRUCTURE.md
+1. **ALWAYS Check Glossary First** - docs/ClaudeExternReferences/PoCHomeStretch/10-GLOSSARY.md is the SINGLE SOURCE OF TRUTH for all terminology (SOH, Movement, Batch, Transaction, etc.)
+2. **ALWAYS Reference BOTH Compliance Guides** - SA_Cannabis_Software_Guide.md AND south-africa-cannabis-cultivation-production-laws-guide.md are mandatory reading
+3. **ALWAYS Follow Coding Structure Template** - docs/CODING-STRUCTURE.md defines ALL architecture patterns, folder structure, and development standards
+4. **ALWAYS Reference PoCHomeStretch Specs** - 88,500+ lines of specifications for architectural decisions, module requirements, and compliance details
+5. **POPIA Compliance First** - Data protection is non-negotiable (R10M penalty / 10 years imprisonment)
+6. **GMP Compliance Required** - Cultivation/production modules MUST follow SAHPRA GMP standards
+7. **Seed-to-Sale Traceability** - Every plant, batch, and package MUST be tracked (SAHPRA/DALRRD requirement)
+8. **Future-Proof Everything** - 2026-2027 commercial regs coming
+9. **Audit Everything** - Immutable logs for 7 years minimum (SAHPRA/SARS requirement)
+10. **Age Verification** - 18+ required, no exceptions (Cannabis Act 2024)
+11. **Tax Accuracy** - Current VAT + future excise capabilities
+12. **Legal Limits** - Enforce possession/cultivation limits in code
+13. **Security Standards** - AES-256 + TLS 1.3 + RBAC mandatory
+14. **Laboratory Testing** - ISO/IEC 17025 accredited labs, COA required for every batch
+15. **Test Thoroughly** - Compliance scenarios must be tested
+16. **Document Professionally** - Legal liability requires clear documentation
+17. **Consistent Architecture** - New modules MUST match existing patterns from CODING-STRUCTURE.md
+18. **Terminology Consistency** - Use glossary-defined terms in all code, comments, and documentation
 
 ---
 
@@ -510,8 +594,8 @@ From SA_Cannabis_Software_Guide.md Section 10:
 
 ## 🎯 CURRENT PROJECT STATUS
 
-**Phase**: POC - Phase 6 Complete ✅ | Validator & Migration Complete 🚀
-**Status**: All MVP modules created | Databases migrated | Ready for Batch/SN implementation
+**Phase**: POC - Phase 7A Complete ✅ | Movement Architecture Foundation Implemented 🚀
+**Status**: MovementService implemented | 51 tests passing | Ready for Phase 7B (Unified Transaction Architecture)
 
 **✅ Phase 1 Complete (2025-12-02) - Data Models**:
 - [x] Solution and project setup
@@ -682,7 +766,52 @@ Phase 6 completed critical infrastructure for MVP:
 3. **Seed-to-Sale Foundation**: All traceability entities now have database backing
 4. **Compliance Ready**: Audit fields in all tables support SAHPRA/POPIA requirements
 
-**🚀 Phase 6+ Next Steps**:
+**✅ Phase 7A Complete (2025-12-12) - Movement Architecture Foundation**:
+- [x] **TransactionType enum** - All 16 transaction types (Sale, Refund, GRV, RTS, Production, Transfer, Adjustment)
+- [x] **TransactionDetail entity** - Unified details with HeaderId + TransactionType discriminator
+- [x] **Movement entity** - Option A architecture (SOH from movements)
+- [x] **MovementDirection enum** - IN/OUT for stock direction
+- [x] **SharedDbContext updated** - DbSets for TransactionDetails and Movements
+- [x] **Database migrations** - Applied to Project420_Shared database
+- [x] **IMovementService interface** - 13 methods for movement operations
+- [x] **MovementService implementation** - Full Option A architecture
+  - Movement generation from TransactionDetails
+  - SOH calculation: SUM(IN) - SUM(OUT)
+  - Movement reversal (soft delete)
+  - Batch/serial number tracking
+  - Historical SOH (as-of-date)
+- [x] **DI registration** - ServiceCollectionExtensions + Program.cs
+- [x] **Unit tests** - 51 comprehensive tests, 100% passing
+- [x] **Database configuration fix** - Created Project420_Shared, aligned connection strings
+
+**📊 Phase 7A Statistics**:
+- **New Entities**: 2 (TransactionDetail, Movement)
+- **New Enums**: 2 (TransactionType expanded, MovementDirection)
+- **Service Methods**: 13 in IMovementService
+- **Unit Tests**: 51 tests (all passing)
+- **Database Tables**: 2 new (Movements, TransactionDetails in Project420_Shared)
+- **Compliance Features**: Batch tracking, serial tracking, movement reasons, audit trail
+
+**🎯 What Was Achieved**:
+Phase 7A establishes the Movement Architecture (Option A) foundation:
+1. **SOH Never Stored**: SOH = SUM(IN) - SUM(OUT) from Movement ledger
+2. **Movement Immutability**: Soft delete only, full audit trail
+3. **Transaction Linking**: HeaderId + TransactionType discriminator pattern
+4. **Cannabis Compliance**: Batch/serial tracking for seed-to-sale traceability
+5. **Comprehensive Testing**: 51 unit tests covering all edge cases
+
+**📋 Phase 7B Planned: Unified Transaction Architecture**:
+- [ ] Rename POSTransactionHeader → RetailTransactionHeader
+- [ ] Integrate POS with unified TransactionDetails (Shared)
+- [ ] Integrate MovementService into TransactionService
+- [ ] Update repositories and services
+- [ ] Create migrations for table renames
+
+**Detailed Plan**: `docs/roadmap/PHASE-UNIFIED-TRANSACTION-ARCHITECTURE.md`
+
+---
+
+**🚀 Phase 8+ Next Steps** (After Phase 7B):
 
 **Option A: Implement Batch & Serial Number System** (CRITICAL for POC completion):
 - [ ] Review reference documents (mvp_modules_seed_traceability.md, system_evolution_roadmap.md, sn_batch_best_practices.md)
@@ -766,14 +895,16 @@ Phase 6 completed critical infrastructure for MVP:
 **CLAUDE FLOW STATUS**: ✅ **INITIALIZED AND ACTIVE**
 **SA GUIDE REFERENCE**: ⚠️ **MANDATORY FOR ALL WORK**
 **CODING STRUCTURE TEMPLATE**: ⚠️ **MANDATORY FOR ALL DEVELOPMENT**
-**PROJECT420**: ✅ **PHASE 6 COMPLETE - VALIDATORS & DATABASE MIGRATIONS READY**
+**PROJECT420**: ✅ **PHASE 7A COMPLETE - MOVEMENT ARCHITECTURE FOUNDATION IMPLEMENTED**
 **COMPLIANCE GATES**: ✅ **ACTIVE AND ENFORCED**
-**BUILD STATUS**: ✅ **0 ERRORS, 9 WARNINGS (pre-existing Blazor/async)**
-**TEST STATUS**: ✅ **224/224 TESTS PASSING (100% pass rate)**
-**DATABASE STATUS**: ✅ **12 TABLES MIGRATED (JASON\SQLDEVED\Project420)**
+**BUILD STATUS**: ✅ **0 ERRORS (excluding Android SDK)**
+**TEST STATUS**: ✅ **275/275 TESTS PASSING (224 existing + 51 MovementService)**
+**DATABASE STATUS**: ✅ **Project420_Dev (29 tables) + Project420_Shared (7 tables)**
 **VALIDATORS STATUS**: ✅ **32 FLUENTVALIDATION VALIDATORS REGISTERED**
 **MODULES STATUS**: ✅ **6 MODULES OPERATIONAL (Management, POS, OnlineOrders, Cultivation, Production, Inventory)**
-**TRACEABILITY STATUS**: ✅ **PLANT → HARVEST → PRODUCTION → INVENTORY → SALE CHAIN COMPLETE**
+**MOVEMENT ARCHITECTURE**: ✅ **OPTION A IMPLEMENTED - SOH FROM MOVEMENTS**
+**TRACEABILITY STATUS**: ✅ **PLANT → HARVEST → PRODUCTION → INVENTORY → MOVEMENT → SALE CHAIN COMPLETE**
+**NEXT PHASE**: 📋 **PHASE 7B - UNIFIED TRANSACTION ARCHITECTURE**
 
 ---
 

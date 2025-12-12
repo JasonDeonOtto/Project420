@@ -5,6 +5,8 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Project420.API.WebApi.Configuration;
 using Project420.API.WebApi.Extensions;
+using Project420.Shared.Database.Extensions;
+using Project420.Shared.Infrastructure.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -19,6 +21,10 @@ builder.Services.AddSingleton(jwtSettings);
 
 builder.Services.AddControllers();
 
+// Shared Database Services (Transaction numbering, audit logs, etc.)
+builder.Services.AddSharedDatabaseServices(builder.Configuration.GetConnectionString("DefaultConnection")!);
+builder.Services.AddSharedInfrastructureServices();
+
 // Database Contexts
 builder.Services.AddDbContext<Project420.Cultivation.DAL.CultivationDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
@@ -27,6 +33,9 @@ builder.Services.AddDbContext<Project420.Production.DAL.ProductionDbContext>(opt
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 builder.Services.AddDbContext<Project420.Inventory.DAL.InventoryDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+builder.Services.AddDbContext<Project420.OnlineOrders.DAL.OnlineOrdersDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 // Cultivation Module - Repositories & Services
@@ -59,6 +68,18 @@ builder.Services.AddScoped<Project420.Inventory.BLL.Services.IStockTransferServi
 builder.Services.AddScoped<Project420.Inventory.BLL.Services.IStockAdjustmentService, Project420.Inventory.BLL.Services.StockAdjustmentService>();
 builder.Services.AddScoped<Project420.Inventory.BLL.Services.IStockCountService, Project420.Inventory.BLL.Services.StockCountService>();
 
+// OnlineOrders Module - Repositories & Services
+builder.Services.AddScoped<Project420.OnlineOrders.DAL.Repositories.IOnlineOrderRepository, Project420.OnlineOrders.DAL.Repositories.OnlineOrderRepository>();
+builder.Services.AddScoped<Project420.OnlineOrders.DAL.Repositories.IOnlineOrderItemRepository, Project420.OnlineOrders.DAL.Repositories.OnlineOrderItemRepository>();
+builder.Services.AddScoped<Project420.OnlineOrders.DAL.Repositories.IOrderStatusHistoryRepository, Project420.OnlineOrders.DAL.Repositories.OrderStatusHistoryRepository>();
+builder.Services.AddScoped<Project420.OnlineOrders.DAL.Repositories.ICustomerAccountRepository, Project420.OnlineOrders.DAL.Repositories.CustomerAccountRepository>();
+builder.Services.AddScoped<Project420.OnlineOrders.DAL.Repositories.IPaymentTransactionRepository, Project420.OnlineOrders.DAL.Repositories.PaymentTransactionRepository>();
+builder.Services.AddScoped<Project420.OnlineOrders.DAL.Repositories.IPickupConfirmationRepository, Project420.OnlineOrders.DAL.Repositories.PickupConfirmationRepository>();
+builder.Services.AddScoped<Project420.OnlineOrders.BLL.Services.IOnlineOrderService, Project420.OnlineOrders.BLL.Services.OnlineOrderService>();
+builder.Services.AddScoped<Project420.OnlineOrders.BLL.Services.ICustomerAccountService, Project420.OnlineOrders.BLL.Services.CustomerAccountService>();
+builder.Services.AddScoped<Project420.OnlineOrders.BLL.Services.IPaymentService, Project420.OnlineOrders.BLL.Services.PaymentService>();
+builder.Services.AddScoped<Project420.OnlineOrders.BLL.Services.IPickupService, Project420.OnlineOrders.BLL.Services.PickupService>();
+
 // FluentValidation - Cultivation Module
 builder.Services.AddScoped<FluentValidation.IValidator<Project420.Cultivation.BLL.DTOs.CreatePlantDto>, Project420.Cultivation.BLL.Validators.CreatePlantValidator>();
 builder.Services.AddScoped<FluentValidation.IValidator<Project420.Cultivation.BLL.DTOs.UpdatePlantDto>, Project420.Cultivation.BLL.Validators.UpdatePlantValidator>();
@@ -88,6 +109,13 @@ builder.Services.AddScoped<FluentValidation.IValidator<Project420.Inventory.BLL.
 builder.Services.AddScoped<FluentValidation.IValidator<Project420.Inventory.BLL.DTOs.UpdateStockAdjustmentDto>, Project420.Inventory.BLL.Validators.UpdateStockAdjustmentValidator>();
 builder.Services.AddScoped<FluentValidation.IValidator<Project420.Inventory.BLL.DTOs.CreateStockCountDto>, Project420.Inventory.BLL.Validators.CreateStockCountValidator>();
 builder.Services.AddScoped<FluentValidation.IValidator<Project420.Inventory.BLL.DTOs.UpdateStockCountDto>, Project420.Inventory.BLL.Validators.UpdateStockCountValidator>();
+
+// FluentValidation - OnlineOrders Module
+builder.Services.AddScoped<FluentValidation.IValidator<Project420.OnlineOrders.BLL.DTOs.Request.CreateOrderRequestDto>, Project420.OnlineOrders.BLL.Validators.CreateOrderRequestDtoValidator>();
+builder.Services.AddScoped<FluentValidation.IValidator<Project420.OnlineOrders.BLL.DTOs.Request.CustomerRegistrationDto>, Project420.OnlineOrders.BLL.Validators.CustomerRegistrationDtoValidator>();
+builder.Services.AddScoped<FluentValidation.IValidator<Project420.OnlineOrders.BLL.DTOs.Request.LoginRequestDto>, Project420.OnlineOrders.BLL.Validators.LoginRequestDtoValidator>();
+builder.Services.AddScoped<FluentValidation.IValidator<Project420.OnlineOrders.BLL.DTOs.Request.PaymentRequestDto>, Project420.OnlineOrders.BLL.Validators.PaymentRequestDtoValidator>();
+builder.Services.AddScoped<FluentValidation.IValidator<Project420.OnlineOrders.BLL.DTOs.Request.PickupConfirmationDto>, Project420.OnlineOrders.BLL.Validators.PickupConfirmationDtoValidator>();
 
 // FluentValidation - Management Module - Sales (Retail)
 builder.Services.AddScoped<FluentValidation.IValidator<Project420.Management.BLL.Sales.Retail.DTOs.CreatePricelistDto>, Project420.Management.BLL.Sales.Retail.Validators.CreatePricelistValidator>();

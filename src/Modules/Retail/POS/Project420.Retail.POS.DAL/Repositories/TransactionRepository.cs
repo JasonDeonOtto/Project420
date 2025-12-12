@@ -4,6 +4,7 @@ using Project420.Retail.POS.Models.Entities;
 using Project420.Shared.Core.Enums;
 using Project420.Shared.Infrastructure.DTOs;
 
+
 namespace Project420.Retail.POS.DAL.Repositories
 {
     /// <summary>
@@ -17,7 +18,7 @@ namespace Project420.Retail.POS.DAL.Repositories
     /// - Eager loading with Include() for related entities
     /// - Proper exception handling and logging
     /// </remarks>
-    public class TransactionRepository : ITransactionRepository
+    public class TransactionRepository : ITransactionRepository 
     {
         private readonly PosDbContext _context;
 

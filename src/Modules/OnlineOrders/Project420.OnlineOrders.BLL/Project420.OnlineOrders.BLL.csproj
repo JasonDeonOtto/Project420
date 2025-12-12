@@ -3,6 +3,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Project420.OnlineOrders.Models\Project420.OnlineOrders.Models.csproj" />
     <ProjectReference Include="..\Project420.OnlineOrders.DAL\Project420.OnlineOrders.DAL.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Project420.Shared.Infrastructure\Project420.Shared.Infrastructure.csproj" />
   </ItemGroup>
 
   <ItemGroup>

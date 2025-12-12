@@ -12,4 +12,6 @@ public class StockMovementRepository : Repository<StockMovement>, IStockMovement
     public StockMovementRepository(InventoryDbContext context) : base(context)
     {
     }
+
+
 }

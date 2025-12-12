@@ -100,6 +100,9 @@ builder.Services.AddScoped<ITransactionNumberGeneratorService, TransactionNumber
 // Audit Log Service - POPIA compliance, Cannabis Act tracking, SARS reporting
 builder.Services.AddScoped<IAuditLogService, AuditLogService>();
 
+// Movement Service - Movement Architecture (Option A) for SOH calculation
+builder.Services.AddScoped<Project420.Shared.Database.Services.IMovementService, Project420.Shared.Database.Services.MovementService>();
+
 // ========================================
 // BLAZOR SERVICES
 // ========================================

@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Project420.Shared.Database.Repositories;
+using Project420.Shared.Database.Services;
 using Project420.Shared.Infrastructure.Interfaces;
 
 namespace Project420.Shared.Database.Extensions;
@@ -57,6 +58,9 @@ public static class ServiceCollectionExtensions
         // Register Repositories
         services.AddScoped<ITransactionNumberRepository, TransactionNumberRepository>();
 
+        // Register Movement Architecture Services (Option A)
+        services.AddScoped<IMovementService, MovementService>();
+
         return services;
     }
 
@@ -99,6 +103,9 @@ public static class ServiceCollectionExtensions
 
         // Register Repositories
         services.AddScoped<ITransactionNumberRepository, TransactionNumberRepository>();
+
+        // Register Movement Architecture Services (Option A)
+        services.AddScoped<IMovementService, MovementService>();
 
         return services;
     }

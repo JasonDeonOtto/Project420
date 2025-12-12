@@ -129,7 +129,7 @@ namespace Project420.Production.Models.Entities
         /// Whether batch passed microbial testing (bacteria, mold, yeast)
         /// </summary>
         [Display(Name = "Microbial Passed")]
-        public bool? MicrobialPassed { get; set; }
+        public bool? MicrobialPassed { get; set; } = false;
 
         // ============================================================
         // OVERALL RESULT

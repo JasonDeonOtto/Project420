@@ -1,3 +1,6 @@
+using Project420.Cultivation.BLL.DTOs;
+using Project420.Cultivation.Models.Enums;
+
 namespace Project420.Cultivation.BLL.Services;
 
 /// <summary>
@@ -11,26 +14,26 @@ public interface IPlantService
     /// </summary>
     /// <param name="dto">Plant creation data</param>
     /// <returns>Created plant with generated ID</returns>
-    Task<int> CreatePlantAsync(object dto); // Will replace 'object' with proper DTO later
+    Task<int> CreatePlantAsync(CreatePlantDto dto);
 
     /// <summary>
     /// Updates an existing plant record.
     /// </summary>
     /// <param name="dto">Plant update data</param>
-    Task UpdatePlantAsync(object dto);
+    Task UpdatePlantAsync(UpdatePlantDto dto);
 
     /// <summary>
     /// Gets a plant by ID.
     /// </summary>
     /// <param name="id">Plant ID</param>
     /// <returns>Plant if found, null otherwise</returns>
-    Task<object?> GetPlantByIdAsync(int id);
+    Task<PlantDto?> GetPlantByIdAsync(int id);
 
     /// <summary>
     /// Gets all active plants.
     /// </summary>
     /// <returns>Collection of all active plants</returns>
-    Task<IEnumerable<object>> GetAllPlantsAsync();
+    Task<IEnumerable<PlantDto>> GetAllPlantsAsync();
 
     /// <summary>
     /// Deactivates a plant (soft delete).
@@ -44,14 +47,14 @@ public interface IPlantService
     /// </summary>
     /// <param name="growCycleId">Grow cycle ID</param>
     /// <returns>Plants in the grow cycle</returns>
-    Task<IEnumerable<object>> GetPlantsByGrowCycleAsync(int growCycleId);
+    Task<IEnumerable<PlantDto>> GetPlantsByGrowCycleAsync(int growCycleId);
 
     /// <summary>
     /// Gets plants by current stage.
     /// </summary>
     /// <param name="stage">Plant stage</param>
     /// <returns>Plants in specified stage</returns>
-    Task<IEnumerable<object>> GetPlantsByStageAsync(string stage);
+    Task<IEnumerable<PlantDto>> GetPlantsByStageAsync(PlantStage stage);
 
     /// <summary>
     /// Records plant harvest.

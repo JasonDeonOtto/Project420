@@ -75,5 +75,11 @@ public enum TransactionTypeCode
     /// Transfer (stock transfer between locations).
     /// Example: TRF-20251205-001
     /// </summary>
-    TRF = 10
+    TRF = 10,
+
+    /// <summary>
+    /// Online Order (customer web order).
+    /// Example: ORD-20251208-001
+    /// </summary>
+    ORD = 11
 }

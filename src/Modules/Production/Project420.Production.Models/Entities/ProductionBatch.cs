@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using Project420.Production.Models.Enums;
 using Project420.Shared.Core.Entities;
 
 namespace Project420.Production.Models.Entities
@@ -73,7 +74,7 @@ namespace Project420.Production.Models.Entities
         [Required(ErrorMessage = "Harvest batch reference is required")]
         [MaxLength(100)]
         [Display(Name = "Harvest Batch Number")]
-        public string HarvestBatchNumber { get; set; } = string.Empty;
+        public string HarvestBatchNumber { get; set; } = string.Empty; //needs to properly link to Harvest batches
 
         /// <summary>
         /// Cannabis strain being processed
@@ -188,8 +189,8 @@ namespace Project420.Production.Models.Entities
         /// - "On Hold" - processing paused
         /// </remarks>
         [MaxLength(50)]
-        [Display(Name = "Status")]
-        public string? Status { get; set; }
+        [Display(Name = "Batch Status")]
+        public ProductionBatchStatus ProductionBatchStatus { get; set; }
 
         /// <summary>
         /// Whether this batch is currently active
@@ -298,5 +299,7 @@ namespace Project420.Production.Models.Entities
         /// Collection of lab tests performed
         /// </summary>
         public virtual ICollection<LabTest> LabTests { get; set; } = new List<LabTest>();
+
+        public virtual ICollection<ProductionBatchStatus> BatchStatus { get; set; } = new List<ProductionBatchStatus>();
     }
 }

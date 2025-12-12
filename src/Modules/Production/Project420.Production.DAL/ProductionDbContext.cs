@@ -44,7 +44,7 @@ public class ProductionDbContext : DbContext
             entity.HasIndex(pb => pb.BatchNumber).IsUnique();
             entity.HasIndex(pb => pb.HarvestBatchNumber);
             entity.HasIndex(pb => pb.StrainName);
-            entity.HasIndex(pb => pb.Status);
+            entity.HasIndex(pb => pb.ProductionBatchStatus);
             entity.HasIndex(pb => pb.IsActive);
             entity.HasQueryFilter(pb => !pb.IsDeleted);
         });

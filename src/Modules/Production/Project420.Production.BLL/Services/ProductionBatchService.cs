@@ -1,4 +1,5 @@
 using Project420.Production.DAL.Repositories;
+using Project420.Production.Models.Enums;
 
 namespace Project420.Production.BLL.Services;
 
@@ -48,11 +49,19 @@ public class ProductionBatchService : IProductionBatchService
         var batch = await _repository.GetByIdAsync(batchId);
         if (batch == null) throw new InvalidOperationException($"Production batch {batchId} not found");
 
-        batch.Status = newStatus;
-        if (newStatus == "Completed")
+        // Parse string to enum
+        if (Enum.TryParse<ProductionBatchStatus>(newStatus, true, out var status))
         {
-            batch.CompletionDate = DateTime.UtcNow;
-            batch.FinalWeightGrams = batch.CurrentWeightGrams;
+            batch.ProductionBatchStatus = status;
+            if (status == ProductionBatchStatus.Completed)
+            {
+                batch.CompletionDate = DateTime.UtcNow;
+                batch.FinalWeightGrams = batch.CurrentWeightGrams;
+            }
+        }
+        else
+        {
+            throw new ArgumentException($"Invalid status: {newStatus}. Valid values: {string.Join(", ", Enum.GetNames<ProductionBatchStatus>())}");
         }
 
         await _repository.UpdateAsync(batch);

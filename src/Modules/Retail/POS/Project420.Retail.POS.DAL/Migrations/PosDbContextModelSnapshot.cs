@@ -219,7 +219,7 @@ namespace Project420.Retail.POS.DAL.Migrations
 
                     b.HasIndex("ProductId1");
 
-                    b.ToTable("POSTransactionDetails");
+                    b.ToTable("POSTransactionDetails", (string)null);
                 });
 
             modelBuilder.Entity("Project420.Retail.POS.Models.Entities.POSTransactionHeader", b =>
@@ -319,7 +319,7 @@ namespace Project420.Retail.POS.DAL.Migrations
                         .IsUnique()
                         .HasDatabaseName("IX_POSTransactionHeaders_Number");
 
-                    b.ToTable("POSTransactionHeaders");
+                    b.ToTable("POSTransactionHeaders", (string)null);
                 });
 
             modelBuilder.Entity("Project420.Retail.POS.Models.Entities.Payment", b =>
@@ -420,7 +420,7 @@ namespace Project420.Retail.POS.DAL.Migrations
                     b.HasIndex("TransactionHeaderId")
                         .HasDatabaseName("IX_Payments_TransactionHeaderId");
 
-                    b.ToTable("Payments");
+                    b.ToTable("Payments", (string)null);
                 });
 
             modelBuilder.Entity("Project420.Retail.POS.Models.Entities.Pricelist", b =>
@@ -743,7 +743,7 @@ namespace Project420.Retail.POS.DAL.Migrations
                     b.HasIndex("SerialNumber")
                         .HasDatabaseName("IX_ProductBarcodes_SerialNumber");
 
-                    b.ToTable("ProductBarcodes");
+                    b.ToTable("ProductBarcodes", (string)null);
                 });
 
             modelBuilder.Entity("Project420.Retail.POS.Models.Entities.POSTransactionDetail", b =>

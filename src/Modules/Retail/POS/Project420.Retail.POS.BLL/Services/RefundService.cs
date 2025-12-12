@@ -1,20 +1,28 @@
 using Project420.Retail.POS.BLL.DTOs;
 using Project420.Retail.POS.DAL.Repositories;
 using Project420.Retail.POS.Models.Entities;
+using Project420.Shared.Core.Entities;
 using Project420.Shared.Core.Enums;
-using Project420.Shared.Infrastructure.Interfaces;
+using Project420.Shared.Database.Services;
 using Project420.Shared.Infrastructure.DTOs;
+using Project420.Shared.Infrastructure.Interfaces;
 
 namespace Project420.Retail.POS.BLL.Services
 {
     /// <summary>
     /// Service implementation for POS refund business logic
     /// </summary>
+    /// <remarks>
+    /// Phase 7B: Integrated with MovementService for unified transaction architecture.
+    /// After each refund is processed, movements are generated automatically.
+    /// Refunds generate IN movements (products returned to stock).
+    /// </remarks>
     public class RefundService : IRefundService
     {
         private readonly ITransactionRepository _transactionRepository;
         private readonly IVATCalculationService _vatService;
         private readonly ITransactionNumberGeneratorService _transactionNumberService;
+        private readonly IMovementService _movementService;
 
         // Business rule constants
         private const int STANDARD_REFUND_WINDOW_DAYS = 30;
@@ -23,11 +31,13 @@ namespace Project420.Retail.POS.BLL.Services
         public RefundService(
             ITransactionRepository transactionRepository,
             IVATCalculationService vatService,
-            ITransactionNumberGeneratorService transactionNumberService)
+            ITransactionNumberGeneratorService transactionNumberService,
+            IMovementService movementService)
         {
             _transactionRepository = transactionRepository ?? throw new ArgumentNullException(nameof(transactionRepository));
             _vatService = vatService ?? throw new ArgumentNullException(nameof(vatService));
             _transactionNumberService = transactionNumberService ?? throw new ArgumentNullException(nameof(transactionNumberService));
+            _movementService = movementService ?? throw new ArgumentNullException(nameof(movementService));
         }
 
         /// <inheritdoc/>
@@ -63,26 +73,29 @@ namespace Project420.Retail.POS.BLL.Services
                 var refundTransactionNumber = await _transactionNumberService.GenerateAsync(
                     TransactionTypeCode.CRN); // Credit Note for refunds
 
-                // 3. Calculate line items with VAT reversal
-                var refundDetails = new List<POSTransactionDetail>();
+                // 3. Calculate line items with VAT reversal (Phase 7B: Using unified TransactionDetail)
+                var refundDetails = new List<TransactionDetail>();
                 foreach (var refundItem in request.RefundItems)
                 {
                     var vatBreakdown = _vatService.CalculateLineItem(
                         unitPriceInclVAT: refundItem.UnitPriceInclVAT,
                         quantity: refundItem.QuantityToRefund);
 
-                    var detail = new POSTransactionDetail
+                    var detail = new TransactionDetail
                     {
                         ProductId = refundItem.ProductId,
                         ProductSKU = refundItem.ProductSku,
                         ProductName = refundItem.ProductName,
                         Quantity = -refundItem.QuantityToRefund, // Negative for refund
                         UnitPrice = refundItem.UnitPriceInclVAT,
-                        Subtotal = -vatBreakdown.Subtotal, // Negative for refund
-                        TaxAmount = -vatBreakdown.TaxAmount, // Negative for refund
-                        Total = -vatBreakdown.Total, // Negative for refund
+                        DiscountAmount = 0,
+                        VATAmount = -vatBreakdown.TaxAmount, // Negative for refund
+                        LineTotal = -vatBreakdown.Total, // Negative for refund
                         CostPrice = refundItem.CostPrice,
-                        BatchNumber = refundItem.BatchNumber
+                        BatchNumber = refundItem.BatchNumber,
+                        // HeaderId and TransactionType set by repository
+                        CreatedAt = DateTime.UtcNow,
+                        CreatedBy = request.ProcessedByUserId.ToString()
                     };
 
                     refundDetails.Add(detail);
@@ -94,12 +107,13 @@ namespace Project420.Retail.POS.BLL.Services
                 }
 
                 // 4. Calculate header totals (aggregate from details)
-                var subtotal = Math.Abs(refundDetails.Sum(d => d.Subtotal));
-                var vatAmount = Math.Abs(refundDetails.Sum(d => d.TaxAmount));
-                var total = Math.Abs(refundDetails.Sum(d => d.Total));
+                // Note: TransactionDetail uses VATAmount and LineTotal (not Subtotal/TaxAmount)
+                var vatAmount = Math.Abs(refundDetails.Sum(d => d.VATAmount));
+                var total = Math.Abs(refundDetails.Sum(d => d.LineTotal));
+                var subtotal = total - vatAmount;
 
                 // 5. Create refund transaction header
-                var refundHeader = new POSTransactionHeader
+                var refundHeader = new RetailTransactionHeader
                 {
                     TransactionNumber = refundTransactionNumber,
                     TransactionDate = DateTime.UtcNow,
@@ -137,7 +151,12 @@ namespace Project420.Retail.POS.BLL.Services
                     payment,
                     request.RefundReason);
 
-                // 8. Build refund result
+                // 8. Generate movements for SOH calculation (Phase 7B - Movement Architecture)
+                // Refunds generate IN movements (products returned to stock)
+                // SOH is calculated from SUM(IN) - SUM(OUT) movements
+                await _movementService.GenerateMovementsAsync(TransactionType.Refund, savedRefund.Id);
+
+                // 9. Build refund result
                 return new RefundResultDto
                 {
                     Success = true,
@@ -231,7 +250,7 @@ namespace Project420.Retail.POS.BLL.Services
                         : eligibility.ManagerApprovalReason + $" | Amount exceeds threshold";
                 }
 
-                // 7. Build refundable items list
+                // 7. Build refundable items list (Phase 7B: TransactionDetail uses decimal Quantity)
                 eligibility.RefundableItems = transaction.TransactionDetails.Select(d =>
                 {
                     var refundedQty = refundHistory
@@ -242,11 +261,11 @@ namespace Project420.Retail.POS.BLL.Services
                     return new RefundableItemDto
                     {
                         ProductId = d.ProductId,
-                        ProductSku = d.ProductSKU ?? string.Empty,
-                        ProductName = d.ProductName ?? string.Empty,
-                        OriginalQuantity = d.Quantity,
-                        AlreadyRefundedQuantity = refundedQty,
-                        RemainingRefundableQuantity = d.Quantity - refundedQty,
+                        ProductSku = d.ProductSKU,
+                        ProductName = d.ProductName,
+                        OriginalQuantity = (int)d.Quantity, // TransactionDetail uses decimal
+                        AlreadyRefundedQuantity = (int)refundedQty,
+                        RemainingRefundableQuantity = (int)(d.Quantity - refundedQty),
                         UnitPriceInclVAT = d.UnitPrice,
                         BatchNumber = d.BatchNumber,
                         CostPrice = d.CostPrice ?? 0
@@ -292,18 +311,19 @@ namespace Project420.Retail.POS.BLL.Services
                 CustomerName = refund.CustomerName ?? "Unknown Customer",
                 RefundPaymentMethod = refund.Payments.FirstOrDefault()?.PaymentMethod.ToString() ?? "Unknown",
                 ProcessedByUserName = refund.ProcessedBy ?? "Unknown",
+                // Phase 7B: TransactionDetail uses VATAmount and LineTotal
                 RefundedItems = refund.TransactionDetails.Select(d => new RefundItemDto
                 {
                     ProductId = d.ProductId,
-                    ProductSku = d.ProductSKU ?? string.Empty,
-                    ProductName = d.ProductName ?? string.Empty,
-                    QuantityToRefund = Math.Abs(d.Quantity),
+                    ProductSku = d.ProductSKU,
+                    ProductName = d.ProductName,
+                    QuantityToRefund = (int)Math.Abs(d.Quantity),
                     UnitPriceInclVAT = d.UnitPrice,
                     BatchNumber = d.BatchNumber,
                     CostPrice = d.CostPrice ?? 0,
-                    RefundSubtotal = Math.Abs(d.Subtotal),
-                    RefundVATAmount = Math.Abs(d.TaxAmount),
-                    RefundTotal = Math.Abs(d.Total)
+                    RefundSubtotal = Math.Abs(d.LineTotal - d.VATAmount),
+                    RefundVATAmount = Math.Abs(d.VATAmount),
+                    RefundTotal = Math.Abs(d.LineTotal)
                 }).ToList()
             };
         }
@@ -325,18 +345,19 @@ namespace Project420.Retail.POS.BLL.Services
                 CustomerName = refund.CustomerName ?? "Unknown Customer",
                 RefundPaymentMethod = refund.Payments.FirstOrDefault()?.PaymentMethod.ToString() ?? "Unknown",
                 ProcessedByUserName = refund.ProcessedBy ?? "Unknown",
+                // Phase 7B: TransactionDetail uses VATAmount and LineTotal
                 RefundedItems = refund.TransactionDetails.Select(d => new RefundItemDto
                 {
                     ProductId = d.ProductId,
-                    ProductSku = d.ProductSKU ?? string.Empty,
-                    ProductName = d.ProductName ?? string.Empty,
-                    QuantityToRefund = Math.Abs(d.Quantity),
+                    ProductSku = d.ProductSKU,
+                    ProductName = d.ProductName,
+                    QuantityToRefund = (int)Math.Abs(d.Quantity),
                     UnitPriceInclVAT = d.UnitPrice,
                     BatchNumber = d.BatchNumber,
                     CostPrice = d.CostPrice ?? 0,
-                    RefundSubtotal = Math.Abs(d.Subtotal),
-                    RefundVATAmount = Math.Abs(d.TaxAmount),
-                    RefundTotal = Math.Abs(d.Total)
+                    RefundSubtotal = Math.Abs(d.LineTotal - d.VATAmount),
+                    RefundVATAmount = Math.Abs(d.VATAmount),
+                    RefundTotal = Math.Abs(d.LineTotal)
                 }).ToList()
             }).ToList();
         }

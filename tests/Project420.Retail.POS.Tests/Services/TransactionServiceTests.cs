@@ -4,6 +4,7 @@ using Project420.Retail.POS.BLL.DTOs;
 using Project420.Retail.POS.BLL.Services;
 using Project420.Retail.POS.Models.Entities;
 using Project420.Retail.POS.Tests.Infrastructure;
+using Project420.Shared.Core.Entities;
 using Project420.Shared.Core.Enums;
 using Project420.Shared.Infrastructure.DTOs;
 
@@ -21,7 +22,8 @@ public class TransactionServiceTests : ServiceTestBase
         _service = new TransactionService(
             MockTransactionRepository.Object,
             MockVATService.Object,
-            MockTransactionNumberService.Object);
+            MockTransactionNumberService.Object,
+            MockMovementService.Object);
     }
 
     #region ProcessCheckoutAsync - Success Scenarios
@@ -43,7 +45,7 @@ public class TransactionServiceTests : ServiceTestBase
             });
 
         MockTransactionRepository
-            .Setup(x => x.CreateSaleAsync(It.IsAny<POSTransactionHeader>(), It.IsAny<List<POSTransactionDetail>>(), It.IsAny<Payment>()))
+            .Setup(x => x.CreateSaleAsync(It.IsAny<RetailTransactionHeader>(), It.IsAny<List<TransactionDetail>>(), It.IsAny<Payment>()))
             .ReturnsAsync(expectedTransaction);
 
         // Act
@@ -73,7 +75,7 @@ public class TransactionServiceTests : ServiceTestBase
             });
 
         MockTransactionRepository
-            .Setup(x => x.CreateSaleAsync(It.IsAny<POSTransactionHeader>(), It.IsAny<List<POSTransactionDetail>>(), It.IsAny<Payment>()))
+            .Setup(x => x.CreateSaleAsync(It.IsAny<RetailTransactionHeader>(), It.IsAny<List<TransactionDetail>>(), It.IsAny<Payment>()))
             .ReturnsAsync(expectedTransaction);
 
         // Act
@@ -105,7 +107,7 @@ public class TransactionServiceTests : ServiceTestBase
             });
 
         MockTransactionRepository
-            .Setup(x => x.CreateSaleAsync(It.IsAny<POSTransactionHeader>(), It.IsAny<List<POSTransactionDetail>>(), It.IsAny<Payment>()))
+            .Setup(x => x.CreateSaleAsync(It.IsAny<RetailTransactionHeader>(), It.IsAny<List<TransactionDetail>>(), It.IsAny<Payment>()))
             .ReturnsAsync(expectedTransaction);
 
         // Act
@@ -136,7 +138,7 @@ public class TransactionServiceTests : ServiceTestBase
             });
 
         MockTransactionRepository
-            .Setup(x => x.CreateSaleAsync(It.IsAny<POSTransactionHeader>(), It.IsAny<List<POSTransactionDetail>>(), It.IsAny<Payment>()))
+            .Setup(x => x.CreateSaleAsync(It.IsAny<RetailTransactionHeader>(), It.IsAny<List<TransactionDetail>>(), It.IsAny<Payment>()))
             .ReturnsAsync(expectedTransaction);
 
         // Act
@@ -168,7 +170,7 @@ public class TransactionServiceTests : ServiceTestBase
             });
 
         MockTransactionRepository
-            .Setup(x => x.CreateSaleAsync(It.IsAny<POSTransactionHeader>(), It.IsAny<List<POSTransactionDetail>>(), It.IsAny<Payment>()))
+            .Setup(x => x.CreateSaleAsync(It.IsAny<RetailTransactionHeader>(), It.IsAny<List<TransactionDetail>>(), It.IsAny<Payment>()))
             .ReturnsAsync(expectedTransaction);
 
         // Act
@@ -199,7 +201,7 @@ public class TransactionServiceTests : ServiceTestBase
             });
 
         MockTransactionRepository
-            .Setup(x => x.CreateSaleAsync(It.IsAny<POSTransactionHeader>(), It.IsAny<List<POSTransactionDetail>>(), It.IsAny<Payment>()))
+            .Setup(x => x.CreateSaleAsync(It.IsAny<RetailTransactionHeader>(), It.IsAny<List<TransactionDetail>>(), It.IsAny<Payment>()))
             .ReturnsAsync(expectedTransaction);
 
         // Act
@@ -234,7 +236,7 @@ public class TransactionServiceTests : ServiceTestBase
             .Returns(new VATBreakdown { Subtotal = 43.48m, TaxAmount = 6.52m, Total = 50.00m });
 
         MockTransactionRepository
-            .Setup(x => x.CreateSaleAsync(It.IsAny<POSTransactionHeader>(), It.IsAny<List<POSTransactionDetail>>(), It.IsAny<Payment>()))
+            .Setup(x => x.CreateSaleAsync(It.IsAny<RetailTransactionHeader>(), It.IsAny<List<TransactionDetail>>(), It.IsAny<Payment>()))
             .ReturnsAsync(expectedTransaction);
 
         // Act
@@ -408,7 +410,7 @@ public class TransactionServiceTests : ServiceTestBase
 
         MockTransactionRepository
             .Setup(x => x.GetByTransactionNumberAsync(transactionNumber))
-            .ReturnsAsync((POSTransactionHeader?)null);
+            .ReturnsAsync((RetailTransactionHeader?)null);
 
         // Act
         var result = await _service.GetTransactionByNumberAsync(transactionNumber);
@@ -455,7 +457,7 @@ public class TransactionServiceTests : ServiceTestBase
 
         MockTransactionRepository
             .Setup(x => x.GetByTransactionNumberAsync(transactionNumber))
-            .ReturnsAsync((POSTransactionHeader?)null);
+            .ReturnsAsync((RetailTransactionHeader?)null);
 
         // Act
         var result = await _service.VoidTransactionAsync(transactionNumber, voidReason, userId);
@@ -495,9 +497,9 @@ public class TransactionServiceTests : ServiceTestBase
         };
     }
 
-    private POSTransactionHeader CreateMockTransaction()
+    private RetailTransactionHeader CreateMockTransaction()
     {
-        return new POSTransactionHeader
+        return new RetailTransactionHeader
         {
             Id = 1,
             TransactionNumber = "SALE-20251207-001",
@@ -508,18 +510,17 @@ public class TransactionServiceTests : ServiceTestBase
             TaxAmount = 26.09m,
             TotalAmount = 200.00m,
             Status = TransactionStatus.Completed,
-            TransactionDetails = new List<POSTransactionDetail>
+            TransactionDetails = new List<TransactionDetail>
             {
-                new POSTransactionDetail
+                new TransactionDetail
                 {
                     ProductId = 1,
                     ProductSKU = "PROD001",
                     ProductName = "Product 1",
                     Quantity = 2,
                     UnitPrice = 100.00m,
-                    Subtotal = 173.91m,
-                    TaxAmount = 26.09m,
-                    Total = 200.00m
+                    VATAmount = 26.09m,
+                    LineTotal = 200.00m
                 }
             },
             Payments = new List<Payment>

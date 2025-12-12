@@ -233,11 +233,13 @@ namespace Project420.Retail.POS.Models.Entities
         /// Collection of transaction details (line items) that reference this product
         /// </summary>
         /// <remarks>
-        /// EF Core will automatically populate this collection
-        /// Shows all sales/transactions where this product was sold
-        /// Used for sales history, reporting, analytics
+        /// Phase 7B: Uses unified TransactionDetail from Shared.Core.
+        /// TransactionDetails are stored in SharedDbContext with HeaderId + TransactionType discriminator.
+        /// EF Core will automatically populate this collection.
+        /// Shows all sales/transactions where this product was sold.
+        /// Used for sales history, reporting, analytics.
         /// </remarks>
-        public virtual ICollection<POSTransactionDetail> TransactionDetails { get; set; } = new List<POSTransactionDetail>();
+        public virtual ICollection<TransactionDetail> TransactionDetails { get; set; } = new List<TransactionDetail>();
     }
 }
 

@@ -4,6 +4,7 @@ using Project420.Retail.POS.BLL.DTOs;
 using Project420.Retail.POS.BLL.Services;
 using Project420.Retail.POS.Models.Entities;
 using Project420.Retail.POS.Tests.Infrastructure;
+using Project420.Shared.Core.Entities;
 using Project420.Shared.Core.Enums;
 
 namespace Project420.Retail.POS.Tests.Services;
@@ -104,7 +105,7 @@ public class TransactionSearchServiceTests : ServiceTestBase
         // Arrange
         var criteria = new TransactionSearchCriteriaDto();
 
-        var mockTransactions = new List<POSTransactionHeader>
+        var mockTransactions = new List<RetailTransactionHeader>
         {
             CreateTransaction(1, "SALE-001", 200.00m),
             CreateTransaction(2, "SALE-002", 150.00m),
@@ -137,7 +138,7 @@ public class TransactionSearchServiceTests : ServiceTestBase
         var startDate = DateTime.UtcNow.AddDays(-7);
         var endDate = DateTime.UtcNow;
 
-        var mockTransactions = new List<POSTransactionHeader>
+        var mockTransactions = new List<RetailTransactionHeader>
         {
             CreateTransaction(1, "SALE-001", 200.00m),
             CreateTransaction(2, "SALE-002", 300.00m),
@@ -170,7 +171,7 @@ public class TransactionSearchServiceTests : ServiceTestBase
         // Arrange
         var batchNumber = "BATCH-001";
 
-        var mockTransactions = new List<POSTransactionHeader>
+        var mockTransactions = new List<RetailTransactionHeader>
         {
             CreateTransactionWithBatch(1, "SALE-001", 200.00m, batchNumber, "Product A", 2),
             CreateTransactionWithBatch(2, "SALE-002", 150.00m, batchNumber, "Product A", 1),
@@ -225,7 +226,7 @@ public class TransactionSearchServiceTests : ServiceTestBase
     public async Task GetRecentTransactionsAsync_ExcludesVoidedByDefault()
     {
         // Arrange
-        var mockTransactions = new List<POSTransactionHeader>
+        var mockTransactions = new List<RetailTransactionHeader>
         {
             CreateTransaction(1, "SALE-001", 200.00m, TransactionStatus.Completed),
             CreateTransaction(2, "SALE-002", 150.00m, TransactionStatus.Cancelled), // Voided
@@ -247,9 +248,9 @@ public class TransactionSearchServiceTests : ServiceTestBase
 
     #region Helper Methods
 
-    private List<POSTransactionHeader> CreateMockTransactionList()
+    private List<RetailTransactionHeader> CreateMockTransactionList()
     {
-        return new List<POSTransactionHeader>
+        return new List<RetailTransactionHeader>
         {
             CreateTransaction(1, "SALE-001", 200.00m, customerName: "John Doe"),
             CreateTransaction(2, "SALE-002", 150.00m, customerName: "Jane Smith"),
@@ -257,14 +258,14 @@ public class TransactionSearchServiceTests : ServiceTestBase
         };
     }
 
-    private POSTransactionHeader CreateTransaction(
+    private RetailTransactionHeader CreateTransaction(
         int id,
         string transactionNumber,
         decimal totalAmount,
         TransactionStatus status = TransactionStatus.Completed,
         string customerName = "Customer")
     {
-        return new POSTransactionHeader
+        return new RetailTransactionHeader
         {
             Id = id,
             TransactionNumber = transactionNumber,
@@ -274,15 +275,16 @@ public class TransactionSearchServiceTests : ServiceTestBase
             TaxAmount = totalAmount - (totalAmount / 1.15m),
             TotalAmount = totalAmount,
             Status = status,
-            TransactionDetails = new List<POSTransactionDetail>
+            TransactionDetails = new List<TransactionDetail>
             {
-                new POSTransactionDetail
+                new TransactionDetail
                 {
                     ProductId = 1,
                     ProductSKU = "PROD001",
                     ProductName = "Product 1",
                     Quantity = 1,
-                    Total = totalAmount
+                    LineTotal = totalAmount,
+                    VATAmount = totalAmount - (totalAmount / 1.15m)
                 }
             },
             Payments = new List<Payment>
@@ -296,7 +298,7 @@ public class TransactionSearchServiceTests : ServiceTestBase
         };
     }
 
-    private POSTransactionHeader CreateTransactionWithBatch(
+    private RetailTransactionHeader CreateTransactionWithBatch(
         int id,
         string transactionNumber,
         decimal totalAmount,
@@ -304,7 +306,7 @@ public class TransactionSearchServiceTests : ServiceTestBase
         string productName,
         int quantity)
     {
-        return new POSTransactionHeader
+        return new RetailTransactionHeader
         {
             Id = id,
             TransactionNumber = transactionNumber,
@@ -312,16 +314,17 @@ public class TransactionSearchServiceTests : ServiceTestBase
             CustomerName = "Customer",
             TotalAmount = totalAmount,
             Status = TransactionStatus.Completed,
-            TransactionDetails = new List<POSTransactionDetail>
+            TransactionDetails = new List<TransactionDetail>
             {
-                new POSTransactionDetail
+                new TransactionDetail
                 {
                     ProductId = 1,
                     ProductSKU = "PROD001",
                     ProductName = productName,
                     Quantity = quantity,
                     BatchNumber = batchNumber,
-                    Total = totalAmount
+                    LineTotal = totalAmount,
+                    VATAmount = totalAmount - (totalAmount / 1.15m)
                 }
             },
             Payments = new List<Payment>

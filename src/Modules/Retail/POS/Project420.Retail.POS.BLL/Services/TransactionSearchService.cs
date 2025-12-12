@@ -168,18 +168,19 @@ namespace Project420.Retail.POS.BLL.Services
             }
 
             // Build batch transactions
+            // Phase 7B: Use unified TransactionDetail property names
             var batchTransactionDtos = batchTransactions.Select(t =>
             {
                 var batchDetails = t.TransactionDetails.Where(d => d.BatchNumber == batchNumber).ToList();
                 var quantity = batchDetails.Sum(d => Math.Abs(d.Quantity));
-                var amount = batchDetails.Sum(d => Math.Abs(d.Total));
+                var amount = batchDetails.Sum(d => Math.Abs(d.LineTotal)); // LineTotal instead of Total
 
                 return new BatchTransactionDto
                 {
                     TransactionNumber = t.TransactionNumber,
                     TransactionDate = t.TransactionDate,
                     CustomerName = t.CustomerName ?? "Unknown",
-                    QuantitySold = quantity,
+                    QuantitySold = (int)quantity, // Cast decimal to int
                     Amount = amount,
                     CashierName = t.ProcessedBy ?? "Unknown"
                 };
@@ -396,8 +397,8 @@ namespace Project420.Retail.POS.BLL.Services
         // PRIVATE HELPER METHODS
         // ========================================
 
-        private IQueryable<Models.Entities.POSTransactionHeader> ApplyFilters(
-            List<Models.Entities.POSTransactionHeader> transactions,
+        private IQueryable<Models.Entities.RetailTransactionHeader> ApplyFilters(
+            List<Models.Entities.RetailTransactionHeader> transactions,
             TransactionSearchCriteriaDto criteria)
         {
             var query = transactions.AsQueryable();
@@ -461,8 +462,8 @@ namespace Project420.Retail.POS.BLL.Services
             return query;
         }
 
-        private IOrderedQueryable<Models.Entities.POSTransactionHeader> ApplySorting(
-            IQueryable<Models.Entities.POSTransactionHeader> query,
+        private IOrderedQueryable<Models.Entities.RetailTransactionHeader> ApplySorting(
+            IQueryable<Models.Entities.RetailTransactionHeader> query,
             TransactionSearchCriteriaDto criteria)
         {
             var sortDescending = criteria.SortDirection.Equals("Descending", StringComparison.OrdinalIgnoreCase);
@@ -484,7 +485,7 @@ namespace Project420.Retail.POS.BLL.Services
             };
         }
 
-        private TransactionSummaryDto MapToSummaryDto(Models.Entities.POSTransactionHeader transaction)
+        private TransactionSummaryDto MapToSummaryDto(Models.Entities.RetailTransactionHeader transaction)
         {
             return new TransactionSummaryDto
             {
@@ -497,25 +498,27 @@ namespace Project420.Retail.POS.BLL.Services
                 TotalAmount = Math.Abs(transaction.TotalAmount),
                 PaymentMethod = transaction.Payments.FirstOrDefault()?.PaymentMethod.ToString() ?? "Unknown",
                 CashierName = transaction.ProcessedBy ?? "Unknown",
-                ItemCount = transaction.TransactionDetails.Sum(d => Math.Abs(d.Quantity))
+                // Phase 7B: Cast decimal Quantity to int
+                ItemCount = (int)transaction.TransactionDetails.Sum(d => Math.Abs(d.Quantity))
             };
         }
 
-        private TransactionDetailDto MapToDetailDto(Models.Entities.POSTransactionHeader transaction)
+        private TransactionDetailDto MapToDetailDto(Models.Entities.RetailTransactionHeader transaction)
         {
             return new TransactionDetailDto
             {
                 Header = MapToSummaryDto(transaction),
+                // Phase 7B: Use unified TransactionDetail property names
                 LineItems = transaction.TransactionDetails.Select(d => new TransactionLineItemDto
                 {
                     ProductId = d.ProductId,
                     ProductSku = d.ProductSKU ?? string.Empty,
                     ProductName = d.ProductName ?? string.Empty,
-                    Quantity = Math.Abs(d.Quantity),
+                    Quantity = (int)Math.Abs(d.Quantity), // Cast decimal to int
                     UnitPrice = d.UnitPrice,
-                    Subtotal = Math.Abs(d.Subtotal),
-                    VATAmount = Math.Abs(d.TaxAmount),
-                    Total = Math.Abs(d.Total),
+                    Subtotal = Math.Abs(d.LineTotal - d.VATAmount), // Subtotal = LineTotal - VATAmount
+                    VATAmount = Math.Abs(d.VATAmount), // VATAmount instead of TaxAmount
+                    Total = Math.Abs(d.LineTotal), // LineTotal instead of Total
                     BatchNumber = d.BatchNumber
                 }).ToList(),
                 Payments = transaction.Payments.Select(p => new PaymentDetailDto
@@ -533,7 +536,7 @@ namespace Project420.Retail.POS.BLL.Services
             };
         }
 
-        private Dictionary<string, CashierStats> CalculateCashierStatistics(List<Models.Entities.POSTransactionHeader> transactions)
+        private Dictionary<string, CashierStats> CalculateCashierStatistics(List<Models.Entities.RetailTransactionHeader> transactions)
         {
             return transactions
                 .Where(t => t.TotalAmount > 0) // Only sales
@@ -550,7 +553,7 @@ namespace Project420.Retail.POS.BLL.Services
                 );
         }
 
-        private List<PeriodStats> CalculatePeriodStatistics(List<Models.Entities.POSTransactionHeader> transactions, string groupBy)
+        private List<PeriodStats> CalculatePeriodStatistics(List<Models.Entities.RetailTransactionHeader> transactions, string groupBy)
         {
             var stats = new List<PeriodStats>();
 

@@ -1,6 +1,7 @@
 using Project420.Retail.POS.Models.Entities;
-using Project420.Shared.Infrastructure.DTOs;
+using Project420.Shared.Core.Entities;
 using Project420.Shared.Core.Enums;
+using Project420.Shared.Infrastructure.DTOs;
 
 namespace Project420.Retail.POS.DAL.Repositories
 {
@@ -28,10 +29,11 @@ namespace Project420.Retail.POS.DAL.Repositories
         /// Create a new POS sale transaction with details and payment
         /// </summary>
         /// <param name="header">Transaction header with customer, totals, etc.</param>
-        /// <param name="details">List of line items (products sold)</param>
+        /// <param name="details">List of line items (products sold) - unified TransactionDetail</param>
         /// <param name="payment">Payment information (method, amount, reference)</param>
         /// <returns>Created transaction header with assigned ID and transaction number</returns>
         /// <remarks>
+        /// Phase 7B: Uses unified TransactionDetail from SharedDbContext.
         /// Transactional operation - all 3 entities saved atomically.
         /// Rollback on any failure to maintain data integrity.
         ///
@@ -40,9 +42,9 @@ namespace Project420.Retail.POS.DAL.Repositories
         /// - Batch numbers must be recorded for traceability
         /// - Medical license verified if applicable
         /// </remarks>
-        Task<POSTransactionHeader> CreateSaleAsync(
-            POSTransactionHeader header,
-            List<POSTransactionDetail> details,
+        Task<RetailTransactionHeader> CreateSaleAsync(
+            RetailTransactionHeader header,
+            List<TransactionDetail> details,
             Payment payment);
 
         // ========================================
@@ -54,14 +56,14 @@ namespace Project420.Retail.POS.DAL.Repositories
         /// </summary>
         /// <param name="transactionId">Transaction header ID</param>
         /// <returns>Transaction header with details and payment, or null if not found</returns>
-        Task<POSTransactionHeader?> GetByIdAsync(int transactionId);
+        Task<RetailTransactionHeader?> GetByIdAsync(int transactionId);
 
         /// <summary>
         /// Get transaction by transaction number (e.g., "SALE-20251206-001")
         /// </summary>
         /// <param name="transactionNumber">Unique transaction number</param>
         /// <returns>Transaction header with details and payment, or null if not found</returns>
-        Task<POSTransactionHeader?> GetByTransactionNumberAsync(string transactionNumber);
+        Task<RetailTransactionHeader?> GetByTransactionNumberAsync(string transactionNumber);
 
         /// <summary>
         /// Get all transactions for a specific customer
@@ -70,13 +72,13 @@ namespace Project420.Retail.POS.DAL.Repositories
         /// <param name="pageNumber">Page number (1-based)</param>
         /// <param name="pageSize">Items per page (default 50)</param>
         /// <returns>List of transactions ordered by date descending (newest first)</returns>
-        Task<List<POSTransactionHeader>> GetByCustomerAsync(int debtorId, int pageNumber = 1, int pageSize = 50);
+        Task<List<RetailTransactionHeader>> GetByCustomerAsync(int debtorId, int pageNumber = 1, int pageSize = 50);
 
         /// <summary>
         /// Get all transactions for today (useful for daily sales reports)
         /// </summary>
         /// <returns>List of today's transactions</returns>
-        Task<List<POSTransactionHeader>> GetTodaysTransactionsAsync();
+        Task<List<RetailTransactionHeader>> GetTodaysTransactionsAsync();
 
         /// <summary>
         /// Get transactions within a date range
@@ -84,7 +86,7 @@ namespace Project420.Retail.POS.DAL.Repositories
         /// <param name="startDate">Start date (inclusive)</param>
         /// <param name="endDate">End date (inclusive)</param>
         /// <returns>List of transactions in date range</returns>
-        Task<List<POSTransactionHeader>> GetByDateRangeAsync(DateTime startDate, DateTime endDate);
+        Task<List<RetailTransactionHeader>> GetByDateRangeAsync(DateTime startDate, DateTime endDate);
 
         // ========================================
         // UPDATE OPERATIONS
@@ -136,11 +138,13 @@ namespace Project420.Retail.POS.DAL.Repositories
         /// </summary>
         /// <param name="originalTransactionNumber">Transaction number being refunded</param>
         /// <param name="refundHeader">Refund transaction header</param>
-        /// <param name="refundDetails">Refund line items</param>
+        /// <param name="refundDetails">Refund line items - unified TransactionDetail</param>
         /// <param name="payment">Refund payment (negative amount)</param>
         /// <param name="refundReason">Reason for refund (compliance requirement)</param>
         /// <returns>Created refund transaction header</returns>
         /// <remarks>
+        /// Phase 7B: Uses unified TransactionDetail from SharedDbContext.
+        ///
         /// Cannabis Act Compliance:
         /// - Refunds must reference original sale for traceability
         /// - Refunded products returned to inventory with batch tracking
@@ -151,10 +155,10 @@ namespace Project420.Retail.POS.DAL.Repositories
         /// - Refund window: 30 days from original sale
         /// - Partial refunds supported
         /// </remarks>
-        Task<POSTransactionHeader> ProcessRefundAsync(
+        Task<RetailTransactionHeader> ProcessRefundAsync(
             string originalTransactionNumber,
-            POSTransactionHeader refundHeader,
-            List<POSTransactionDetail> refundDetails,
+            RetailTransactionHeader refundHeader,
+            List<TransactionDetail> refundDetails,
             Payment payment,
             RefundReason refundReason);
 
@@ -171,14 +175,14 @@ namespace Project420.Retail.POS.DAL.Repositories
         /// </summary>
         /// <param name="transactionNumber">Original transaction number</param>
         /// <returns>Transaction with all previous refunds applied</returns>
-        Task<POSTransactionHeader?> GetRefundableTransactionAsync(string transactionNumber);
+        Task<RetailTransactionHeader?> GetRefundableTransactionAsync(string transactionNumber);
 
         /// <summary>
         /// Get all refunds processed for a specific transaction
         /// </summary>
         /// <param name="originalTransactionNumber">Original sale transaction number</param>
         /// <returns>List of refund transactions</returns>
-        Task<List<POSTransactionHeader>> GetRefundHistoryAsync(string originalTransactionNumber);
+        Task<List<RetailTransactionHeader>> GetRefundHistoryAsync(string originalTransactionNumber);
 
         // ========================================
         // ADVANCED SEARCH & FILTERING (High Priority Feature #2)
@@ -203,7 +207,7 @@ namespace Project420.Retail.POS.DAL.Repositories
         ///
         /// Cannabis Compliance: Batch number search enables seed-to-sale traceability
         /// </remarks>
-        Task<PagedResult<POSTransactionHeader>> SearchTransactionsAsync(TransactionSearchCriteria criteria);
+        Task<PagedResult<RetailTransactionHeader>> SearchTransactionsAsync(TransactionSearchCriteria criteria);
 
         /// <summary>
         /// Get detailed statistics for transactions in a date range

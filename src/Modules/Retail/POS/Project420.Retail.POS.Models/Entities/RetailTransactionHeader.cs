@@ -8,27 +8,29 @@ using Project420.Shared.Core.Enums;
 namespace Project420.Retail.POS.Models.Entities
 {
     /// <summary>
-    /// Represents a POS transaction header (invoice/receipt) for point-of-sale operations
+    /// Represents a retail transaction header (invoice/receipt) for point-of-sale operations
     /// </summary>
     /// <remarks>
-    /// RENAMED FROM TransactionHeader → POSTransactionHeader
+    /// RENAMED FROM POSTransactionHeader → RetailTransactionHeader (Phase 7B)
     ///
     /// Reason for Rename:
-    /// - POS transactions are quick counter sales (cash register)
-    /// - Future: Regular invoicing (Order → Picking → Dispatching workflow)
-    /// - Need to distinguish between POS and Invoicing transactions
+    /// - Aligns with unified transaction architecture
+    /// - Headers stay in module-specific databases (Project420_Dev)
+    /// - Details move to unified TransactionDetails (Project420_Shared)
+    /// - Supports future retail transaction types beyond POS
     ///
-    /// This is the "header" or "master" record for a POS transaction.
-    /// Think of it as the invoice/receipt that contains multiple line items (POSTransactionDetails).
+    /// This is the "header" or "master" record for a retail transaction.
+    /// Think of it as the invoice/receipt that contains multiple line items.
     ///
-    /// Header-Detail Pattern:
-    /// POSTransactionHeader (1) → POSTransactionDetails (Many)
+    /// Header-Detail Pattern (Unified Architecture):
+    /// RetailTransactionHeader (Project420_Dev) → TransactionDetails (Project420_Shared)
+    /// TransactionDetails → Movements (for SOH calculation)
     ///
     /// Example:
-    /// POSTransactionHeader #12345 (Invoice)
-    /// ├─ POSTransactionDetail #1: Blue Dream x2 @ R150 = R300
-    /// ├─ POSTransactionDetail #2: OG Kush x1 @ R155 = R155
-    /// └─ POSTransactionDetail #3: CBD Oil x1 @ R450 = R450
+    /// RetailTransactionHeader #12345 (Invoice)
+    /// ├─ TransactionDetail #1: Blue Dream x2 @ R150 = R300
+    /// ├─ TransactionDetail #2: OG Kush x1 @ R155 = R155
+    /// └─ TransactionDetail #3: CBD Oil x1 @ R450 = R450
     ///    Total: R905
     ///
     /// Cannabis Compliance:
@@ -42,7 +44,7 @@ namespace Project420.Retail.POS.Models.Entities
     /// - Customer PII protected (link via DebtorId, not embedded)
     /// - 7-year retention for tax purposes
     /// </remarks>
-    public class POSTransactionHeader : AuditableEntity
+    public class RetailTransactionHeader : AuditableEntity
     {
         // ============================================================
         // TRANSACTION IDENTIFICATION
@@ -159,7 +161,7 @@ namespace Project420.Retail.POS.Models.Entities
         /// Subtotal before tax (sum of all line item subtotals)
         /// </summary>
         /// <remarks>
-        /// Calculated from POSTransactionDetails:
+        /// Calculated from TransactionDetails:
         /// Sum(Quantity * UnitPrice) for all details
         ///
         /// South African VAT: Prices usually include VAT
@@ -195,7 +197,7 @@ namespace Project420.Retail.POS.Models.Entities
         /// </summary>
         /// <remarks>
         /// Final amount customer must pay
-        /// Sum of all POSTransactionDetail.Total values
+        /// Sum of all TransactionDetail.Total values
         ///
         /// For refunds: This will be negative
         /// </remarks>
@@ -291,20 +293,17 @@ namespace Project420.Retail.POS.Models.Entities
         /// Navigation property to original transaction (for refunds)
         /// </summary>
         [ForeignKey(nameof(OriginalTransactionId))]
-        public virtual POSTransactionHeader? OriginalTransaction { get; set; }
+        public virtual RetailTransactionHeader? OriginalTransaction { get; set; }
 
         /// <summary>
         /// Collection of line items (products) in this transaction
         /// </summary>
         /// <remarks>
-        /// One transaction can have many line items
-        /// Example:
-        /// POSTransaction #12345
-        /// ├─ Detail #1: Blue Dream x2
-        /// ├─ Detail #2: OG Kush x1
-        /// └─ Detail #3: CBD Oil x1
+        /// Phase 7B: Uses unified TransactionDetail from Shared.Core.
+        /// TransactionDetails are stored in SharedDbContext with HeaderId + TransactionType discriminator.
+        /// This navigation property is populated by repositories querying SharedDbContext.
         /// </remarks>
-        public virtual ICollection<POSTransactionDetail> TransactionDetails { get; set; } = new List<POSTransactionDetail>();
+        public virtual ICollection<TransactionDetail> TransactionDetails { get; set; } = new List<TransactionDetail>();
 
         /// <summary>
         /// Collection of payments for this transaction
@@ -313,7 +312,7 @@ namespace Project420.Retail.POS.Models.Entities
         /// One transaction can have multiple payments
         /// Example: R200 sale paid with R100 cash + R100 card
         ///
-        /// POSTransaction (1) → Payments (Many)
+        /// RetailTransactionHeader (1) → Payments (Many)
         /// </remarks>
         public virtual ICollection<Payment> Payments { get; set; } = new List<Payment>();
 
@@ -324,6 +323,6 @@ namespace Project420.Retail.POS.Models.Entities
         /// If this is a Sale, can have multiple partial refunds
         /// Each refund transaction has OriginalTransactionId = this.Id
         /// </remarks>
-        public virtual ICollection<POSTransactionHeader> RefundTransactions { get; set; } = new List<POSTransactionHeader>();
+        public virtual ICollection<RetailTransactionHeader> RefundTransactions { get; set; } = new List<RetailTransactionHeader>();
     }
 }

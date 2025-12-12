@@ -1,4 +1,5 @@
 using Project420.Retail.POS.Models.Entities;
+using Project420.Shared.Core.Entities;
 
 namespace Project420.Retail.POS.BLL.Services
 {
@@ -22,6 +23,8 @@ namespace Project420.Retail.POS.BLL.Services
     /// - SARS requires accurate VAT calculations
     /// - All rounding must favor the business (not customer) for tax purposes
     /// - Audit trail of all calculations required
+    ///
+    /// Phase 7B: Updated to use unified TransactionDetail entity.
     /// </remarks>
     public interface IPOSCalculationService
     {
@@ -34,18 +37,20 @@ namespace Project420.Retail.POS.BLL.Services
         /// </summary>
         /// <param name="unitPriceInclVAT">Unit price including VAT (e.g., R10.00)</param>
         /// <param name="quantity">Quantity sold</param>
-        /// <returns>Populated POSTransactionDetail with calculated amounts</returns>
+        /// <returns>Populated TransactionDetail with calculated amounts</returns>
         /// <remarks>
+        /// Phase 7B: Now returns unified TransactionDetail from Shared.Core.
+        ///
         /// Calculation flow:
         /// 1. LineTotal = UnitPrice * Quantity
-        /// 2. VAT = LineTotal - (LineTotal / 1.15)
-        /// 3. Subtotal = LineTotal - VAT
+        /// 2. VATAmount = LineTotal - (LineTotal / 1.15)
+        /// 3. Subtotal (implicit) = LineTotal - VATAmount
         ///
         /// Example: R10.00 × 5 = R50.00 total
-        ///          VAT = R50.00 - (R50.00 / 1.15) = R6.52
+        ///          VATAmount = R50.00 - (R50.00 / 1.15) = R6.52
         ///          Subtotal = R50.00 - R6.52 = R43.48
         /// </remarks>
-        POSTransactionDetail CalculateLineItem(decimal unitPriceInclVAT, int quantity);
+        TransactionDetail CalculateLineItem(decimal unitPriceInclVAT, int quantity);
 
         /// <summary>
         /// Calculate line subtotal (excluding VAT)
@@ -85,28 +90,38 @@ namespace Project420.Retail.POS.BLL.Services
         /// Why adjust VAT? SARS accepts minor VAT adjustments for rounding,
         /// but total must ALWAYS match the sum of line items.
         /// </remarks>
-        void CalculateHeaderTotals(POSTransactionHeader header);
+        void CalculateHeaderTotals(RetailTransactionHeader header);
 
         /// <summary>
         /// Calculate subtotal (sum of all line item subtotals)
         /// </summary>
         /// <param name="details">List of transaction detail lines</param>
         /// <returns>Total subtotal excluding VAT</returns>
-        decimal CalculateSubtotal(List<POSTransactionDetail> details);
+        /// <remarks>
+        /// Phase 7B: Now uses unified TransactionDetail.
+        /// Subtotal = Sum(LineTotal - VATAmount) for each detail.
+        /// </remarks>
+        decimal CalculateSubtotal(List<TransactionDetail> details);
 
         /// <summary>
         /// Calculate total VAT (sum of all line item VAT amounts)
         /// </summary>
         /// <param name="details">List of transaction detail lines</param>
         /// <returns>Total VAT amount</returns>
-        decimal CalculateTotalVAT(List<POSTransactionDetail> details);
+        /// <remarks>
+        /// Phase 7B: Now uses unified TransactionDetail.VATAmount.
+        /// </remarks>
+        decimal CalculateTotalVAT(List<TransactionDetail> details);
 
         /// <summary>
         /// Calculate total amount (sum of all line item totals)
         /// </summary>
         /// <param name="details">List of transaction detail lines</param>
         /// <returns>Total amount including VAT</returns>
-        decimal CalculateTotalAmount(List<POSTransactionDetail> details);
+        /// <remarks>
+        /// Phase 7B: Now uses unified TransactionDetail.LineTotal.
+        /// </remarks>
+        decimal CalculateTotalAmount(List<TransactionDetail> details);
 
         // ========================================
         // DISCOUNT CALCULATIONS

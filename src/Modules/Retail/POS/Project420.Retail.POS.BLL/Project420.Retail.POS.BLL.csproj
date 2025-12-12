@@ -10,6 +10,7 @@
     <ProjectReference Include="..\Project420.Retail.POS.Models\Project420.Retail.POS.Models.csproj" />
     <ProjectReference Include="..\Project420.Retail.POS.DAL\Project420.Retail.POS.DAL.csproj" />
     <ProjectReference Include="..\..\..\..\Shared\Project420.Shared.Infrastructure\Project420.Shared.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\..\..\Shared\Project420.Shared.Database\Project420.Shared.Database.csproj" />
   </ItemGroup>
 
 </Project>

@@ -294,7 +294,7 @@ namespace Project420.Retail.POS.Models.Entities
         /// Shows complete purchase history
         /// Used for: reporting, analytics, loyalty programs, credit decisions
         /// </remarks>
-        public virtual ICollection<POSTransactionHeader> Transactions { get; set; } = new List<POSTransactionHeader>();
+        public virtual ICollection<RetailTransactionHeader> Transactions { get; set; } = new List<RetailTransactionHeader>();
     }
 }
 

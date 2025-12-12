@@ -1,7 +1,9 @@
 using Project420.Retail.POS.BLL.DTOs;
 using Project420.Retail.POS.DAL.Repositories;
 using Project420.Retail.POS.Models.Entities;
+using Project420.Shared.Core.Entities;
 using Project420.Shared.Core.Enums;
+using Project420.Shared.Database.Services;
 using Project420.Shared.Infrastructure.Interfaces;
 
 namespace Project420.Retail.POS.BLL.Services
@@ -9,20 +11,28 @@ namespace Project420.Retail.POS.BLL.Services
     /// <summary>
     /// Service implementation for POS transaction business logic
     /// </summary>
+    /// <remarks>
+    /// Phase 7B: Integrated with MovementService for unified transaction architecture.
+    /// After each transaction is saved, movements are generated automatically.
+    /// This ensures SOH (Stock on Hand) is always calculated from the Movement ledger.
+    /// </remarks>
     public class TransactionService : ITransactionService
     {
         private readonly ITransactionRepository _transactionRepository;
         private readonly IVATCalculationService _vatService;
         private readonly ITransactionNumberGeneratorService _transactionNumberService;
+        private readonly IMovementService _movementService;
 
         public TransactionService(
             ITransactionRepository transactionRepository,
             IVATCalculationService vatService,
-            ITransactionNumberGeneratorService transactionNumberService)
+            ITransactionNumberGeneratorService transactionNumberService,
+            IMovementService movementService)
         {
             _transactionRepository = transactionRepository ?? throw new ArgumentNullException(nameof(transactionRepository));
             _vatService = vatService ?? throw new ArgumentNullException(nameof(vatService));
             _transactionNumberService = transactionNumberService ?? throw new ArgumentNullException(nameof(transactionNumberService));
+            _movementService = movementService ?? throw new ArgumentNullException(nameof(movementService));
         }
 
         /// <inheritdoc/>
@@ -45,26 +55,29 @@ namespace Project420.Retail.POS.BLL.Services
                 var transactionNumber = await _transactionNumberService.GenerateAsync(
                     TransactionTypeCode.SALE);
 
-                // 2. Calculate line items with VAT
-                var details = new List<POSTransactionDetail>();
+                // 2. Calculate line items with VAT (Phase 7B: Using unified TransactionDetail)
+                var details = new List<TransactionDetail>();
                 foreach (var cartItem in request.CartItems)
                 {
                     var vatBreakdown = _vatService.CalculateLineItem(
                         unitPriceInclVAT: cartItem.UnitPriceInclVAT,
                         quantity: cartItem.Quantity);
 
-                    var detail = new POSTransactionDetail
+                    var detail = new TransactionDetail
                     {
                         ProductId = cartItem.ProductId,
                         ProductSKU = cartItem.ProductSku,
                         ProductName = cartItem.ProductName,
                         Quantity = cartItem.Quantity,
                         UnitPrice = cartItem.UnitPriceInclVAT,
-                        Subtotal = vatBreakdown.Subtotal,
-                        TaxAmount = vatBreakdown.TaxAmount,
-                        Total = vatBreakdown.Total,
+                        DiscountAmount = 0,
+                        VATAmount = vatBreakdown.TaxAmount,
+                        LineTotal = vatBreakdown.Total,
                         CostPrice = cartItem.CostPrice,
-                        BatchNumber = cartItem.BatchNumber
+                        BatchNumber = cartItem.BatchNumber,
+                        // HeaderId and TransactionType set by repository
+                        CreatedAt = DateTime.UtcNow,
+                        CreatedBy = request.ProcessedBy.ToString()
                     };
 
                     details.Add(detail);
@@ -76,9 +89,10 @@ namespace Project420.Retail.POS.BLL.Services
                 }
 
                 // 3. Calculate header totals (aggregate from details)
-                var subtotal = details.Sum(d => d.Subtotal);
-                var vatAmount = details.Sum(d => d.TaxAmount);
-                var total = details.Sum(d => d.Total);
+                // Note: TransactionDetail uses VATAmount and LineTotal (not Subtotal/TaxAmount)
+                var vatAmount = details.Sum(d => d.VATAmount);
+                var total = details.Sum(d => d.LineTotal);
+                var subtotal = total - vatAmount;
 
                 // 4. Apply discounts if any
                 decimal discountAmount = 0;
@@ -94,7 +108,7 @@ namespace Project420.Retail.POS.BLL.Services
                 var finalTotal = total - discountAmount;
 
                 // 5. Create transaction header
-                var header = new POSTransactionHeader
+                var header = new RetailTransactionHeader
                 {
                     TransactionNumber = transactionNumber,
                     TransactionDate = DateTime.UtcNow,
@@ -128,14 +142,19 @@ namespace Project420.Retail.POS.BLL.Services
                 var savedTransaction = await _transactionRepository.CreateSaleAsync(
                     header, details, payment);
 
-                // 8. Calculate change (for cash payments)
+                // 8. Generate movements for SOH calculation (Phase 7B - Movement Architecture)
+                // This creates Movement records in the ledger for each TransactionDetail
+                // SOH is calculated from SUM(IN) - SUM(OUT) movements
+                await _movementService.GenerateMovementsAsync(TransactionType.Sale, savedTransaction.Id);
+
+                // 9. Calculate change (for cash payments)
                 decimal? changeDue = null;
                 if (request.PaymentMethod == PaymentMethod.Cash && request.AmountTendered.HasValue)
                 {
                     changeDue = request.AmountTendered.Value - finalTotal;
                 }
 
-                // 9. Build checkout result
+                // 10. Build checkout result
                 return new CheckoutResultDto
                 {
                     Success = true,
@@ -192,18 +211,19 @@ namespace Project420.Retail.POS.BLL.Services
                 PaymentMethod = transaction.Payments.FirstOrDefault()?.PaymentMethod.ToString() ?? "Unknown",
                 ItemCount = transaction.TransactionDetails.Count,
                 ProcessedBy = transaction.ProcessedBy ?? "Unknown",
+                // Phase 7B: TransactionDetail uses different property names
                 LineItems = transaction.TransactionDetails.Select(d => new CartItemDto
                 {
                     ProductId = d.ProductId,
-                    ProductSku = d.ProductSKU ?? string.Empty,
-                    ProductName = d.ProductName ?? string.Empty,
+                    ProductSku = d.ProductSKU,
+                    ProductName = d.ProductName,
                     UnitPriceInclVAT = d.UnitPrice,
-                    Quantity = d.Quantity,
+                    Quantity = (int)d.Quantity, // TransactionDetail uses decimal for quantity
                     BatchNumber = d.BatchNumber,
                     CostPrice = d.CostPrice ?? 0,
-                    LineSubtotal = d.Subtotal,
-                    LineVATAmount = d.TaxAmount,
-                    LineTotal = d.Total
+                    LineSubtotal = d.LineTotal - d.VATAmount, // Calculate subtotal from LineTotal - VAT
+                    LineVATAmount = d.VATAmount,
+                    LineTotal = d.LineTotal
                 }).ToList(),
                 AgeVerificationDate = null, // Age verification stored in Debtor entity
                 BatchNumbers = string.Join(", ", transaction.TransactionDetails
@@ -219,6 +239,13 @@ namespace Project420.Retail.POS.BLL.Services
             var transaction = await _transactionRepository.GetByTransactionNumberAsync(transactionNumber);
             if (transaction == null)
                 return false;
+
+            // Phase 7B: Reverse movements first (soft delete in Movement ledger)
+            // This ensures SOH is recalculated correctly after void
+            await _movementService.ReverseMovementsAsync(
+                transaction.TransactionType,
+                transaction.Id,
+                $"Transaction voided: {voidReason}");
 
             return await _transactionRepository.VoidTransactionAsync(
                 transaction.Id,

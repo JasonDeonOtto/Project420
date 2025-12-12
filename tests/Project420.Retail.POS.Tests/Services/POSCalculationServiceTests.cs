@@ -1,6 +1,7 @@
 using FluentAssertions;
 using Project420.Retail.POS.BLL.Services;
 using Project420.Retail.POS.Models.Entities;
+using Project420.Shared.Core.Entities;
 
 namespace Project420.Retail.POS.Tests.Services;
 
@@ -33,9 +34,9 @@ public class POSCalculationServiceTests
 
         // Assert
         result.Should().NotBeNull();
-        result.Subtotal.Should().Be(expectedSubtotal);
-        result.TaxAmount.Should().Be(expectedVAT);
-        result.Total.Should().Be(expectedTotal);
+        (result.LineTotal - result.VATAmount).Should().Be(expectedSubtotal); // Subtotal = LineTotal - VAT
+        result.VATAmount.Should().Be(expectedVAT);
+        result.LineTotal.Should().Be(expectedTotal);
         result.Quantity.Should().Be(quantity);
         result.UnitPrice.Should().Be(unitPrice);
     }
@@ -51,9 +52,9 @@ public class POSCalculationServiceTests
         var result = _service.CalculateLineItem(unitPrice, quantity);
 
         // Assert
-        result.Total.Should().Be(100.00m);
-        result.Subtotal.Should().Be(86.96m);
-        result.TaxAmount.Should().Be(13.04m);
+        result.LineTotal.Should().Be(100.00m);
+        (result.LineTotal - result.VATAmount).Should().Be(86.96m);
+        result.VATAmount.Should().Be(13.04m);
     }
 
     [Fact]
@@ -68,9 +69,9 @@ public class POSCalculationServiceTests
         var result = _service.CalculateLineItem(unitPrice, quantity);
 
         // Assert
-        result.Total.Should().Be(700.00m);
-        result.Subtotal.Should().Be(608.70m);
-        result.TaxAmount.Should().Be(91.30m);
+        result.LineTotal.Should().Be(700.00m);
+        (result.LineTotal - result.VATAmount).Should().Be(608.70m);
+        result.VATAmount.Should().Be(91.30m);
     }
 
     [Fact]
@@ -99,9 +100,9 @@ public class POSCalculationServiceTests
     public void CalculateHeaderTotals_WithNoDetails_SetsZeroTotals()
     {
         // Arrange
-        var header = new POSTransactionHeader
+        var header = new RetailTransactionHeader
         {
-            TransactionDetails = new List<POSTransactionDetail>()
+            TransactionDetails = new List<TransactionDetail>()
         };
 
         // Act
@@ -117,15 +118,14 @@ public class POSCalculationServiceTests
     public void CalculateHeaderTotals_WithSingleDetail_AggregatesCorrectly()
     {
         // Arrange
-        var header = new POSTransactionHeader
+        var header = new RetailTransactionHeader
         {
-            TransactionDetails = new List<POSTransactionDetail>
+            TransactionDetails = new List<TransactionDetail>
             {
-                new POSTransactionDetail
+                new TransactionDetail
                 {
-                    Subtotal = 86.96m,
-                    TaxAmount = 13.04m,
-                    Total = 100.00m
+                    VATAmount = 13.04m,
+                    LineTotal = 100.00m // Subtotal = 100 - 13.04 = 86.96
                 }
             }
         };
@@ -143,13 +143,13 @@ public class POSCalculationServiceTests
     public void CalculateHeaderTotals_WithMultipleDetails_AggregatesCorrectly()
     {
         // Arrange
-        var header = new POSTransactionHeader
+        var header = new RetailTransactionHeader
         {
-            TransactionDetails = new List<POSTransactionDetail>
+            TransactionDetails = new List<TransactionDetail>
             {
-                new POSTransactionDetail { Subtotal = 86.96m, TaxAmount = 13.04m, Total = 100.00m },
-                new POSTransactionDetail { Subtotal = 43.48m, TaxAmount = 6.52m, Total = 50.00m },
-                new POSTransactionDetail { Subtotal = 130.43m, TaxAmount = 19.57m, Total = 150.00m }
+                new TransactionDetail { VATAmount = 13.04m, LineTotal = 100.00m }, // Subtotal = 86.96
+                new TransactionDetail { VATAmount = 6.52m, LineTotal = 50.00m },   // Subtotal = 43.48
+                new TransactionDetail { VATAmount = 19.57m, LineTotal = 150.00m }  // Subtotal = 130.43
             }
         };
 
@@ -166,15 +166,14 @@ public class POSCalculationServiceTests
     public void CalculateHeaderTotals_WithVarianceAboveThreshold_AdjustsVAT()
     {
         // Arrange
-        var header = new POSTransactionHeader
+        var header = new RetailTransactionHeader
         {
-            TransactionDetails = new List<POSTransactionDetail>
+            TransactionDetails = new List<TransactionDetail>
             {
-                new POSTransactionDetail
+                new TransactionDetail
                 {
-                    Subtotal = 86.95m, // Intentional variance
-                    TaxAmount = 13.03m,
-                    Total = 100.00m
+                    VATAmount = 13.03m, // Intentional variance (Subtotal = 100 - 13.03 = 86.97)
+                    LineTotal = 100.00m
                 }
             }
         };
@@ -183,7 +182,7 @@ public class POSCalculationServiceTests
         _service.CalculateHeaderTotals(header);
 
         // Assert - VAT should be adjusted to compensate for variance
-        header.Subtotal.Should().Be(86.95m);
+        header.Subtotal.Should().Be(86.97m);
         header.TotalAmount.Should().Be(100.00m);
         // VAT adjusted to maintain total accuracy
         (header.Subtotal + header.TaxAmount).Should().Be(header.TotalAmount);
@@ -192,11 +191,11 @@ public class POSCalculationServiceTests
     [Fact]
     public void CalculateSubtotal_WithDetails_SumsCorrectly()
     {
-        // Arrange
-        var details = new List<POSTransactionDetail>
+        // Arrange - Subtotal = LineTotal - VATAmount
+        var details = new List<TransactionDetail>
         {
-            new POSTransactionDetail { Subtotal = 86.96m },
-            new POSTransactionDetail { Subtotal = 43.48m }
+            new TransactionDetail { LineTotal = 100.00m, VATAmount = 13.04m }, // Subtotal = 86.96
+            new TransactionDetail { LineTotal = 50.00m, VATAmount = 6.52m }    // Subtotal = 43.48
         };
 
         // Act
@@ -220,10 +219,10 @@ public class POSCalculationServiceTests
     public void CalculateTotalVAT_WithDetails_SumsCorrectly()
     {
         // Arrange
-        var details = new List<POSTransactionDetail>
+        var details = new List<TransactionDetail>
         {
-            new POSTransactionDetail { TaxAmount = 13.04m },
-            new POSTransactionDetail { TaxAmount = 6.52m }
+            new TransactionDetail { VATAmount = 13.04m, LineTotal = 100.00m },
+            new TransactionDetail { VATAmount = 6.52m, LineTotal = 50.00m }
         };
 
         // Act
@@ -237,10 +236,10 @@ public class POSCalculationServiceTests
     public void CalculateTotalAmount_WithDetails_SumsCorrectly()
     {
         // Arrange
-        var details = new List<POSTransactionDetail>
+        var details = new List<TransactionDetail>
         {
-            new POSTransactionDetail { Total = 100.00m },
-            new POSTransactionDetail { Total = 50.00m }
+            new TransactionDetail { LineTotal = 100.00m, VATAmount = 13.04m },
+            new TransactionDetail { LineTotal = 50.00m, VATAmount = 6.52m }
         };
 
         // Act
@@ -375,12 +374,12 @@ public class POSCalculationServiceTests
         var result = _service.CalculateLineItem(700.00m, 1);
 
         // Assert
-        result.Total.Should().Be(700.00m);
-        result.Subtotal.Should().Be(608.70m);
-        result.TaxAmount.Should().Be(91.30m);
+        result.LineTotal.Should().Be(700.00m);
+        (result.LineTotal - result.VATAmount).Should().Be(608.70m); // Subtotal
+        result.VATAmount.Should().Be(91.30m);
 
         // Verify: Subtotal + VAT = Total
-        (result.Subtotal + result.TaxAmount).Should().Be(result.Total);
+        ((result.LineTotal - result.VATAmount) + result.VATAmount).Should().Be(result.LineTotal);
     }
 
     [Fact]
@@ -394,10 +393,10 @@ public class POSCalculationServiceTests
         var item1 = _service.CalculateLineItem(100.00m, 3); // R300
         var item2 = _service.CalculateLineItem(135.00m, 1); // R135
 
-        // Assert
-        var totalAmount = item1.Total + item2.Total;
-        var totalSubtotal = item1.Subtotal + item2.Subtotal;
-        var totalVAT = item1.TaxAmount + item2.TaxAmount;
+        // Assert - Subtotal = LineTotal - VATAmount
+        var totalAmount = item1.LineTotal + item2.LineTotal;
+        var totalSubtotal = (item1.LineTotal - item1.VATAmount) + (item2.LineTotal - item2.VATAmount);
+        var totalVAT = item1.VATAmount + item2.VATAmount;
 
         totalAmount.Should().Be(435.00m);
         totalSubtotal.Should().Be(378.26m);
@@ -415,9 +414,9 @@ public class POSCalculationServiceTests
         var result = _service.CalculateLineItem(23.00m, 1);
 
         // Assert
-        result.Total.Should().Be(23.00m);
-        result.Subtotal.Should().Be(20.00m);
-        result.TaxAmount.Should().Be(3.00m);
+        result.LineTotal.Should().Be(23.00m);
+        (result.LineTotal - result.VATAmount).Should().Be(20.00m); // Subtotal
+        result.VATAmount.Should().Be(3.00m);
     }
 
     #endregion

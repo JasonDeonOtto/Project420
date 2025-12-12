@@ -261,10 +261,10 @@ namespace Project420.Retail.POS.Models.Entities
         // ============================================================
 
         /// <summary>
-        /// Navigation property to TransactionHeader (optional)
+        /// Navigation property to RetailTransactionHeader (optional)
         /// </summary>
         [ForeignKey(nameof(TransactionHeaderId))]
-        public virtual POSTransactionHeader? TransactionHeader { get; set; }
+        public virtual RetailTransactionHeader? TransactionHeader { get; set; }
 
         /// <summary>
         /// Navigation property to Customer/Debtor (optional)

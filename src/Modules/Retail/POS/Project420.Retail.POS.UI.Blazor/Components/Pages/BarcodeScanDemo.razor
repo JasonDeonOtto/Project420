@@ -2,6 +2,7 @@
 @using Microsoft.EntityFrameworkCore
 @using Project420.Retail.POS.DAL
 @using Project420.Retail.POS.Models.Entities
+@using Project420.Shared.Core.Entities
 @using Project420.Shared.Core.Enums
 @using Project420.Retail.POS.BLL.Services
 @inject PosDbContext DbContext
@@ -166,17 +167,18 @@
                                         <th>Unit Price:</th>
                                         <td>R @calculatedLineItem.UnitPrice.ToString("N2")</td>
                                     </tr>
+                                    @* Phase 7B: Use unified TransactionDetail properties *@
                                     <tr class="table-light">
                                         <th>Subtotal (excl VAT):</th>
-                                        <td>R @calculatedLineItem.Subtotal.ToString("N2")</td>
+                                        <td>R @((calculatedLineItem.LineTotal - calculatedLineItem.VATAmount).ToString("N2"))</td>
                                     </tr>
                                     <tr class="table-light">
                                         <th>VAT (15%):</th>
-                                        <td>R @calculatedLineItem.TaxAmount.ToString("N2")</td>
+                                        <td>R @calculatedLineItem.VATAmount.ToString("N2")</td>
                                     </tr>
                                     <tr class="table-success fw-bold">
                                         <th>Total (incl VAT):</th>
-                                        <td>R @calculatedLineItem.Total.ToString("N2")</td>
+                                        <td>R @calculatedLineItem.LineTotal.ToString("N2")</td>
                                     </tr>
                                 </table>
                             }
@@ -220,7 +222,8 @@
     private string errorMessage = string.Empty;
     private ProductBarcode? scannedBarcode;
     private Product? scannedProduct;
-    private POSTransactionDetail? calculatedLineItem;
+    // Phase 7B: Use unified TransactionDetail from Shared.Core
+    private TransactionDetail? calculatedLineItem;
     private int quantity = 1;
 
     private int productCount = 0;

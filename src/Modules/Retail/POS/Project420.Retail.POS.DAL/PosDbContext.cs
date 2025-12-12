@@ -57,18 +57,16 @@ public class PosDbContext : DbContext
     // These tables are OWNED and MANAGED by PosDbContext.
 
     /// <summary>
-    /// POSTransactionHeaders table - POS invoice/receipt headers (sales, refunds, quotes, account payments).
+    /// RetailTransactionHeaders table - Retail invoice/receipt headers (sales, refunds, quotes, account payments).
     /// OWNED by PosDbContext.
-    /// RENAMED from TransactionHeaders to distinguish from future invoicing module.
+    /// RENAMED from POSTransactionHeaders to align with unified transaction architecture (Phase 7B).
     /// </summary>
-    public DbSet<POSTransactionHeader> POSTransactionHeaders { get; set; } = null!;
+    public DbSet<RetailTransactionHeader> RetailTransactionHeaders { get; set; } = null!;
 
-    /// <summary>
-    /// POSTransactionDetails table - POS invoice/receipt line items with denormalized product data.
-    /// OWNED by PosDbContext.
-    /// RENAMED from TransactionDetails to distinguish from future invoicing module.
-    /// </summary>
-    public DbSet<POSTransactionDetail> POSTransactionDetails { get; set; } = null!;
+    // NOTE: POSTransactionDetails DbSet removed in Phase 7B.
+    // Transaction details are now stored in SharedDbContext.TransactionDetails
+    // using the unified TransactionDetail entity with HeaderId + TransactionType discriminator.
+    // See SharedDbContext.TransactionDetails for the unified table.
 
     /// <summary>
     /// Payments table - Payment records (cash, card, EFT, etc.) with PCI-DSS compliance.
@@ -135,40 +133,42 @@ public class PosDbContext : DbContext
         // ========================================
 
         // ===========================
-        // POSTRANSACTIONHEADER CONFIGURATION
+        // RETAILTRANSACTIONHEADER CONFIGURATION
         // ===========================
-        modelBuilder.Entity<POSTransactionHeader>(entity =>
+        modelBuilder.Entity<RetailTransactionHeader>(entity =>
         {
+            // Map to RetailTransactionHeaders table (renamed from POSTransactionHeaders)
+            entity.ToTable("RetailTransactionHeaders");
+
             // Indexes for performance
             entity.HasIndex(th => th.TransactionNumber)
                 .IsUnique()
-                .HasDatabaseName("IX_POSTransactionHeaders_Number");
+                .HasDatabaseName("IX_RetailTransactionHeaders_Number");
 
             entity.HasIndex(th => th.TransactionDate)
-                .HasDatabaseName("IX_POSTransactionHeaders_Date");
+                .HasDatabaseName("IX_RetailTransactionHeaders_Date");
 
             entity.HasIndex(th => th.DebtorId)
-                .HasDatabaseName("IX_POSTransactionHeaders_DebtorId");
+                .HasDatabaseName("IX_RetailTransactionHeaders_DebtorId");
 
-            // One-to-many: POSTransactionHeader -> POSTransactionDetails
-            entity.HasMany(th => th.TransactionDetails)
-                .WithOne(td => td.POSTransactionHeader)
-                .HasForeignKey(td => td.POSTransactionHeaderId)
-                .OnDelete(DeleteBehavior.Cascade);
+            // NOTE: TransactionDetails relationship removed in Phase 7B.
+            // Transaction details are now stored in SharedDbContext.TransactionDetails
+            // using HeaderId + TransactionType discriminator pattern.
+            // Navigation is handled at the repository level, not via EF navigation property.
 
-            // One-to-many: POSTransactionHeader -> Payments
+            // One-to-many: RetailTransactionHeader -> Payments
             entity.HasMany(th => th.Payments)
                 .WithOne(p => p.TransactionHeader)
                 .HasForeignKey(p => p.TransactionHeaderId)
                 .OnDelete(DeleteBehavior.Restrict); // Don't auto-delete payments
 
-            // Many-to-one: POSTransactionHeader -> Debtor (optional)
+            // Many-to-one: RetailTransactionHeader -> Debtor (optional)
             entity.HasOne(th => th.Debtor)
                 .WithMany(d => d.Transactions)
                 .HasForeignKey(th => th.DebtorId)
                 .OnDelete(DeleteBehavior.Restrict); // Don't delete debtor if transactions exist
 
-            // Many-to-one: POSTransactionHeader -> Pricelist (optional)
+            // Many-to-one: RetailTransactionHeader -> Pricelist (optional)
             entity.HasOne(th => th.Pricelist)
                 .WithMany()
                 .HasForeignKey(th => th.PricelistId)
@@ -179,28 +179,10 @@ public class PosDbContext : DbContext
         });
 
         // ===========================
-        // POSTRANSACTIONDETAIL CONFIGURATION
+        // NOTE: POSTRANSACTIONDETAIL CONFIGURATION REMOVED (Phase 7B)
         // ===========================
-        modelBuilder.Entity<POSTransactionDetail>(entity =>
-        {
-            // Indexes for performance
-            entity.HasIndex(td => td.POSTransactionHeaderId)
-                .HasDatabaseName("IX_POSTransactionDetails_HeaderId");
-
-            entity.HasIndex(td => td.ProductId)
-                .HasDatabaseName("IX_POSTransactionDetails_ProductId");
-
-            // Many-to-one: POSTransactionDetail -> Product
-            entity.HasOne(td => td.Product)
-                .WithMany()
-                .HasForeignKey(td => td.ProductId)
-                .OnDelete(DeleteBehavior.Restrict); // Keep history even if product deleted
-
-            // Many-to-one: POSTransactionDetail -> POSTransactionHeader (already configured above)
-
-            // Soft delete query filter (POPIA compliance)
-            entity.HasQueryFilter(td => !td.IsDeleted);
-        });
+        // Transaction details are now stored in SharedDbContext.TransactionDetails
+        // See SharedDbContext.OnModelCreating for the unified configuration.
 
         // ===========================
         // PAYMENT CONFIGURATION

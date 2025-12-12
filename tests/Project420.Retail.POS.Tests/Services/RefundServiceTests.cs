@@ -4,6 +4,7 @@ using Project420.Retail.POS.BLL.DTOs;
 using Project420.Retail.POS.BLL.Services;
 using Project420.Retail.POS.Models.Entities;
 using Project420.Retail.POS.Tests.Infrastructure;
+using Project420.Shared.Core.Entities;
 using Project420.Shared.Core.Enums;
 using Project420.Shared.Infrastructure.DTOs;
 
@@ -22,7 +23,8 @@ public class RefundServiceTests : ServiceTestBase
         _service = new RefundService(
             MockTransactionRepository.Object,
             MockVATService.Object,
-            MockTransactionNumberService.Object);
+            MockTransactionNumberService.Object,
+            MockMovementService.Object);
     }
 
     #region ProcessRefundAsync - Success Scenarios
@@ -85,7 +87,7 @@ public class RefundServiceTests : ServiceTestBase
         var originalTransaction = CreateMockTransaction();
         var refundTransaction = CreateMockRefundTransaction();
 
-        POSTransactionHeader? capturedHeader = null;
+        RetailTransactionHeader? capturedHeader = null;
 
         MockVATService
             .Setup(x => x.CalculateLineItem(It.IsAny<decimal>(), It.IsAny<int>()))
@@ -103,11 +105,11 @@ public class RefundServiceTests : ServiceTestBase
         MockTransactionRepository
             .Setup(x => x.ProcessRefundAsync(
                 It.IsAny<string>(),
-                It.IsAny<POSTransactionHeader>(),
-                It.IsAny<List<POSTransactionDetail>>(),
+                It.IsAny<RetailTransactionHeader>(),
+                It.IsAny<List<TransactionDetail>>(),
                 It.IsAny<Payment>(),
                 It.IsAny<RefundReason>()))
-            .Callback<string, POSTransactionHeader, List<POSTransactionDetail>, Payment, RefundReason>(
+            .Callback<string, RetailTransactionHeader, List<TransactionDetail>, Payment, RefundReason>(
                 (origNum, header, details, payment, reason) =>
                 {
                     capturedHeader = header;
@@ -172,7 +174,7 @@ public class RefundServiceTests : ServiceTestBase
 
         MockTransactionRepository
             .Setup(x => x.GetRefundHistoryAsync(transactionNumber))
-            .ReturnsAsync(new List<POSTransactionHeader>());
+            .ReturnsAsync(new List<RetailTransactionHeader>());
 
         // Act
         var result = await _service.ValidateRefundEligibilityAsync(transactionNumber);
@@ -197,7 +199,7 @@ public class RefundServiceTests : ServiceTestBase
 
         MockTransactionRepository
             .Setup(x => x.GetRefundHistoryAsync(transactionNumber))
-            .ReturnsAsync(new List<POSTransactionHeader>());
+            .ReturnsAsync(new List<RetailTransactionHeader>());
 
         // Act
         var result = await _service.ValidateRefundEligibilityAsync(transactionNumber);
@@ -224,7 +226,7 @@ public class RefundServiceTests : ServiceTestBase
 
         MockTransactionRepository
             .Setup(x => x.GetRefundHistoryAsync(transactionNumber))
-            .ReturnsAsync(new List<POSTransactionHeader>());
+            .ReturnsAsync(new List<RetailTransactionHeader>());
 
         // Act
         var result = await _service.ValidateRefundEligibilityAsync(transactionNumber);
@@ -247,7 +249,7 @@ public class RefundServiceTests : ServiceTestBase
 
         MockTransactionRepository
             .Setup(x => x.GetByTransactionNumberAsync(transactionNumber))
-            .ReturnsAsync((POSTransactionHeader?)null);
+            .ReturnsAsync((RetailTransactionHeader?)null);
 
         // Act
         var result = await _service.ValidateRefundEligibilityAsync(transactionNumber);
@@ -285,10 +287,10 @@ public class RefundServiceTests : ServiceTestBase
         var transaction = CreateMockTransaction();
         transaction.TotalAmount = 200.00m;
 
-        var previousRefund = new POSTransactionHeader
+        var previousRefund = new RetailTransactionHeader
         {
             TotalAmount = -200.00m, // Full refund already processed
-            TransactionDetails = new List<POSTransactionDetail>()
+            TransactionDetails = new List<TransactionDetail>()
         };
 
         MockTransactionRepository
@@ -297,7 +299,7 @@ public class RefundServiceTests : ServiceTestBase
 
         MockTransactionRepository
             .Setup(x => x.GetRefundHistoryAsync(transactionNumber))
-            .ReturnsAsync(new List<POSTransactionHeader> { previousRefund });
+            .ReturnsAsync(new List<RetailTransactionHeader> { previousRefund });
 
         // Act
         var result = await _service.ValidateRefundEligibilityAsync(transactionNumber);
@@ -419,7 +421,7 @@ public class RefundServiceTests : ServiceTestBase
 
         MockTransactionRepository
             .Setup(x => x.GetRefundHistoryAsync(request.OriginalTransactionNumber))
-            .ReturnsAsync(new List<POSTransactionHeader>());
+            .ReturnsAsync(new List<RetailTransactionHeader>());
 
         // Act
         var result = await _service.ProcessRefundAsync(request);
@@ -446,7 +448,7 @@ public class RefundServiceTests : ServiceTestBase
 
         MockTransactionRepository
             .Setup(x => x.GetRefundHistoryAsync(request.OriginalTransactionNumber))
-            .ReturnsAsync(new List<POSTransactionHeader>());
+            .ReturnsAsync(new List<RetailTransactionHeader>());
 
         MockVATService
             .Setup(x => x.CalculateLineItem(100.00m, 2))
@@ -484,7 +486,7 @@ public class RefundServiceTests : ServiceTestBase
 
         MockTransactionRepository
             .Setup(x => x.GetRefundHistoryAsync(request.OriginalTransactionNumber))
-            .ReturnsAsync(new List<POSTransactionHeader>());
+            .ReturnsAsync(new List<RetailTransactionHeader>());
 
         MockVATService
             .Setup(x => x.CalculateLineItem(100.00m, 1))
@@ -566,7 +568,7 @@ public class RefundServiceTests : ServiceTestBase
 
         MockTransactionRepository
             .Setup(x => x.GetRefundHistoryAsync(originalTransactionNumber))
-            .ReturnsAsync(new List<POSTransactionHeader> { refund1, refund2 });
+            .ReturnsAsync(new List<RetailTransactionHeader> { refund1, refund2 });
 
         // Act
         var result = await _service.GetRefundsForTransactionAsync(originalTransactionNumber);
@@ -605,9 +607,9 @@ public class RefundServiceTests : ServiceTestBase
         };
     }
 
-    private POSTransactionHeader CreateMockTransaction()
+    private RetailTransactionHeader CreateMockTransaction()
     {
-        return new POSTransactionHeader
+        return new RetailTransactionHeader
         {
             Id = 1,
             TransactionNumber = "SALE-20251207-001",
@@ -617,18 +619,17 @@ public class RefundServiceTests : ServiceTestBase
             TaxAmount = 26.09m,
             TotalAmount = 200.00m,
             Status = TransactionStatus.Completed,
-            TransactionDetails = new List<POSTransactionDetail>
+            TransactionDetails = new List<TransactionDetail>
             {
-                new POSTransactionDetail
+                new TransactionDetail
                 {
                     ProductId = 1,
                     ProductSKU = "PROD001",
                     ProductName = "Product 1",
                     Quantity = 2,
                     UnitPrice = 100.00m,
-                    Subtotal = 173.91m,
-                    TaxAmount = 26.09m,
-                    Total = 200.00m,
+                    VATAmount = 26.09m,
+                    LineTotal = 200.00m,
                     BatchNumber = "BATCH001",
                     CostPrice = 50.00m
                 }
@@ -644,9 +645,9 @@ public class RefundServiceTests : ServiceTestBase
         };
     }
 
-    private POSTransactionHeader CreateMockRefundTransaction()
+    private RetailTransactionHeader CreateMockRefundTransaction()
     {
-        return new POSTransactionHeader
+        return new RetailTransactionHeader
         {
             Id = 2,
             TransactionNumber = "CRN-20251207-001",
@@ -656,18 +657,17 @@ public class RefundServiceTests : ServiceTestBase
             TaxAmount = -26.09m,
             TotalAmount = -200.00m,
             Status = TransactionStatus.Completed,
-            TransactionDetails = new List<POSTransactionDetail>
+            TransactionDetails = new List<TransactionDetail>
             {
-                new POSTransactionDetail
+                new TransactionDetail
                 {
                     ProductId = 1,
                     ProductSKU = "PROD001",
                     ProductName = "Product 1",
                     Quantity = -2, // Negative for refund
                     UnitPrice = 100.00m,
-                    Subtotal = -173.91m,
-                    TaxAmount = -26.09m,
-                    Total = -200.00m
+                    VATAmount = -26.09m,
+                    LineTotal = -200.00m
                 }
             },
             Payments = new List<Payment>
@@ -681,7 +681,7 @@ public class RefundServiceTests : ServiceTestBase
         };
     }
 
-    private void SetupMocksForSuccessfulRefund(POSTransactionHeader originalTransaction, POSTransactionHeader refundTransaction)
+    private void SetupMocksForSuccessfulRefund(RetailTransactionHeader originalTransaction, RetailTransactionHeader refundTransaction)
     {
         MockTransactionRepository
             .Setup(x => x.GetByTransactionNumberAsync(It.IsAny<string>()))
@@ -689,13 +689,13 @@ public class RefundServiceTests : ServiceTestBase
 
         MockTransactionRepository
             .Setup(x => x.GetRefundHistoryAsync(It.IsAny<string>()))
-            .ReturnsAsync(new List<POSTransactionHeader>());
+            .ReturnsAsync(new List<RetailTransactionHeader>());
 
         MockTransactionRepository
             .Setup(x => x.ProcessRefundAsync(
                 It.IsAny<string>(),
-                It.IsAny<POSTransactionHeader>(),
-                It.IsAny<List<POSTransactionDetail>>(),
+                It.IsAny<RetailTransactionHeader>(),
+                It.IsAny<List<TransactionDetail>>(),
                 It.IsAny<Payment>(),
                 It.IsAny<RefundReason>()))
             .ReturnsAsync(refundTransaction);

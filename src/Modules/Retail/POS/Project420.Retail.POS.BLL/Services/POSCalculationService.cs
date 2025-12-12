@@ -1,4 +1,5 @@
 using Project420.Retail.POS.Models.Entities;
+using Project420.Shared.Core.Entities;
 
 namespace Project420.Retail.POS.BLL.Services
 {
@@ -15,6 +16,8 @@ namespace Project420.Retail.POS.BLL.Services
     /// - All calculations round to 2 decimal places (cents)
     /// - Variance detection prevents accumulation errors
     /// - VAT adjustments keep totals accurate while maintaining SARS compliance
+    ///
+    /// Phase 7B: Updated to use unified TransactionDetail entity.
     /// </remarks>
     public class POSCalculationService : IPOSCalculationService
     {
@@ -46,7 +49,7 @@ namespace Project420.Retail.POS.BLL.Services
         // ========================================
 
         /// <inheritdoc />
-        public POSTransactionDetail CalculateLineItem(decimal unitPriceInclVAT, int quantity)
+        public TransactionDetail CalculateLineItem(decimal unitPriceInclVAT, int quantity)
         {
             // Calculate line total (VAT-inclusive)
             decimal lineTotal = unitPriceInclVAT * quantity;
@@ -55,17 +58,14 @@ namespace Project420.Retail.POS.BLL.Services
             // VAT = Total - (Total / 1.15)
             decimal vatAmount = RoundToNearestCent(lineTotal - (lineTotal / VAT_DIVISOR));
 
-            // Subtotal is the difference
-            decimal subtotal = lineTotal - vatAmount;
-
-            return new POSTransactionDetail
+            // Phase 7B: Return unified TransactionDetail with updated property names
+            return new TransactionDetail
             {
                 Quantity = quantity,
                 UnitPrice = unitPriceInclVAT,
-                Total = lineTotal,
-                TaxAmount = vatAmount,
-                Subtotal = subtotal
-                // Note: Other properties (ProductId, etc.) should be set by the caller
+                LineTotal = lineTotal,
+                VATAmount = vatAmount
+                // Note: Other properties (ProductId, HeaderId, TransactionType, etc.) should be set by the caller
             };
         }
 
@@ -90,7 +90,7 @@ namespace Project420.Retail.POS.BLL.Services
         // ========================================
 
         /// <inheritdoc />
-        public void CalculateHeaderTotals(POSTransactionHeader header)
+        public void CalculateHeaderTotals(RetailTransactionHeader header)
         {
             if (header.TransactionDetails == null || !header.TransactionDetails.Any())
             {
@@ -101,10 +101,11 @@ namespace Project420.Retail.POS.BLL.Services
                 return;
             }
 
-            // Sum all detail lines
-            decimal detailSubtotalSum = header.TransactionDetails.Sum(d => d.Subtotal);
-            decimal detailTaxSum = header.TransactionDetails.Sum(d => d.TaxAmount);
-            decimal detailTotalSum = header.TransactionDetails.Sum(d => d.Total);
+            // Phase 7B: Use unified TransactionDetail property names
+            // Subtotal = LineTotal - VATAmount (calculated, not stored in TransactionDetail)
+            decimal detailSubtotalSum = header.TransactionDetails.Sum(d => d.LineTotal - d.VATAmount);
+            decimal detailTaxSum = header.TransactionDetails.Sum(d => d.VATAmount);
+            decimal detailTotalSum = header.TransactionDetails.Sum(d => d.LineTotal);
 
             // Check for rounding variance
             decimal calculatedTotal = detailSubtotalSum + detailTaxSum;
@@ -126,30 +127,33 @@ namespace Project420.Retail.POS.BLL.Services
         }
 
         /// <inheritdoc />
-        public decimal CalculateSubtotal(List<POSTransactionDetail> details)
+        public decimal CalculateSubtotal(List<TransactionDetail> details)
         {
             if (details == null || !details.Any())
                 return 0.00m;
 
-            return details.Sum(d => d.Subtotal);
+            // Phase 7B: Subtotal = LineTotal - VATAmount (not stored directly in TransactionDetail)
+            return details.Sum(d => d.LineTotal - d.VATAmount);
         }
 
         /// <inheritdoc />
-        public decimal CalculateTotalVAT(List<POSTransactionDetail> details)
+        public decimal CalculateTotalVAT(List<TransactionDetail> details)
         {
             if (details == null || !details.Any())
                 return 0.00m;
 
-            return details.Sum(d => d.TaxAmount);
+            // Phase 7B: Use VATAmount instead of TaxAmount
+            return details.Sum(d => d.VATAmount);
         }
 
         /// <inheritdoc />
-        public decimal CalculateTotalAmount(List<POSTransactionDetail> details)
+        public decimal CalculateTotalAmount(List<TransactionDetail> details)
         {
             if (details == null || !details.Any())
                 return 0.00m;
 
-            return details.Sum(d => d.Total);
+            // Phase 7B: Use LineTotal instead of Total
+            return details.Sum(d => d.LineTotal);
         }
 
         // ========================================

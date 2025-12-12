@@ -1,6 +1,5 @@
 using Microsoft.EntityFrameworkCore;
 using Project420.Management.DAL;
-using Project420.Retail.POS.DAL;
 using Project420.Management.Models.Entities.Sales.Common;
 using Project420.Management.Models.Entities.Sales.Retail;
 using Project420.Management.Models.Entities.ProductManagement;
@@ -16,16 +15,18 @@ namespace Project420.Shared.Database;
 public class DatabaseSeeder
 {
     private readonly ManagementDbContext _managementContext;
-    private readonly PosDbContext _posContext;
     private readonly SharedDbContext _sharedContext;
 
+    /// <summary>
+    /// Creates a new DatabaseSeeder instance.
+    /// Note: PosDbContext removed in Phase 7B to break circular dependency.
+    /// POS uses the same tables as Management, so no separate seeding required.
+    /// </summary>
     public DatabaseSeeder(
         ManagementDbContext managementContext,
-        PosDbContext posContext,
         SharedDbContext sharedContext)
     {
         _managementContext = managementContext;
-        _posContext = posContext;
         _sharedContext = sharedContext;
     }
 

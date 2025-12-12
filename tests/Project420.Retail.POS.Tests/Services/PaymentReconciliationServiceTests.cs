@@ -210,7 +210,7 @@ public class PaymentReconciliationServiceTests
 
         _mockTransactionRepository
             .Setup(x => x.GetByDateRangeAsync(It.IsAny<DateTime>(), It.IsAny<DateTime>()))
-            .ReturnsAsync(new List<POSTransactionHeader>());
+            .ReturnsAsync(new List<RetailTransactionHeader>());
     }
 
     #endregion

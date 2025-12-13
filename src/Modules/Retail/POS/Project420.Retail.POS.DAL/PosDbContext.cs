@@ -235,13 +235,13 @@ public class PosDbContext : DbContext, IBusinessDbContext
 
         modelBuilder.Entity<Pricelist>(entity =>
         {
-            entity.ToTable("Pricelists", t => t.ExcludeFromMigrations());
+            entity.ToTable("RetailPricelists", t => t.ExcludeFromMigrations());
             entity.HasQueryFilter(p => !p.IsDeleted);
         });
 
         modelBuilder.Entity<PricelistItem>(entity =>
         {
-            entity.ToTable("PricelistItem", t => t.ExcludeFromMigrations());
+            entity.ToTable("RetailPricelistItems", t => t.ExcludeFromMigrations());
             entity.HasQueryFilter(pi => !pi.IsDeleted);
         });
 

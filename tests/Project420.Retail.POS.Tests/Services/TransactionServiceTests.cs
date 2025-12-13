@@ -156,7 +156,8 @@ public class TransactionServiceTests : ServiceTestBase
         // Arrange
         var request = CreateValidCheckoutRequest();
         request.PaymentMethod = PaymentMethod.Cash;
-        request.AmountTendered = 150.00m;
+        // Cart has 2 items at R100 each = R200 total (before VAT calculation)
+        request.AmountTendered = 250.00m;
 
         var expectedTransaction = CreateMockTransaction();
 
@@ -164,9 +165,9 @@ public class TransactionServiceTests : ServiceTestBase
             .Setup(x => x.CalculateLineItem(It.IsAny<decimal>(), It.IsAny<int>()))
             .Returns((decimal price, int qty) => new VATBreakdown
             {
-                Subtotal = 86.96m,
-                TaxAmount = 13.04m,
-                Total = 100.00m
+                Subtotal = 173.91m,
+                TaxAmount = 26.09m,
+                Total = 200.00m
             });
 
         MockTransactionRepository
@@ -178,8 +179,8 @@ public class TransactionServiceTests : ServiceTestBase
 
         // Assert
         result.Success.Should().BeTrue();
-        result.AmountTendered.Should().Be(150.00m);
-        result.ChangeDue.Should().Be(50.00m); // 150.00 - 100.00
+        result.AmountTendered.Should().Be(250.00m);
+        result.ChangeDue.Should().Be(50.00m); // 250.00 - 200.00
     }
 
     [Fact]

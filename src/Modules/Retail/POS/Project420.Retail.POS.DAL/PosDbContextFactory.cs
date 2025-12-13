@@ -21,7 +21,7 @@ public class PosDbContextFactory : IDesignTimeDbContextFactory<PosDbContext>
         // Use SQL Server for development/migrations
         // Connection string will be overridden by appsettings.json at runtime
         // IMPORTANT: Use same database as Management to share reference tables (Debtors, Products, Pricelists)
-        optionsBuilder.UseSqlServer("Server=(localdb)\\mssqllocaldb;Database=Project420_Management;Trusted_Connection=True;MultipleActiveResultSets=true");
+        optionsBuilder.UseSqlServer("Server=JASON\\SQLDEVED;Database=Project420_Dev;User Id=sa;Password=ZAQxsw123;TrustServerCertificate=True;MultipleActiveResultSets=True");
 
         return new PosDbContext(optionsBuilder.Options);
     }

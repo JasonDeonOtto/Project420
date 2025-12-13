@@ -227,6 +227,10 @@ namespace Project420.Production.DAL.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.PrimitiveCollection<string>("BatchStatus")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("CBDPercentage")
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
@@ -291,6 +295,10 @@ namespace Project420.Production.DAL.Migrations
                     b.Property<DateTime?>("PackagingDate")
                         .HasColumnType("datetime2");
 
+                    b.Property<int>("ProductionBatchStatus")
+                        .HasMaxLength(50)
+                        .HasColumnType("int");
+
                     b.Property<bool?>("QualityControlPassed")
                         .HasColumnType("bit");
 
@@ -299,10 +307,6 @@ namespace Project420.Production.DAL.Migrations
 
                     b.Property<decimal>("StartingWeightGrams")
                         .HasColumnType("decimal(18,2)");
-
-                    b.Property<string>("Status")
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
 
                     b.Property<string>("StrainName")
                         .IsRequired()
@@ -328,7 +332,7 @@ namespace Project420.Production.DAL.Migrations
 
                     b.HasIndex("IsActive");
 
-                    b.HasIndex("Status");
+                    b.HasIndex("ProductionBatchStatus");
 
                     b.HasIndex("StrainName");
 

@@ -12,8 +12,8 @@ using Project420.Cultivation.DAL;
 namespace Project420.Cultivation.DAL.Migrations
 {
     [DbContext(typeof(CultivationDbContext))]
-    [Migration("20251208051235_InitialCultivation")]
-    partial class InitialCultivation
+    [Migration("20251213162116_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)

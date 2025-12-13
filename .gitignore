@@ -96,3 +96,4 @@ apikeys.json
 
 # Benchmark results
 BenchmarkDotNet.Artifacts/
+nul

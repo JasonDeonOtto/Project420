@@ -124,7 +124,7 @@ namespace Project420.Management.DAL.Migrations
                         .IsUnique()
                         .HasDatabaseName("IX_Products_SKU");
 
-                    b.ToTable("Products", (string)null);
+                    b.ToTable("Products");
                 });
 
             modelBuilder.Entity("Project420.Management.Models.Entities.ProductManagement.ProductCategory", b =>
@@ -176,7 +176,7 @@ namespace Project420.Management.DAL.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("ProductCategories", (string)null);
+                    b.ToTable("ProductCategories");
                 });
 
             modelBuilder.Entity("Project420.Management.Models.Entities.Sales.Common.Debtor", b =>
@@ -324,7 +324,7 @@ namespace Project420.Management.DAL.Migrations
                     b.HasIndex("Email")
                         .HasDatabaseName("IX_Debtors_Email");
 
-                    b.ToTable("Debtors", (string)null);
+                    b.ToTable("Debtors");
                 });
 
             modelBuilder.Entity("Project420.Management.Models.Entities.Sales.Common.DebtorCategory", b =>
@@ -381,7 +381,7 @@ namespace Project420.Management.DAL.Migrations
 
                     b.HasIndex("DebtorId");
 
-                    b.ToTable("DebtorCategories", (string)null);
+                    b.ToTable("DebtorCategories");
                 });
 
             modelBuilder.Entity("Project420.Management.Models.Entities.Sales.Retail.RetailPricelist", b =>
@@ -456,15 +456,15 @@ namespace Project420.Management.DAL.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("Code")
-                        .HasDatabaseName("IX_Pricelists_Code");
+                        .HasDatabaseName("IX_RetailPricelists_Code");
 
                     b.HasIndex("IsActive")
-                        .HasDatabaseName("IX_Pricelists_IsActive");
+                        .HasDatabaseName("IX_RetailPricelists_IsActive");
 
                     b.HasIndex("IsDefault")
-                        .HasDatabaseName("IX_Pricelists_IsDefault");
+                        .HasDatabaseName("IX_RetailPricelists_IsDefault");
 
-                    b.ToTable("Pricelists", (string)null);
+                    b.ToTable("RetailPricelists", (string)null);
                 });
 
             modelBuilder.Entity("Project420.Management.Models.Entities.Sales.Retail.RetailPricelistItem", b =>
@@ -520,7 +520,7 @@ namespace Project420.Management.DAL.Migrations
                     b.HasIndex("RetailPricelistId", "ProductId")
                         .HasDatabaseName("IX_RetailPricelistItems_PricelistId_ProductId");
 
-                    b.ToTable("RetailPricelistItems", (string)null);
+                    b.ToTable("RetailPricelistItems");
                 });
 
             modelBuilder.Entity("Project420.Management.Models.Entities.Sales.Wholesale.WholesalePricelist", b =>
@@ -594,7 +594,7 @@ namespace Project420.Management.DAL.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("WholesalePricelists", (string)null);
+                    b.ToTable("WholesalePricelists");
                 });
 
             modelBuilder.Entity("Project420.Management.Models.Entities.Sales.Wholesale.WholesalePricelistItem", b =>
@@ -650,7 +650,7 @@ namespace Project420.Management.DAL.Migrations
                     b.HasIndex("WholesalePricelistId", "ProductId")
                         .HasDatabaseName("IX_WholesalePricelistItems_PricelistId_ProductId");
 
-                    b.ToTable("WholesalePricelistItems", (string)null);
+                    b.ToTable("WholesalePricelistItems");
                 });
 
             modelBuilder.Entity("Project420.Management.Models.Entities.StationPeripheral", b =>
@@ -713,7 +713,7 @@ namespace Project420.Management.DAL.Migrations
                     b.HasIndex("StationId")
                         .HasDatabaseName("IX_StationPeripherals_StationId");
 
-                    b.ToTable("StationPeripherals", (string)null);
+                    b.ToTable("StationPeripherals");
                 });
 
             modelBuilder.Entity("Project420.Management.Models.Entities.SystemAdministration.Station", b =>
@@ -781,7 +781,7 @@ namespace Project420.Management.DAL.Migrations
                     b.HasIndex("StationType")
                         .HasDatabaseName("IX_Stations_StationType");
 
-                    b.ToTable("Stations", (string)null);
+                    b.ToTable("Stations");
                 });
 
             modelBuilder.Entity("Project420.Management.Models.Entities.SystemAdministration.UserProfile", b =>
@@ -900,7 +900,7 @@ namespace Project420.Management.DAL.Migrations
                         .IsUnique()
                         .HasDatabaseName("IX_UserProfiles_UserId");
 
-                    b.ToTable("UserProfiles", (string)null);
+                    b.ToTable("UserProfiles");
                 });
 
             modelBuilder.Entity("Project420.Shared.Core.Entities.User", b =>
@@ -1028,7 +1028,7 @@ namespace Project420.Management.DAL.Migrations
                         .IsUnique()
                         .HasDatabaseName("IX_Users_Username");
 
-                    b.ToTable("Users", (string)null);
+                    b.ToTable("Users");
 
                     b.HasData(
                         new
@@ -1188,7 +1188,7 @@ namespace Project420.Management.DAL.Migrations
                         .IsUnique()
                         .HasDatabaseName("IX_UserPermissions_UserId_Permission");
 
-                    b.ToTable("UserPermissions", (string)null);
+                    b.ToTable("UserPermissions");
                 });
 
             modelBuilder.Entity("Project420.Management.Models.Entities.Sales.Common.DebtorCategory", b =>

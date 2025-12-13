@@ -103,6 +103,10 @@ public class RefundServiceTests : ServiceTestBase
             .ReturnsAsync(originalTransaction);
 
         MockTransactionRepository
+            .Setup(x => x.GetRefundHistoryAsync(request.OriginalTransactionNumber))
+            .ReturnsAsync(new List<RetailTransactionHeader>());
+
+        MockTransactionRepository
             .Setup(x => x.ProcessRefundAsync(
                 It.IsAny<string>(),
                 It.IsAny<RetailTransactionHeader>(),
@@ -271,12 +275,16 @@ public class RefundServiceTests : ServiceTestBase
             .Setup(x => x.GetByTransactionNumberAsync(transactionNumber))
             .ReturnsAsync(transaction);
 
+        MockTransactionRepository
+            .Setup(x => x.GetRefundHistoryAsync(transactionNumber))
+            .ReturnsAsync(new List<RetailTransactionHeader>());
+
         // Act
         var result = await _service.ValidateRefundEligibilityAsync(transactionNumber);
 
         // Assert
         result.IsEligible.Should().BeFalse();
-        result.IneligibilityReasons.Should().Contain("voided/cancelled");
+        result.IneligibilityReasons.Should().Contain(r => r.Contains("voided") || r.Contains("cancelled"));
     }
 
     [Fact]
@@ -306,7 +314,7 @@ public class RefundServiceTests : ServiceTestBase
 
         // Assert
         result.IsEligible.Should().BeFalse();
-        result.IneligibilityReasons.Should().Contain("fully refunded");
+        result.IneligibilityReasons.Should().Contain(r => r.Contains("fully refunded"));
     }
 
     #endregion

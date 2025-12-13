@@ -6,21 +6,11 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace Project420.Retail.POS.DAL.Migrations
 {
     /// <inheritdoc />
-    public partial class BusinessDataTables_Phase7C : Migration
+    public partial class InitialCreate : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropForeignKey(
-                name: "FK_Payments_POSTransactionHeaders_TransactionHeaderId",
-                table: "Payments");
-
-            migrationBuilder.DropTable(
-                name: "POSTransactionDetails");
-
-            migrationBuilder.DropTable(
-                name: "POSTransactionHeaders");
-
             migrationBuilder.CreateTable(
                 name: "BatchNumberSequences",
                 columns: table => new
@@ -85,6 +75,42 @@ namespace Project420.Retail.POS.DAL.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "ProductBarcodes",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    ProductId = table.Column<int>(type: "int", nullable: false),
+                    BarcodeValue = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    BarcodeType = table.Column<int>(type: "int", nullable: false),
+                    IsUnique = table.Column<bool>(type: "bit", nullable: false),
+                    SerialNumber = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
+                    BatchNumber = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
+                    IsSold = table.Column<bool>(type: "bit", nullable: false),
+                    SoldInTransactionId = table.Column<int>(type: "int", nullable: true),
+                    SoldDate = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    IsActive = table.Column<bool>(type: "bit", nullable: false),
+                    IsPrimaryBarcode = table.Column<bool>(type: "bit", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    CreatedBy = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    ModifiedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    ModifiedBy = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
+                    IsDeleted = table.Column<bool>(type: "bit", nullable: false),
+                    DeletedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    DeletedBy = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_ProductBarcodes", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_ProductBarcodes_Products_ProductId",
+                        column: x => x.ProductId,
+                        principalTable: "Products",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "RetailTransactionHeaders",
                 columns: table => new
                 {
@@ -122,9 +148,9 @@ namespace Project420.Retail.POS.DAL.Migrations
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
-                        name: "FK_RetailTransactionHeaders_Pricelists_PricelistId",
+                        name: "FK_RetailTransactionHeaders_RetailPricelists_PricelistId",
                         column: x => x.PricelistId,
-                        principalTable: "Pricelists",
+                        principalTable: "RetailPricelists",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
@@ -202,6 +228,52 @@ namespace Project420.Retail.POS.DAL.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_SerialNumberSequences", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Payments",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    TransactionHeaderId = table.Column<int>(type: "int", nullable: true),
+                    DebtorId = table.Column<int>(type: "int", nullable: true),
+                    PaymentReference = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
+                    PaymentDate = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    PaymentMethod = table.Column<int>(type: "int", nullable: false),
+                    Amount = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
+                    IsSuccessful = table.Column<bool>(type: "bit", nullable: false),
+                    ExternalReference = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
+                    MaskedCardNumber = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: true),
+                    BankOrProvider = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
+                    ProcessedBy = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    Notes = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: true),
+                    FICReportingRequired = table.Column<bool>(type: "bit", nullable: false),
+                    FICReportDate = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    FICReportReference = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    CreatedBy = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    ModifiedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    ModifiedBy = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
+                    IsDeleted = table.Column<bool>(type: "bit", nullable: false),
+                    DeletedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    DeletedBy = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Payments", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_Payments_Debtors_DebtorId",
+                        column: x => x.DebtorId,
+                        principalTable: "Debtors",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_Payments_RetailTransactionHeaders_TransactionHeaderId",
+                        column: x => x.TransactionHeaderId,
+                        principalTable: "RetailTransactionHeaders",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateTable(
@@ -299,6 +371,47 @@ namespace Project420.Retail.POS.DAL.Migrations
                 name: "IX_Movements_TransactionType_HeaderId",
                 table: "Movements",
                 columns: new[] { "TransactionType", "HeaderId" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Payments_DebtorId",
+                table: "Payments",
+                column: "DebtorId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Payments_PaymentDate",
+                table: "Payments",
+                column: "PaymentDate");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Payments_TransactionHeaderId",
+                table: "Payments",
+                column: "TransactionHeaderId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ProductBarcodes_BarcodeValue",
+                table: "ProductBarcodes",
+                column: "BarcodeValue",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ProductBarcodes_BatchNumber",
+                table: "ProductBarcodes",
+                column: "BatchNumber");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ProductBarcodes_IsSold",
+                table: "ProductBarcodes",
+                column: "IsSold");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ProductBarcodes_ProductId",
+                table: "ProductBarcodes",
+                column: "ProductId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ProductBarcodes_SerialNumber",
+                table: "ProductBarcodes",
+                column: "SerialNumber");
 
             migrationBuilder.CreateIndex(
                 name: "IX_RetailTransactionHeaders_Date",
@@ -412,28 +525,22 @@ namespace Project420.Retail.POS.DAL.Migrations
                 table: "TransactionDetails",
                 column: "SerialNumber",
                 filter: "[SerialNumber] IS NOT NULL");
-
-            migrationBuilder.AddForeignKey(
-                name: "FK_Payments_RetailTransactionHeaders_TransactionHeaderId",
-                table: "Payments",
-                column: "TransactionHeaderId",
-                principalTable: "RetailTransactionHeaders",
-                principalColumn: "Id",
-                onDelete: ReferentialAction.Restrict);
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropForeignKey(
-                name: "FK_Payments_RetailTransactionHeaders_TransactionHeaderId",
-                table: "Payments");
-
             migrationBuilder.DropTable(
                 name: "BatchNumberSequences");
 
             migrationBuilder.DropTable(
                 name: "Movements");
+
+            migrationBuilder.DropTable(
+                name: "Payments");
+
+            migrationBuilder.DropTable(
+                name: "ProductBarcodes");
 
             migrationBuilder.DropTable(
                 name: "SerialNumbers");
@@ -446,155 +553,6 @@ namespace Project420.Retail.POS.DAL.Migrations
 
             migrationBuilder.DropTable(
                 name: "RetailTransactionHeaders");
-
-            migrationBuilder.CreateTable(
-                name: "POSTransactionHeaders",
-                columns: table => new
-                {
-                    Id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    DebtorId = table.Column<int>(type: "int", nullable: true),
-                    OriginalTransactionId = table.Column<int>(type: "int", nullable: true),
-                    PricelistId = table.Column<int>(type: "int", nullable: true),
-                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
-                    CreatedBy = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
-                    CustomerName = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
-                    DeletedBy = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
-                    DiscountAmount = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
-                    IsDeleted = table.Column<bool>(type: "bit", nullable: false),
-                    ModifiedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
-                    ModifiedBy = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
-                    Notes = table.Column<string>(type: "nvarchar(2000)", maxLength: 2000, nullable: true),
-                    ProcessedBy = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
-                    Status = table.Column<int>(type: "int", nullable: false),
-                    Subtotal = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
-                    TaxAmount = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
-                    TotalAmount = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
-                    TransactionDate = table.Column<DateTime>(type: "datetime2", nullable: false),
-                    TransactionNumber = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
-                    TransactionType = table.Column<int>(type: "int", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_POSTransactionHeaders", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_POSTransactionHeaders_Debtors_DebtorId",
-                        column: x => x.DebtorId,
-                        principalTable: "Debtors",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Restrict);
-                    table.ForeignKey(
-                        name: "FK_POSTransactionHeaders_POSTransactionHeaders_OriginalTransactionId",
-                        column: x => x.OriginalTransactionId,
-                        principalTable: "POSTransactionHeaders",
-                        principalColumn: "Id");
-                    table.ForeignKey(
-                        name: "FK_POSTransactionHeaders_Pricelists_PricelistId",
-                        column: x => x.PricelistId,
-                        principalTable: "Pricelists",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Restrict);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "POSTransactionDetails",
-                columns: table => new
-                {
-                    Id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    POSTransactionHeaderId = table.Column<int>(type: "int", nullable: false),
-                    ProductId = table.Column<int>(type: "int", nullable: false),
-                    BatchNumber = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
-                    CostPrice = table.Column<decimal>(type: "decimal(18,2)", nullable: true),
-                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
-                    CreatedBy = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
-                    DeletedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
-                    DeletedBy = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
-                    IsDeleted = table.Column<bool>(type: "bit", nullable: false),
-                    LineDiscountAmount = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
-                    ModifiedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
-                    ModifiedBy = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
-                    Notes = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
-                    ProductId1 = table.Column<int>(type: "int", nullable: true),
-                    ProductName = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
-                    ProductSKU = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
-                    Quantity = table.Column<int>(type: "int", nullable: false),
-                    Subtotal = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
-                    TaxAmount = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
-                    Total = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
-                    UnitPrice = table.Column<decimal>(type: "decimal(18,2)", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_POSTransactionDetails", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_POSTransactionDetails_POSTransactionHeaders_POSTransactionHeaderId",
-                        column: x => x.POSTransactionHeaderId,
-                        principalTable: "POSTransactionHeaders",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                    table.ForeignKey(
-                        name: "FK_POSTransactionDetails_Products_ProductId",
-                        column: x => x.ProductId,
-                        principalTable: "Products",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Restrict);
-                    table.ForeignKey(
-                        name: "FK_POSTransactionDetails_Products_ProductId1",
-                        column: x => x.ProductId1,
-                        principalTable: "Products",
-                        principalColumn: "Id");
-                });
-
-            migrationBuilder.CreateIndex(
-                name: "IX_POSTransactionDetails_HeaderId",
-                table: "POSTransactionDetails",
-                column: "POSTransactionHeaderId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_POSTransactionDetails_ProductId",
-                table: "POSTransactionDetails",
-                column: "ProductId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_POSTransactionDetails_ProductId1",
-                table: "POSTransactionDetails",
-                column: "ProductId1");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_POSTransactionHeaders_Date",
-                table: "POSTransactionHeaders",
-                column: "TransactionDate");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_POSTransactionHeaders_DebtorId",
-                table: "POSTransactionHeaders",
-                column: "DebtorId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_POSTransactionHeaders_Number",
-                table: "POSTransactionHeaders",
-                column: "TransactionNumber",
-                unique: true);
-
-            migrationBuilder.CreateIndex(
-                name: "IX_POSTransactionHeaders_OriginalTransactionId",
-                table: "POSTransactionHeaders",
-                column: "OriginalTransactionId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_POSTransactionHeaders_PricelistId",
-                table: "POSTransactionHeaders",
-                column: "PricelistId");
-
-            migrationBuilder.AddForeignKey(
-                name: "FK_Payments_POSTransactionHeaders_TransactionHeaderId",
-                table: "Payments",
-                column: "TransactionHeaderId",
-                principalTable: "POSTransactionHeaders",
-                principalColumn: "Id",
-                onDelete: ReferentialAction.Restrict);
         }
     }
 }

@@ -526,5 +526,15 @@ namespace Project420.Retail.POS.BLL.Services
         {
             return System.Threading.Interlocked.Increment(ref _sessionIdCounter);
         }
+
+        /// <summary>
+        /// Clears all static session state. FOR TESTING ONLY.
+        /// This method is internal to allow test assemblies to reset state between tests.
+        /// </summary>
+        internal static void ResetSessionStateForTesting()
+        {
+            _activeSessions.Clear();
+            _sessionIdCounter = 0;
+        }
     }
 }

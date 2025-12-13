@@ -158,7 +158,7 @@ public class TransactionSearchServiceTests : ServiceTestBase
         result.TotalSalesAmount.Should().Be(500.00m);
         result.TotalRefundAmount.Should().Be(100.00m);
         result.NetSales.Should().Be(400.00m);
-        result.AverageTransactionValue.Should().Be(166.67m); // 500/3
+        result.AverageTransactionValue.Should().BeApproximately(166.67m, 0.01m); // 500/3 ≈ 166.67
     }
 
     #endregion

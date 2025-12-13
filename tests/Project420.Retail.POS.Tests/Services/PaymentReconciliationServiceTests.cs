@@ -22,6 +22,9 @@ public class PaymentReconciliationServiceTests
 
     public PaymentReconciliationServiceTests()
     {
+        // Reset static session state before each test to ensure test isolation
+        PaymentReconciliationService.ResetSessionStateForTesting();
+
         _mockPaymentRepository = new Mock<IPaymentRepository>();
         _mockTransactionRepository = new Mock<ITransactionRepository>();
 
@@ -194,12 +197,35 @@ public class PaymentReconciliationServiceTests
 
     private DenominationBreakdownDto CreateDenominationBreakdown(decimal total)
     {
-        return new DenominationBreakdownDto
-        {
-            Notes200 = (int)(total / 200),
-            Notes100 = (int)((total % 200) / 100),
-            Notes50 = (int)(((total % 200) % 100) / 50)
-        };
+        // Create a breakdown that accurately adds up to the total
+        decimal remaining = total;
+        var breakdown = new DenominationBreakdownDto();
+
+        breakdown.Notes200 = (int)(remaining / 200);
+        remaining %= 200;
+
+        breakdown.Notes100 = (int)(remaining / 100);
+        remaining %= 100;
+
+        breakdown.Notes50 = (int)(remaining / 50);
+        remaining %= 50;
+
+        breakdown.Notes20 = (int)(remaining / 20);
+        remaining %= 20;
+
+        breakdown.Notes10 = (int)(remaining / 10);
+        remaining %= 10;
+
+        // Handle coins (R5, R2, R1)
+        breakdown.Coins5 = (int)(remaining / 5);
+        remaining %= 5;
+
+        breakdown.Coins2 = (int)(remaining / 2);
+        remaining %= 2;
+
+        breakdown.Coins1 = (int)remaining;
+
+        return breakdown;
     }
 
     private void SetupReconciliationMocks()

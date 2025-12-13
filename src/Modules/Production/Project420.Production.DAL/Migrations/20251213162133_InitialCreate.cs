@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace Project420.Production.DAL.Migrations
 {
     /// <inheritdoc />
-    public partial class InitialProduction : Migration
+    public partial class InitialCreate : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -27,7 +27,7 @@ namespace Project420.Production.DAL.Migrations
                     WasteWeightGrams = table.Column<decimal>(type: "decimal(18,2)", nullable: true),
                     StartDate = table.Column<DateTime>(type: "datetime2", nullable: false),
                     CompletionDate = table.Column<DateTime>(type: "datetime2", nullable: true),
-                    Status = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
+                    ProductionBatchStatus = table.Column<int>(type: "int", maxLength: 50, nullable: false),
                     IsActive = table.Column<bool>(type: "bit", nullable: false),
                     QualityControlPassed = table.Column<bool>(type: "bit", nullable: true),
                     LabTestPassed = table.Column<bool>(type: "bit", nullable: true),
@@ -37,6 +37,7 @@ namespace Project420.Production.DAL.Migrations
                     PackageSize = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
                     PackagingDate = table.Column<DateTime>(type: "datetime2", nullable: true),
                     Notes = table.Column<string>(type: "nvarchar(2000)", maxLength: 2000, nullable: true),
+                    BatchStatus = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
                     CreatedBy = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
                     ModifiedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
@@ -212,9 +213,9 @@ namespace Project420.Production.DAL.Migrations
                 column: "IsActive");
 
             migrationBuilder.CreateIndex(
-                name: "IX_ProductionBatches_Status",
+                name: "IX_ProductionBatches_ProductionBatchStatus",
                 table: "ProductionBatches",
-                column: "Status");
+                column: "ProductionBatchStatus");
 
             migrationBuilder.CreateIndex(
                 name: "IX_ProductionBatches_StrainName",

@@ -12,7 +12,7 @@ using Project420.Inventory.DAL;
 namespace Project420.Inventory.DAL.Migrations
 {
     [DbContext(typeof(InventoryDbContext))]
-    [Migration("20251208064120_InitialCreate")]
+    [Migration("20251213162149_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />

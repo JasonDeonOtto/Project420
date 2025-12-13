@@ -12,7 +12,7 @@ using Project420.Retail.POS.DAL;
 namespace Project420.Retail.POS.DAL.Migrations
 {
     [DbContext(typeof(PosDbContext))]
-    [Migration("20251204134251_InitialCreate")]
+    [Migration("20251213161752_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -303,7 +303,7 @@ namespace Project420.Retail.POS.DAL.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Pricelists", null, t =>
+                    b.ToTable("RetailPricelists", null, t =>
                         {
                             t.ExcludeFromMigrations();
                         });
@@ -363,7 +363,7 @@ namespace Project420.Retail.POS.DAL.Migrations
 
                     b.HasIndex("ProductId");
 
-                    b.ToTable("PricelistItem", null, t =>
+                    b.ToTable("RetailPricelistItems", null, t =>
                         {
                             t.ExcludeFromMigrations();
                         });
@@ -464,7 +464,7 @@ namespace Project420.Retail.POS.DAL.Migrations
                         });
                 });
 
-            modelBuilder.Entity("Project420.Retail.POS.Models.Entities.TransactionDetail", b =>
+            modelBuilder.Entity("Project420.Retail.POS.Models.Entities.ProductBarcode", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -472,12 +472,17 @@ namespace Project420.Retail.POS.DAL.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<int>("BarcodeType")
+                        .HasColumnType("int");
+
+                    b.Property<string>("BarcodeValue")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
                     b.Property<string>("BatchNumber")
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
-
-                    b.Property<decimal?>("CostPrice")
-                        .HasColumnType("decimal(18,2)");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
@@ -494,11 +499,20 @@ namespace Project420.Retail.POS.DAL.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
-                    b.Property<decimal>("LineDiscountAmount")
-                        .HasColumnType("decimal(18,2)");
+                    b.Property<bool>("IsPrimaryBarcode")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsSold")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsUnique")
+                        .HasColumnType("bit");
 
                     b.Property<DateTime?>("ModifiedAt")
                         .HasColumnType("datetime2");
@@ -507,58 +521,41 @@ namespace Project420.Retail.POS.DAL.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
-                    b.Property<string>("Notes")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
                     b.Property<int>("ProductId")
                         .HasColumnType("int");
 
-                    b.Property<int?>("ProductId1")
-                        .HasColumnType("int");
-
-                    b.Property<string>("ProductName")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<string>("ProductSKU")
-                        .IsRequired()
+                    b.Property<string>("SerialNumber")
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
-                    b.Property<int>("Quantity")
+                    b.Property<DateTime?>("SoldDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("SoldInTransactionId")
                         .HasColumnType("int");
-
-                    b.Property<decimal>("Subtotal")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<decimal>("TaxAmount")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<decimal>("Total")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<int>("TransactionHeaderId")
-                        .HasColumnType("int");
-
-                    b.Property<decimal>("UnitPrice")
-                        .HasColumnType("decimal(18,2)");
 
                     b.HasKey("Id");
 
+                    b.HasIndex("BarcodeValue")
+                        .IsUnique()
+                        .HasDatabaseName("IX_ProductBarcodes_BarcodeValue");
+
+                    b.HasIndex("BatchNumber")
+                        .HasDatabaseName("IX_ProductBarcodes_BatchNumber");
+
+                    b.HasIndex("IsSold")
+                        .HasDatabaseName("IX_ProductBarcodes_IsSold");
+
                     b.HasIndex("ProductId")
-                        .HasDatabaseName("IX_TransactionDetails_ProductId");
+                        .HasDatabaseName("IX_ProductBarcodes_ProductId");
 
-                    b.HasIndex("ProductId1");
+                    b.HasIndex("SerialNumber")
+                        .HasDatabaseName("IX_ProductBarcodes_SerialNumber");
 
-                    b.HasIndex("TransactionHeaderId")
-                        .HasDatabaseName("IX_TransactionDetails_HeaderId");
-
-                    b.ToTable("TransactionDetails");
+                    b.ToTable("ProductBarcodes");
                 });
 
-            modelBuilder.Entity("Project420.Retail.POS.Models.Entities.TransactionHeader", b =>
+            modelBuilder.Entity("Project420.Retail.POS.Models.Entities.RetailTransactionHeader", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -642,20 +639,543 @@ namespace Project420.Retail.POS.DAL.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("DebtorId")
-                        .HasDatabaseName("IX_TransactionHeaders_DebtorId");
+                        .HasDatabaseName("IX_RetailTransactionHeaders_DebtorId");
 
                     b.HasIndex("OriginalTransactionId");
 
                     b.HasIndex("PricelistId");
 
                     b.HasIndex("TransactionDate")
-                        .HasDatabaseName("IX_TransactionHeaders_Date");
+                        .HasDatabaseName("IX_RetailTransactionHeaders_Date");
 
                     b.HasIndex("TransactionNumber")
                         .IsUnique()
-                        .HasDatabaseName("IX_TransactionHeaders_Number");
+                        .HasDatabaseName("IX_RetailTransactionHeaders_Number");
 
-                    b.ToTable("TransactionHeaders");
+                    b.ToTable("RetailTransactionHeaders", (string)null);
+                });
+
+            modelBuilder.Entity("Project420.Shared.Core.Entities.BatchNumberSequence", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("BatchDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("BatchType")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("CurrentSequence")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DeletedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("LastGeneratedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("LastGeneratedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("MaxSequence")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("SiteId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BatchDate")
+                        .HasDatabaseName("IX_BatchNumberSequences_BatchDate");
+
+                    b.HasIndex("SiteId")
+                        .HasDatabaseName("IX_BatchNumberSequences_SiteId");
+
+                    b.HasIndex("SiteId", "BatchType", "BatchDate")
+                        .IsUnique()
+                        .HasDatabaseName("IX_BatchNumberSequences_SiteId_BatchType_BatchDate_Unique")
+                        .HasFilter("[IsDeleted] = 0");
+
+                    b.ToTable("BatchNumberSequences");
+                });
+
+            modelBuilder.Entity("Project420.Shared.Core.Entities.Movement", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("BatchNumber")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DeletedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("DetailId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Direction")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<int>("HeaderId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<int?>("LocationId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("LocationName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<decimal>("Mass")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("MovementReason")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("MovementType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<int>("ProductId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ProductName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("ProductSKU")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<decimal>("Quantity")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<string>("SerialNumber")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime>("TransactionDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("TransactionType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("UserId")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<decimal>("Value")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BatchNumber")
+                        .HasDatabaseName("IX_Movements_BatchNumber")
+                        .HasFilter("[BatchNumber] IS NOT NULL");
+
+                    b.HasIndex("LocationId")
+                        .HasDatabaseName("IX_Movements_LocationId")
+                        .HasFilter("[LocationId] IS NOT NULL");
+
+                    b.HasIndex("SerialNumber")
+                        .HasDatabaseName("IX_Movements_SerialNumber")
+                        .HasFilter("[SerialNumber] IS NOT NULL");
+
+                    b.HasIndex("ProductId", "TransactionDate")
+                        .HasDatabaseName("IX_Movements_ProductId_TransactionDate");
+
+                    b.HasIndex("TransactionType", "HeaderId")
+                        .HasDatabaseName("IX_Movements_TransactionType_HeaderId");
+
+                    b.HasIndex("ProductId", "TransactionDate", "Direction")
+                        .HasDatabaseName("IX_Movements_ProductId_TransactionDate_Direction");
+
+                    b.ToTable("Movements");
+                });
+
+            modelBuilder.Entity("Project420.Shared.Core.Entities.SerialNumber", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("BatchNumber")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<int>("BatchSequence")
+                        .HasColumnType("int");
+
+                    b.Property<int>("BatchType")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int?>("CurrentLocationId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DeletedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("DestructionReason")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("DestructionWitness")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("FullSerialNumber")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("PackQty")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ProductId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ProductName")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ProductSKU")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("ProductionDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ShortSerialNumber")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<int>("SiteId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("SoldAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("SoldTransactionId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("StatusChangedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("StatusChangedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("StrainCode")
+                        .HasColumnType("int");
+
+                    b.Property<int>("UnitSequence")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("WeightGrams")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BatchNumber")
+                        .HasDatabaseName("IX_SerialNumbers_BatchNumber")
+                        .HasFilter("[BatchNumber] IS NOT NULL");
+
+                    b.HasIndex("FullSerialNumber")
+                        .IsUnique()
+                        .HasDatabaseName("IX_SerialNumbers_FullSerialNumber_Unique");
+
+                    b.HasIndex("ProductId")
+                        .HasDatabaseName("IX_SerialNumbers_ProductId")
+                        .HasFilter("[ProductId] IS NOT NULL");
+
+                    b.HasIndex("ShortSerialNumber")
+                        .IsUnique()
+                        .HasDatabaseName("IX_SerialNumbers_ShortSerialNumber_Unique");
+
+                    b.HasIndex("SiteId")
+                        .HasDatabaseName("IX_SerialNumbers_SiteId");
+
+                    b.HasIndex("Status")
+                        .HasDatabaseName("IX_SerialNumbers_Status");
+
+                    b.HasIndex("StrainCode")
+                        .HasDatabaseName("IX_SerialNumbers_StrainCode");
+
+                    b.HasIndex("SiteId", "ProductionDate", "Status")
+                        .HasDatabaseName("IX_SerialNumbers_SiteId_ProductionDate_Status");
+
+                    b.ToTable("SerialNumbers");
+                });
+
+            modelBuilder.Entity("Project420.Shared.Core.Entities.SerialNumberSequence", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("BatchSequence")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("BatchType")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("CurrentSequence")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DeletedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("LastGeneratedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("LastGeneratedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("MaxSequence")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("ProductionDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("SequenceType")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<int>("SiteId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProductionDate")
+                        .HasDatabaseName("IX_SerialNumberSequences_ProductionDate");
+
+                    b.HasIndex("SiteId")
+                        .HasDatabaseName("IX_SerialNumberSequences_SiteId");
+
+                    b.HasIndex("SiteId", "SequenceType", "ProductionDate", "BatchType", "BatchSequence")
+                        .HasDatabaseName("IX_SerialNumberSequences_Composite")
+                        .HasFilter("[IsDeleted] = 0");
+
+                    b.ToTable("SerialNumberSequences");
+                });
+
+            modelBuilder.Entity("Project420.Shared.Core.Entities.TransactionDetail", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("BatchNumber")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<decimal?>("CostPrice")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DeletedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<decimal>("DiscountAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("HeaderId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<decimal>("LineTotal")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int>("ProductId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ProductName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("ProductSKU")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<decimal>("Quantity")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<int?>("RetailTransactionHeaderId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("SerialNumber")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("TransactionType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<decimal>("UnitPrice")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("VATAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal?>("WeightGrams")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BatchNumber")
+                        .HasDatabaseName("IX_TransactionDetails_BatchNumber")
+                        .HasFilter("[BatchNumber] IS NOT NULL");
+
+                    b.HasIndex("ProductId")
+                        .HasDatabaseName("IX_TransactionDetails_ProductId");
+
+                    b.HasIndex("RetailTransactionHeaderId");
+
+                    b.HasIndex("SerialNumber")
+                        .HasDatabaseName("IX_TransactionDetails_SerialNumber")
+                        .HasFilter("[SerialNumber] IS NOT NULL");
+
+                    b.HasIndex("HeaderId", "TransactionType")
+                        .HasDatabaseName("IX_TransactionDetails_HeaderId_TransactionType");
+
+                    b.ToTable("TransactionDetails");
                 });
 
             modelBuilder.Entity("Project420.Retail.POS.Models.Entities.Payment", b =>
@@ -665,7 +1185,7 @@ namespace Project420.Retail.POS.DAL.Migrations
                         .HasForeignKey("DebtorId")
                         .OnDelete(DeleteBehavior.Restrict);
 
-                    b.HasOne("Project420.Retail.POS.Models.Entities.TransactionHeader", "TransactionHeader")
+                    b.HasOne("Project420.Retail.POS.Models.Entities.RetailTransactionHeader", "TransactionHeader")
                         .WithMany("Payments")
                         .HasForeignKey("TransactionHeaderId")
                         .OnDelete(DeleteBehavior.Restrict);
@@ -694,7 +1214,7 @@ namespace Project420.Retail.POS.DAL.Migrations
                     b.Navigation("Product");
                 });
 
-            modelBuilder.Entity("Project420.Retail.POS.Models.Entities.TransactionDetail", b =>
+            modelBuilder.Entity("Project420.Retail.POS.Models.Entities.ProductBarcode", b =>
                 {
                     b.HasOne("Project420.Retail.POS.Models.Entities.Product", "Product")
                         .WithMany()
@@ -702,29 +1222,17 @@ namespace Project420.Retail.POS.DAL.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("Project420.Retail.POS.Models.Entities.Product", null)
-                        .WithMany("TransactionDetails")
-                        .HasForeignKey("ProductId1");
-
-                    b.HasOne("Project420.Retail.POS.Models.Entities.TransactionHeader", "TransactionHeader")
-                        .WithMany("TransactionDetails")
-                        .HasForeignKey("TransactionHeaderId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
                     b.Navigation("Product");
-
-                    b.Navigation("TransactionHeader");
                 });
 
-            modelBuilder.Entity("Project420.Retail.POS.Models.Entities.TransactionHeader", b =>
+            modelBuilder.Entity("Project420.Retail.POS.Models.Entities.RetailTransactionHeader", b =>
                 {
                     b.HasOne("Project420.Retail.POS.Models.Entities.Debtor", "Debtor")
                         .WithMany("Transactions")
                         .HasForeignKey("DebtorId")
                         .OnDelete(DeleteBehavior.Restrict);
 
-                    b.HasOne("Project420.Retail.POS.Models.Entities.TransactionHeader", "OriginalTransaction")
+                    b.HasOne("Project420.Retail.POS.Models.Entities.RetailTransactionHeader", "OriginalTransaction")
                         .WithMany("RefundTransactions")
                         .HasForeignKey("OriginalTransactionId");
 
@@ -738,6 +1246,19 @@ namespace Project420.Retail.POS.DAL.Migrations
                     b.Navigation("OriginalTransaction");
 
                     b.Navigation("Pricelist");
+                });
+
+            modelBuilder.Entity("Project420.Shared.Core.Entities.TransactionDetail", b =>
+                {
+                    b.HasOne("Project420.Retail.POS.Models.Entities.Product", null)
+                        .WithMany("TransactionDetails")
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Project420.Retail.POS.Models.Entities.RetailTransactionHeader", null)
+                        .WithMany("TransactionDetails")
+                        .HasForeignKey("RetailTransactionHeaderId");
                 });
 
             modelBuilder.Entity("Project420.Retail.POS.Models.Entities.Debtor", b =>
@@ -755,7 +1276,7 @@ namespace Project420.Retail.POS.DAL.Migrations
                     b.Navigation("TransactionDetails");
                 });
 
-            modelBuilder.Entity("Project420.Retail.POS.Models.Entities.TransactionHeader", b =>
+            modelBuilder.Entity("Project420.Retail.POS.Models.Entities.RetailTransactionHeader", b =>
                 {
                     b.Navigation("Payments");
 

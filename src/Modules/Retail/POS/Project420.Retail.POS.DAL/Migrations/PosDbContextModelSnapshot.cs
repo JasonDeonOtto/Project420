@@ -300,7 +300,7 @@ namespace Project420.Retail.POS.DAL.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Pricelists", null, t =>
+                    b.ToTable("RetailPricelists", null, t =>
                         {
                             t.ExcludeFromMigrations();
                         });
@@ -360,7 +360,7 @@ namespace Project420.Retail.POS.DAL.Migrations
 
                     b.HasIndex("ProductId");
 
-                    b.ToTable("PricelistItem", null, t =>
+                    b.ToTable("RetailPricelistItems", null, t =>
                         {
                             t.ExcludeFromMigrations();
                         });

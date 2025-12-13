@@ -1,9 +1,9 @@
 # CLAUDE INITIALIZATION & WORKFLOW - PROJECT420
 
-**Last Updated**: 2025-12-12
-**Status**: ACTIVE - Phase 7A Complete ✅ | Movement Architecture Foundation Implemented
+**Last Updated**: 2025-12-13
+**Status**: ACTIVE - Phase 8 Complete ✅ | Batch & Serial Number System Implemented
 **Project**: Project420 - Cannabis Management System for South Africa
-**Version**: 0.1.0 - Proof of Concept (Phase 7A - Movement Architecture)
+**Version**: 0.1.0 - Proof of Concept (Phase 8 Complete - Ready for Phase 9)
 **Documentation**: 11 comprehensive specification files in docs/ClaudeExternReferences/PoCHomeStretch/
 
 ---
@@ -594,8 +594,8 @@ From SA_Cannabis_Software_Guide.md Section 10:
 
 ## 🎯 CURRENT PROJECT STATUS
 
-**Phase**: POC - Phase 7A Complete ✅ | Movement Architecture Foundation Implemented 🚀
-**Status**: MovementService implemented | 51 tests passing | Ready for Phase 7B (Unified Transaction Architecture)
+**Phase**: POC - Phase 8 Complete ✅ | Batch & Serial Number System Implemented 🚀
+**Status**: Phase 7 (A/B/C) + Phase 8 Complete | 523 tests passing | Ready for Phase 9 (Retail POS Completion)
 
 **✅ Phase 1 Complete (2025-12-02) - Data Models**:
 - [x] Solution and project setup
@@ -635,16 +635,15 @@ From SA_Cannabis_Software_Guide.md Section 10:
 - [x] **Dependency Injection** - All services registered in DI
 - [x] **Build Status**: 0 Errors, 0 Warnings
 
-**⏸️ DEFERRED: Advanced Batch & Serial Number System (Future Phase)**:
-- **Status**: Design complete, implementation deferred to Phase 4+
-- **Documentation**: See `docs/future-features/BATCH-SERIAL-NUMBER-DESIGN.md`
-- **Current Implementation**: Basic TransactionNumberGeneratorService (TYPE-YYYYMMDD-XXX format)
-- **Future Implementation**:
-  - Batch Numbers: `SSTTYYYYMMDDNNNN` (16 digits with Site ID + Type)
-  - Full Serial Numbers: `SSSSSTTYYYYMMDDBBBBBUUUUUWWWWQC` (28 digits with QR code)
-  - Short Serial Numbers: `SSYYMMDDNNNNN` (13 digits for barcodes)
-  - Embedded traceability: Site, Strain, Batch Type, Date, Weight, Pack Size, Check Digit
-- **Reason for Deferral**: Complete Phase 3B testing first, then implement during production module development
+**✅ IMPLEMENTED: Advanced Batch & Serial Number System (Phase 8)**:
+- **Status**: ✅ COMPLETE (2025-12-13)
+- **Implementation**:
+  - Batch Numbers: `SSTTYYYYMMDDNNNN` (16 digits with Site ID + Type) ✅
+  - Full Serial Numbers: 30 digits with Luhn check digit ✅
+  - Short Serial Numbers: `SSYYMMDDNNNNN` (13 digits for barcodes) ✅
+  - Embedded traceability: Site, Strain, Batch Type, Date, Weight, Pack Size, Check Digit ✅
+- **Services**: BatchNumberGeneratorService, SerialNumberGeneratorService
+- **Tests**: 98 unit tests passing
 
 **✅ Phase 3 Part B Complete (2025-12-06) - Testing & Quality Assurance**:
 - [x] **Test Infrastructure** - Created ServiceTestBase, RepositoryTestBase, TestDbContextFactory
@@ -800,71 +799,59 @@ Phase 7A establishes the Movement Architecture (Option A) foundation:
 4. **Cannabis Compliance**: Batch/serial tracking for seed-to-sale traceability
 5. **Comprehensive Testing**: 51 unit tests covering all edge cases
 
-**📋 Phase 7B Planned: Unified Transaction Architecture**:
-- [ ] Rename POSTransactionHeader → RetailTransactionHeader
-- [ ] Integrate POS with unified TransactionDetails (Shared)
-- [ ] Integrate MovementService into TransactionService
-- [ ] Update repositories and services
-- [ ] Create migrations for table renames
+**✅ Phase 7B Complete (2025-12-13) - Unified Transaction Architecture**:
+- [x] Renamed POSTransactionHeader → RetailTransactionHeader
+- [x] Integrated POS with unified TransactionDetails
+- [x] Integrated MovementService into TransactionService/RefundService
+- [x] Updated all repositories and services
+- [x] All navigation properties updated (Payment, Debtor, Product)
 
-**Detailed Plan**: `docs/roadmap/PHASE-UNIFIED-TRANSACTION-ARCHITECTURE.md`
+**✅ Phase 7C Complete (2025-12-13) - Architectural Correction**:
+- [x] Created IBusinessDbContext interface for shared service access
+- [x] Business data tables moved to Project420_Dev (single database)
+- [x] Shared services use IBusinessDbContext (resolved to PosDbContext)
+- [x] Single transaction scope for atomic operations
+- [x] TestBusinessDbContext created for in-memory testing
+
+**✅ Phase 8 Complete (2025-12-13) - Batch & Serial Number System**:
+- [x] **BatchNumberGeneratorService** - 16-digit format (SSTTYYYYMMDDNNNN)
+  - Site ID, Batch Type, Date, Sequence embedded
+  - Thread-safe with database transactions
+  - 47 unit tests passing
+- [x] **SerialNumberGeneratorService** - Full (30-digit) + Short (13-digit) formats
+  - Full SN: Site, Strain, Type, Date, Batch, Unit, Weight, Pack, Check digit
+  - Short SN: EAN-13 compatible for barcodes
+  - Luhn check digit validation
+  - 51 unit tests passing
+- [x] **Database Tables**: BatchNumberSequences, SerialNumbers, SerialNumberSequences
+- [x] **DI Registration**: Both services registered in Program.cs
+- [x] **Compliance**: SAHPRA seed-to-sale traceability requirements met
+
+**📊 Phase 7 & 8 Combined Statistics**:
+- **Services Implemented**: MovementService, BatchNumberGeneratorService, SerialNumberGeneratorService
+- **Unit Tests**: 149 tests (51 Movement + 47 Batch + 51 Serial)
+- **Database Tables**: 34 in Project420_Dev, 5 in Project420_Shared
+- **Total Tests Passing**: 523
 
 ---
 
-**🚀 Phase 8+ Next Steps** (After Phase 7B):
+**🚀 Phase 9: RETAIL POS COMPLETION (NEXT)**
 
-**Option A: Implement Batch & Serial Number System** (CRITICAL for POC completion):
-- [ ] Review reference documents (mvp_modules_seed_traceability.md, system_evolution_roadmap.md, sn_batch_best_practices.md)
-- [ ] Design batch numbering system adapted to Project420 architecture
-- [ ] Design serial number generation system (internal + external SNs)
-- [ ] Implement BatchNumberGeneratorService
-- [ ] Implement SerialNumberGeneratorService
-- [ ] Create Batch entity and repository
-- [ ] Create SerialNumber entity and repository
-- [ ] Integrate batch/SN into existing modules (Cultivation, Production, Inventory)
-- [ ] Test end-to-end traceability with batch/SN linking
+**Priority**: 🔴 CRITICAL
+**Target**: 85-90% POS feature completeness
 
-**Option B: Build Repositories & BLL** (Complete Vertical Slices):
-- [ ] Create Cultivation repositories (PlantRepository, GrowCycleRepository, etc.)
-- [ ] Create Production repositories (ProductionBatchRepository, QualityControlRepository, etc.)
-- [ ] Create Inventory repositories (StockMovementRepository, StockTransferRepository, etc.)
-- [ ] Create Cultivation BLL services with DTOs
-- [ ] Create Production BLL services with DTOs
-- [ ] Create Inventory BLL services with DTOs
+**Phase 9 Key Tasks**:
+1. **Barcode & Serial Number Scanning** (9.1) - EAN-13, Code128, QR support
+2. **Line-Level & Header-Level Discounts** (9.2) - VAT recalculation
+3. **Multi-Tender Checkout** (9.3) - Cash, Card, EFT, Mobile
+4. **Refund Workflow** (9.4) - Full/partial refunds with movement reversal
+5. **Cash Drop & Cash Out** (9.5) - End-of-shift reconciliation
+6. **Transaction Cancellation** (9.6) - Manager override
+7. **Age Verification Enhancement** (9.7) - SA ID scanning
+8. **Compliant Receipt Generation** (9.8) - Batch/SN on receipts
+9. **Movement Generation Optimization** (9.9) - Performance tuning
 
-**Option C: Create Seed Data** (Enable Testing):
-- [ ] Create seed data for Cultivation (sample grow rooms, cycles, plants)
-- [ ] Create seed data for Production (sample batches, processing steps, lab tests)
-- [ ] Create seed data for Inventory (sample stock movements, transfers)
-
-**Option D: UI Development** (Visual Progress):
-- [ ] Build Cultivation UI (plant tracking, grow cycle management)
-- [ ] Build Production UI (batch processing, QC workflow, lab testing)
-- [ ] Build Inventory UI (stock movements, transfers, stock counts)
-- [ ] Create seed-to-sale traceability reports
-
-**Option E: Online Ordering API** (E-Commerce MVP - Future Phase):
-- [ ] Create ASP.NET Core Web API project (Project420.API.WebApi)
-- [ ] Implement Product Catalog API (GET /api/products, /api/products/{id})
-- [ ] Build Order Placement API (POST /api/orders with age verification)
-- [ ] Develop Customer Authentication (JWT tokens, OAuth 2.0)
-- [ ] Integrate Payment Processing (Yoco/PayFast/Ozow for SA market)
-- [ ] Add Order Status Tracking (GET /api/orders/{id}/status)
-- [ ] Create OnlineOrders Module (Models, DAL, BLL layers)
-- [ ] Implement Click & Collect (order online, pickup in-store with ID verification)
-- [ ] Add Email Notifications (order confirmation, ready for pickup)
-- [ ] Build Compliance Middleware (age verification, audit logging, POPIA)
-
-**⚠️ Online Ordering Legal Compliance Note**:
-- **Current Status (2024)**: Commercial cannabis sales NOT yet legal in SA (Cannabis for Private Purposes Act)
-- **Expected Timeline**: Commercial regulations anticipated 2026-2027
-- **MVP Strategy**: Build "Click & Collect" system (compliant, future-proof for full e-commerce)
-- **Required Compliance**:
-  - Age verification (18+) at registration AND pickup
-  - POPIA data protection (encrypted PII, consent tracking)
-  - Purchase limit enforcement
-  - Audit trail for all online transactions
-  - Delivery age verification (when commercial sales legal)
+**Detailed Plan**: `docs/ClaudeExternReferences/PoCHomeStretch/POC-TODO-ROADMAP.md`
 
 ---
 
@@ -895,16 +882,17 @@ Phase 7A establishes the Movement Architecture (Option A) foundation:
 **CLAUDE FLOW STATUS**: ✅ **INITIALIZED AND ACTIVE**
 **SA GUIDE REFERENCE**: ⚠️ **MANDATORY FOR ALL WORK**
 **CODING STRUCTURE TEMPLATE**: ⚠️ **MANDATORY FOR ALL DEVELOPMENT**
-**PROJECT420**: ✅ **PHASE 7A COMPLETE - MOVEMENT ARCHITECTURE FOUNDATION IMPLEMENTED**
+**PROJECT420**: ✅ **PHASE 8 COMPLETE - BATCH & SERIAL NUMBER SYSTEM IMPLEMENTED**
 **COMPLIANCE GATES**: ✅ **ACTIVE AND ENFORCED**
 **BUILD STATUS**: ✅ **0 ERRORS (excluding Android SDK)**
-**TEST STATUS**: ✅ **275/275 TESTS PASSING (224 existing + 51 MovementService)**
-**DATABASE STATUS**: ✅ **Project420_Dev (29 tables) + Project420_Shared (7 tables)**
+**TEST STATUS**: ✅ **523 TESTS PASSING**
+**DATABASE STATUS**: ✅ **Project420_Dev (34 tables) + Project420_Shared (5 tables)**
 **VALIDATORS STATUS**: ✅ **32 FLUENTVALIDATION VALIDATORS REGISTERED**
 **MODULES STATUS**: ✅ **6 MODULES OPERATIONAL (Management, POS, OnlineOrders, Cultivation, Production, Inventory)**
 **MOVEMENT ARCHITECTURE**: ✅ **OPTION A IMPLEMENTED - SOH FROM MOVEMENTS**
-**TRACEABILITY STATUS**: ✅ **PLANT → HARVEST → PRODUCTION → INVENTORY → MOVEMENT → SALE CHAIN COMPLETE**
-**NEXT PHASE**: 📋 **PHASE 7B - UNIFIED TRANSACTION ARCHITECTURE**
+**BATCH/SERIAL SYSTEM**: ✅ **16-DIGIT BATCH + 30/13-DIGIT SERIAL NUMBERS WITH LUHN CHECK**
+**TRACEABILITY STATUS**: ✅ **PLANT → HARVEST → PRODUCTION → BATCH → SERIAL → MOVEMENT → SALE CHAIN COMPLETE**
+**NEXT PHASE**: 📋 **PHASE 9 - RETAIL POS COMPLETION (85-90% TARGET)**
 
 ---
 

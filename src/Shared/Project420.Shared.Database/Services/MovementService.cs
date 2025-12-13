@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Project420.Shared.Core.Abstractions;
 using Project420.Shared.Core.Entities;
 using Project420.Shared.Core.Enums;
 
@@ -20,19 +21,24 @@ namespace Project420.Shared.Database.Services;
 /// - Batch/serial number tracking for seed-to-sale traceability
 /// - Weight tracking for reconciliation
 /// - Movement reasons documented for compliance reporting
+///
+/// Architecture:
+/// - Uses IBusinessDbContext interface to access business data tables
+/// - IBusinessDbContext is implemented by PosDbContext in POS.DAL
+/// - This avoids circular dependency between Shared.Database and POS.DAL
 /// </remarks>
 public class MovementService : IMovementService
 {
-    private readonly SharedDbContext _context;
+    private readonly IBusinessDbContext _context;
     private readonly ILogger<MovementService> _logger;
 
     /// <summary>
     /// Initializes a new instance of the MovementService.
     /// </summary>
-    /// <param name="context">The shared database context</param>
+    /// <param name="context">The business database context</param>
     /// <param name="logger">Logger for tracking operations</param>
     /// <exception cref="ArgumentNullException">Thrown when context or logger is null</exception>
-    public MovementService(SharedDbContext context, ILogger<MovementService> logger)
+    public MovementService(IBusinessDbContext context, ILogger<MovementService> logger)
     {
         _context = context ?? throw new ArgumentNullException(nameof(context));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));

@@ -1,18 +1,26 @@
 using Microsoft.EntityFrameworkCore;
 using Project420.Retail.POS.Models.Entities;
+using Project420.Shared.Core.Abstractions;
 using Project420.Shared.Core.Entities;
+using Project420.Shared.Core.Enums;
 
 namespace Project420.Retail.POS.DAL;
 
 /// <summary>
 /// Database context for the Point of Sale (POS) module.
-/// This is the "command center" that manages all database operations for the POS system.
+/// Also serves as the business database context for unified transaction and movement tables.
 /// </summary>
 /// <remarks>
 /// POPIA Compliance: This context includes audit trail support and soft delete patterns.
 /// Cannabis Compliance: Manages THC/CBD tracking, batch numbers, and age verification data.
+///
+/// Architecture:
+/// - Implements IBusinessDbContext to allow services in Shared.Database to access business tables
+/// - Contains unified tables (TransactionDetails, Movements, SerialNumbers, etc.)
+/// - Module-specific tables (RetailTransactionHeaders, Payments, ProductBarcodes)
+/// - Referenced master data tables (Products, Debtors, Pricelists) excluded from migrations
 /// </remarks>
-public class PosDbContext : DbContext
+public class PosDbContext : DbContext, IBusinessDbContext
 {
     /// <summary>
     /// Constructor that accepts configuration options (connection string, etc.)
@@ -84,6 +92,115 @@ public class PosDbContext : DbContext
     /// - Unique serial numbers (individual item tracking for cannabis compliance)
     /// </remarks>
     public DbSet<ProductBarcode> ProductBarcodes { get; set; } = null!;
+
+    // ===========================
+    // UNIFIED TRANSACTION DATA (OWNED)
+    // ===========================
+    // These tables are shared across all modules but owned by PosDbContext
+    // because they require FKs to Products and other business entities.
+    // Services in Shared.Database inject PosDbContext to access these.
+
+    /// <summary>
+    /// Unified transaction details table - All transaction line items stored here.
+    /// </summary>
+    /// <remarks>
+    /// Movement Architecture (Option A):
+    /// - Single table for all transaction types (Sales, GRVs, Refunds, Production, etc.)
+    /// - TransactionType enum acts as discriminator to identify header table
+    /// - Each detail generates corresponding Movement record(s)
+    ///
+    /// Benefits:
+    /// - Consistent movement generation from all transaction types
+    /// - Simplified reporting and queries across transaction types
+    /// - Single source for line item data (DRY principle)
+    ///
+    /// Cannabis Compliance:
+    /// - Batch number tracking for seed-to-sale traceability
+    /// - Serial number tracking for individual unit traceability
+    /// - Full audit trail via AuditableEntity
+    /// </remarks>
+    public DbSet<TransactionDetail> TransactionDetails { get; set; } = null!;
+
+    /// <summary>
+    /// Movement ledger table - Source of truth for SOH calculations.
+    /// </summary>
+    /// <remarks>
+    /// Movement Architecture (Option A):
+    /// - SOH = SUM(Quantity WHERE Direction = IN) - SUM(Quantity WHERE Direction = OUT)
+    /// - SOH is NEVER stored directly - always calculated from movements
+    /// - Movements are immutable once created (soft delete only)
+    ///
+    /// Relationship:
+    /// - Each TransactionDetail generates Movement record(s)
+    /// - Movement.DetailId → TransactionDetail.Id
+    /// - Movement.HeaderId → Transaction header tables
+    ///
+    /// Performance:
+    /// - Indexed on ProductId + TransactionDate for SOH queries
+    /// - Indexed on BatchNumber and SerialNumber for traceability
+    /// - Global query filter excludes soft-deleted records
+    ///
+    /// Cannabis Compliance:
+    /// - Full audit trail for SAHPRA/SARS
+    /// - Batch/serial tracking for seed-to-sale
+    /// - Weight tracking for reconciliation
+    /// </remarks>
+    public DbSet<Movement> Movements { get; set; } = null!;
+
+    // ===========================
+    // BATCH & SERIAL NUMBER SYSTEM (OWNED)
+    // ===========================
+    // Phase 8: Enterprise-grade batch and serial number generation.
+    // These tables require FKs to Products for validation.
+
+    /// <summary>
+    /// Batch number sequences table - Tracks daily sequences per site/type/date.
+    /// </summary>
+    /// <remarks>
+    /// Purpose:
+    /// - Generate unique 16-digit batch numbers: SSTTYYYYMMDDNNNN
+    /// - Each combination of Site+Type+Date has its own sequence
+    /// - Sequences reset daily (NNNN starts at 0001 each day)
+    ///
+    /// Cannabis Compliance:
+    /// - SAHPRA seed-to-sale batch traceability
+    /// - Unique batch identification for audit trail
+    /// </remarks>
+    public DbSet<BatchNumberSequence> BatchNumberSequences { get; set; } = null!;
+
+    /// <summary>
+    /// Serial number sequences table - Tracks unit and daily sequences.
+    /// </summary>
+    /// <remarks>
+    /// Purpose:
+    /// - Unit sequences: Per-batch unit numbering (UUUUU in full SN)
+    /// - Daily sequences: Per-site daily numbering (NNNNN in short SN)
+    ///
+    /// Cannabis Compliance:
+    /// - Unit-level traceability for SAHPRA requirements
+    /// - Supports both full SN (31 digits) and short SN (13 digits)
+    /// </remarks>
+    public DbSet<SerialNumberSequence> SerialNumberSequences { get; set; } = null!;
+
+    /// <summary>
+    /// Serial numbers table - Master record of all generated serial numbers.
+    /// </summary>
+    /// <remarks>
+    /// Purpose:
+    /// - Maps Short SN ↔ Full SN (one-to-one)
+    /// - Tracks serial number lifecycle (Created → Assigned → Sold → Destroyed)
+    /// - Provides traceability queries by batch, strain, date, status
+    ///
+    /// Serial Number Formats:
+    /// - Full SN (31 digits): All product info embedded (site, strain, batch, unit, weight)
+    /// - Short SN (13 digits): Compact format for barcodes
+    ///
+    /// Cannabis Compliance:
+    /// - SAHPRA unit-level seed-to-sale traceability
+    /// - Recall management capability
+    /// - Destruction documentation
+    /// </remarks>
+    public DbSet<SerialNumber> SerialNumbers { get; set; } = null!;
 
     // ========================================
     // STEP 2: OnModelCreating (Fluent API Configuration)
@@ -179,10 +296,11 @@ public class PosDbContext : DbContext
         });
 
         // ===========================
-        // NOTE: POSTRANSACTIONDETAIL CONFIGURATION REMOVED (Phase 7B)
+        // NOTE: POSTransactionDetail REPLACED BY UNIFIED TransactionDetail (Phase 7B)
         // ===========================
-        // Transaction details are now stored in SharedDbContext.TransactionDetails
-        // See SharedDbContext.OnModelCreating for the unified configuration.
+        // Transaction details are now stored in unified TransactionDetails table
+        // with HeaderId + TransactionType discriminator pattern.
+        // Configuration is below in UNIFIED TRANSACTION DATA section.
 
         // ===========================
         // PAYMENT CONFIGURATION
@@ -241,6 +359,213 @@ public class PosDbContext : DbContext
 
             // Soft delete query filter (POPIA compliance)
             entity.HasQueryFilter(pb => !pb.IsDeleted);
+        });
+
+        // ========================================
+        // UNIFIED TRANSACTION DATA TABLES (OWNED)
+        // ========================================
+        // These tables support all modules but are owned by PosDbContext
+        // because they require FKs to Products (business database).
+
+        // ===========================
+        // TRANSACTIONDETAIL CONFIGURATION (Movement Architecture)
+        // ===========================
+        modelBuilder.Entity<TransactionDetail>(entity =>
+        {
+            // Store TransactionType enum as string for readability
+            entity.Property(e => e.TransactionType)
+                .HasConversion<string>()
+                .HasMaxLength(50);
+
+            // Composite index for querying details by header and type (discriminated union pattern)
+            entity.HasIndex(e => new { e.HeaderId, e.TransactionType })
+                .HasDatabaseName("IX_TransactionDetails_HeaderId_TransactionType");
+
+            // Index on ProductId for inventory queries
+            entity.HasIndex(e => e.ProductId)
+                .HasDatabaseName("IX_TransactionDetails_ProductId");
+
+            // Filtered index on BatchNumber (only non-null values)
+            entity.HasIndex(e => e.BatchNumber)
+                .HasFilter("[BatchNumber] IS NOT NULL")
+                .HasDatabaseName("IX_TransactionDetails_BatchNumber");
+
+            // Filtered index on SerialNumber (only non-null values)
+            entity.HasIndex(e => e.SerialNumber)
+                .HasFilter("[SerialNumber] IS NOT NULL")
+                .HasDatabaseName("IX_TransactionDetails_SerialNumber");
+
+            // Note: FK to Products is established via ProductId column.
+            // Navigation property is not available since entity is in Shared.Core
+            // and Product is in POS.Models (to avoid circular dependency).
+            // FK constraint can be added at database level if needed.
+
+            // Global query filter for soft delete (POPIA compliance)
+            entity.HasQueryFilter(e => !e.IsDeleted);
+        });
+
+        // ===========================
+        // MOVEMENT CONFIGURATION (Movement Architecture)
+        // ===========================
+        modelBuilder.Entity<Movement>(entity =>
+        {
+            // Store enums as strings for readability and debugging
+            entity.Property(e => e.TransactionType)
+                .HasConversion<string>()
+                .HasMaxLength(50);
+
+            entity.Property(e => e.Direction)
+                .HasConversion<string>()
+                .HasMaxLength(10);
+
+            // Performance index for SOH calculation queries
+            // SOH = SUM(Quantity WHERE Direction = 'In') - SUM(Quantity WHERE Direction = 'Out')
+            entity.HasIndex(e => new { e.ProductId, e.TransactionDate, e.Direction })
+                .HasDatabaseName("IX_Movements_ProductId_TransactionDate_Direction");
+
+            // Index for movement history queries
+            entity.HasIndex(e => new { e.ProductId, e.TransactionDate })
+                .HasDatabaseName("IX_Movements_ProductId_TransactionDate");
+
+            // Index for linking back to transaction
+            entity.HasIndex(e => new { e.TransactionType, e.HeaderId })
+                .HasDatabaseName("IX_Movements_TransactionType_HeaderId");
+
+            // Filtered index on BatchNumber for traceability queries
+            entity.HasIndex(e => e.BatchNumber)
+                .HasFilter("[BatchNumber] IS NOT NULL")
+                .HasDatabaseName("IX_Movements_BatchNumber");
+
+            // Filtered index on SerialNumber for traceability queries
+            entity.HasIndex(e => e.SerialNumber)
+                .HasFilter("[SerialNumber] IS NOT NULL")
+                .HasDatabaseName("IX_Movements_SerialNumber");
+
+            // Index on LocationId for multi-location inventory
+            entity.HasIndex(e => e.LocationId)
+                .HasFilter("[LocationId] IS NOT NULL")
+                .HasDatabaseName("IX_Movements_LocationId");
+
+            // Note: FK to Products is established via ProductId column.
+            // Navigation property is not available since entity is in Shared.Core
+            // and Product is in POS.Models (to avoid circular dependency).
+
+            // Global query filter for soft delete (POPIA compliance)
+            entity.HasQueryFilter(e => !e.IsDeleted);
+        });
+
+        // ========================================
+        // BATCH & SERIAL NUMBER TABLES (OWNED)
+        // ========================================
+        // Phase 8: Enterprise-grade batch and serial number generation.
+
+        // ===========================
+        // BATCHNUMBERSEQUENCE CONFIGURATION
+        // ===========================
+        modelBuilder.Entity<BatchNumberSequence>(entity =>
+        {
+            // Store BatchType enum as integer (matches enum values: 10, 20, 30, etc.)
+            entity.Property(e => e.BatchType)
+                .HasConversion<int>();
+
+            // Composite unique constraint: one sequence per site/type/date
+            entity.HasIndex(e => new { e.SiteId, e.BatchType, e.BatchDate })
+                .IsUnique()
+                .HasFilter("[IsDeleted] = 0")
+                .HasDatabaseName("IX_BatchNumberSequences_SiteId_BatchType_BatchDate_Unique");
+
+            // Index for querying by site
+            entity.HasIndex(e => e.SiteId)
+                .HasDatabaseName("IX_BatchNumberSequences_SiteId");
+
+            // Index for querying by date (cleanup old sequences)
+            entity.HasIndex(e => e.BatchDate)
+                .HasDatabaseName("IX_BatchNumberSequences_BatchDate");
+
+            // Global query filter for soft delete
+            entity.HasQueryFilter(e => !e.IsDeleted);
+        });
+
+        // ===========================
+        // SERIALNUMBERSEQUENCE CONFIGURATION
+        // ===========================
+        modelBuilder.Entity<SerialNumberSequence>(entity =>
+        {
+            // Store BatchType enum as integer (nullable)
+            entity.Property(e => e.BatchType)
+                .HasConversion<int?>();
+
+            // Composite index for unit sequences
+            entity.HasIndex(e => new { e.SiteId, e.SequenceType, e.ProductionDate, e.BatchType, e.BatchSequence })
+                .HasFilter("[IsDeleted] = 0")
+                .HasDatabaseName("IX_SerialNumberSequences_Composite");
+
+            // Index for querying by site
+            entity.HasIndex(e => e.SiteId)
+                .HasDatabaseName("IX_SerialNumberSequences_SiteId");
+
+            // Index for querying by date (cleanup old sequences)
+            entity.HasIndex(e => e.ProductionDate)
+                .HasDatabaseName("IX_SerialNumberSequences_ProductionDate");
+
+            // Global query filter for soft delete
+            entity.HasQueryFilter(e => !e.IsDeleted);
+        });
+
+        // ===========================
+        // SERIALNUMBER CONFIGURATION
+        // ===========================
+        modelBuilder.Entity<SerialNumber>(entity =>
+        {
+            // Store enums as their underlying values
+            entity.Property(e => e.BatchType)
+                .HasConversion<int>();
+
+            entity.Property(e => e.Status)
+                .HasConversion<int>();
+
+            // Unique constraint on FullSerialNumber (primary lookup)
+            entity.HasIndex(e => e.FullSerialNumber)
+                .IsUnique()
+                .HasDatabaseName("IX_SerialNumbers_FullSerialNumber_Unique");
+
+            // Unique constraint on ShortSerialNumber (barcode lookup)
+            entity.HasIndex(e => e.ShortSerialNumber)
+                .IsUnique()
+                .HasDatabaseName("IX_SerialNumbers_ShortSerialNumber_Unique");
+
+            // Index for batch lookups
+            entity.HasIndex(e => e.BatchNumber)
+                .HasFilter("[BatchNumber] IS NOT NULL")
+                .HasDatabaseName("IX_SerialNumbers_BatchNumber");
+
+            // Index for site queries
+            entity.HasIndex(e => e.SiteId)
+                .HasDatabaseName("IX_SerialNumbers_SiteId");
+
+            // Index for strain queries
+            entity.HasIndex(e => e.StrainCode)
+                .HasDatabaseName("IX_SerialNumbers_StrainCode");
+
+            // Index for status queries (inventory, sold, etc.)
+            entity.HasIndex(e => e.Status)
+                .HasDatabaseName("IX_SerialNumbers_Status");
+
+            // Composite index for production queries
+            entity.HasIndex(e => new { e.SiteId, e.ProductionDate, e.Status })
+                .HasDatabaseName("IX_SerialNumbers_SiteId_ProductionDate_Status");
+
+            // Index for product lookups
+            entity.HasIndex(e => e.ProductId)
+                .HasFilter("[ProductId] IS NOT NULL")
+                .HasDatabaseName("IX_SerialNumbers_ProductId");
+
+            // Note: FK to Products is established via ProductId column (optional).
+            // Navigation property is not available since entity is in Shared.Core
+            // and Product is in POS.Models (to avoid circular dependency).
+
+            // Global query filter for soft delete
+            entity.HasQueryFilter(e => !e.IsDeleted);
         });
     }
 

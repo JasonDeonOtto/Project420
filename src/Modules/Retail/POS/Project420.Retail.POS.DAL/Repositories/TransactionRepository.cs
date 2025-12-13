@@ -3,7 +3,6 @@ using Project420.Retail.POS.DAL;
 using Project420.Retail.POS.Models.Entities;
 using Project420.Shared.Core.Entities;
 using Project420.Shared.Core.Enums;
-using Project420.Shared.Database;
 using Project420.Shared.Infrastructure.DTOs;
 
 
@@ -20,20 +19,19 @@ namespace Project420.Retail.POS.DAL.Repositories
     /// - Eager loading with Include() for related entities
     /// - Proper exception handling and logging
     ///
-    /// Phase 7B Changes:
-    /// - Uses SharedDbContext for TransactionDetails (unified architecture)
-    /// - PosDbContext for RetailTransactionHeaders and Payments
+    /// Architecture (Post Phase 7C):
+    /// - All business data in PosDbContext (single database, single transaction scope)
+    /// - RetailTransactionHeaders, TransactionDetails, Movements all in PosDbContext
     /// - TransactionDetails linked via HeaderId + TransactionType discriminator
+    /// - Full FK relationships with Products in same database
     /// </remarks>
     public class TransactionRepository : ITransactionRepository
     {
-        private readonly PosDbContext _posContext;
-        private readonly SharedDbContext _sharedContext;
+        private readonly PosDbContext _context;
 
-        public TransactionRepository(PosDbContext posContext, SharedDbContext sharedContext)
+        public TransactionRepository(PosDbContext context)
         {
-            _posContext = posContext ?? throw new ArgumentNullException(nameof(posContext));
-            _sharedContext = sharedContext ?? throw new ArgumentNullException(nameof(sharedContext));
+            _context = context ?? throw new ArgumentNullException(nameof(context));
         }
 
         // ========================================
@@ -52,29 +50,30 @@ namespace Project420.Retail.POS.DAL.Repositories
                 throw new ArgumentException("Transaction must have at least one line item", nameof(details));
             if (payment == null) throw new ArgumentNullException(nameof(payment));
 
-            // Phase 7B: Use distributed transaction across PosDbContext and SharedDbContext
-            // Note: For true atomicity across databases, consider implementing Saga pattern
-            // For now, we use best-effort with manual rollback
+            // All data now in single PosDbContext - atomic transaction
+            using var transaction = await _context.Database.BeginTransactionAsync();
 
             try
             {
-                // 1. Add transaction header to PosDbContext
-                _posContext.RetailTransactionHeaders.Add(header);
-                await _posContext.SaveChangesAsync();
+                // 1. Add transaction header
+                _context.RetailTransactionHeaders.Add(header);
+                await _context.SaveChangesAsync();
 
-                // 2. Add transaction details to SharedDbContext (unified table)
+                // 2. Add transaction details (now in same context)
                 foreach (var detail in details)
                 {
                     detail.HeaderId = header.Id;
                     detail.TransactionType = header.TransactionType; // Sale, Refund, etc.
-                    _sharedContext.TransactionDetails.Add(detail);
+                    _context.TransactionDetails.Add(detail);
                 }
-                await _sharedContext.SaveChangesAsync();
+                await _context.SaveChangesAsync();
 
-                // 3. Add payment to PosDbContext (link to header)
+                // 3. Add payment (link to header)
                 payment.TransactionHeaderId = header.Id;
-                _posContext.Payments.Add(payment);
-                await _posContext.SaveChangesAsync();
+                _context.Payments.Add(payment);
+                await _context.SaveChangesAsync();
+
+                await transaction.CommitAsync();
 
                 // Return header with all relationships loaded
                 return await GetByIdAsync(header.Id)
@@ -82,8 +81,7 @@ namespace Project420.Retail.POS.DAL.Repositories
             }
             catch (Exception)
             {
-                // Note: With cross-database operations, we may have partial data.
-                // In production, consider implementing compensation/saga pattern.
+                await transaction.RollbackAsync();
                 throw;
             }
         }
@@ -96,14 +94,14 @@ namespace Project420.Retail.POS.DAL.Repositories
         public async Task<RetailTransactionHeader?> GetByIdAsync(int transactionId)
         {
             // Phase 7B: Load header with payments from PosDbContext
-            var header = await _posContext.RetailTransactionHeaders
+            var header = await _context.RetailTransactionHeaders
                 .Include(t => t.Payments)
                 .FirstOrDefaultAsync(t => t.Id == transactionId);
 
             if (header == null) return null;
 
             // Load transaction details from SharedDbContext (unified table)
-            var details = await _sharedContext.TransactionDetails
+            var details = await _context.TransactionDetails
                 .Where(td => td.HeaderId == transactionId && td.TransactionType == header.TransactionType)
                 .ToListAsync();
 
@@ -118,14 +116,14 @@ namespace Project420.Retail.POS.DAL.Repositories
                 throw new ArgumentException("Transaction number cannot be empty", nameof(transactionNumber));
 
             // Phase 7B: Load header with payments from PosDbContext
-            var header = await _posContext.RetailTransactionHeaders
+            var header = await _context.RetailTransactionHeaders
                 .Include(t => t.Payments)
                 .FirstOrDefaultAsync(t => t.TransactionNumber == transactionNumber);
 
             if (header == null) return null;
 
             // Load transaction details from SharedDbContext (unified table)
-            var details = await _sharedContext.TransactionDetails
+            var details = await _context.TransactionDetails
                 .Where(td => td.HeaderId == header.Id && td.TransactionType == header.TransactionType)
                 .ToListAsync();
 
@@ -140,7 +138,7 @@ namespace Project420.Retail.POS.DAL.Repositories
             if (pageNumber < 1) throw new ArgumentException("Page number must be >= 1", nameof(pageNumber));
             if (pageSize < 1 || pageSize > 100) throw new ArgumentException("Page size must be between 1 and 100", nameof(pageSize));
 
-            var headers = await _posContext.RetailTransactionHeaders
+            var headers = await _context.RetailTransactionHeaders
                 .Include(t => t.Payments)
                 .Where(t => t.DebtorId == debtorId)
                 .OrderByDescending(t => t.TransactionDate)
@@ -158,7 +156,7 @@ namespace Project420.Retail.POS.DAL.Repositories
             var today = DateTime.Today;
             var tomorrow = today.AddDays(1);
 
-            var headers = await _posContext.RetailTransactionHeaders
+            var headers = await _context.RetailTransactionHeaders
                 .Include(t => t.Payments)
                 .Where(t => t.TransactionDate >= today && t.TransactionDate < tomorrow)
                 .OrderByDescending(t => t.TransactionDate)
@@ -174,7 +172,7 @@ namespace Project420.Retail.POS.DAL.Repositories
             if (endDate < startDate)
                 throw new ArgumentException("End date must be >= start date", nameof(endDate));
 
-            var headers = await _posContext.RetailTransactionHeaders
+            var headers = await _context.RetailTransactionHeaders
                 .Include(t => t.Payments)
                 .Where(t => t.TransactionDate >= startDate && t.TransactionDate <= endDate)
                 .OrderByDescending(t => t.TransactionDate)
@@ -194,7 +192,7 @@ namespace Project420.Retail.POS.DAL.Repositories
             if (string.IsNullOrWhiteSpace(voidReason))
                 throw new ArgumentException("Void reason is required for audit compliance", nameof(voidReason));
 
-            var transaction = await _posContext.RetailTransactionHeaders
+            var transaction = await _context.RetailTransactionHeaders
                 .FirstOrDefaultAsync(t => t.Id == transactionId);
 
             if (transaction == null)
@@ -212,7 +210,7 @@ namespace Project420.Retail.POS.DAL.Repositories
             transaction.ModifiedAt = DateTime.UtcNow;
             transaction.ModifiedBy = userId.ToString();
 
-            await _posContext.SaveChangesAsync();
+            await _context.SaveChangesAsync();
             return true;
         }
 
@@ -226,7 +224,7 @@ namespace Project420.Retail.POS.DAL.Repositories
             if (endDate < startDate)
                 throw new ArgumentException("End date must be >= start date", nameof(endDate));
 
-            return await _posContext.RetailTransactionHeaders
+            return await _context.RetailTransactionHeaders
                 .Where(t => t.TransactionDate >= startDate
                          && t.TransactionDate <= endDate
                          && t.Status == TransactionStatus.Completed)
@@ -241,7 +239,7 @@ namespace Project420.Retail.POS.DAL.Repositories
             if (endDate < startDate)
                 throw new ArgumentException("End date must be >= start date", nameof(endDate));
 
-            var transactions = await _posContext.RetailTransactionHeaders
+            var transactions = await _context.RetailTransactionHeaders
                 .Where(t => t.TransactionDate >= startDate
                          && t.TransactionDate <= endDate
                          && t.Status == TransactionStatus.Completed)
@@ -296,30 +294,30 @@ namespace Project420.Retail.POS.DAL.Repositories
                     : $"{refundHeader.Notes}\nRefund Reason: {refundReason}";
 
                 // 1. Add refund transaction header to PosDbContext
-                _posContext.RetailTransactionHeaders.Add(refundHeader);
-                await _posContext.SaveChangesAsync();
+                _context.RetailTransactionHeaders.Add(refundHeader);
+                await _context.SaveChangesAsync();
 
                 // 2. Add refund details to SharedDbContext (unified table)
                 foreach (var detail in refundDetails)
                 {
                     detail.HeaderId = refundHeader.Id;
                     detail.TransactionType = TransactionType.Refund;
-                    _sharedContext.TransactionDetails.Add(detail);
+                    _context.TransactionDetails.Add(detail);
                 }
-                await _sharedContext.SaveChangesAsync();
+                await _context.SaveChangesAsync();
 
                 // 3. Add payment (negative amount for refund)
                 payment.TransactionHeaderId = refundHeader.Id;
-                _posContext.Payments.Add(payment);
-                await _posContext.SaveChangesAsync();
+                _context.Payments.Add(payment);
+                await _context.SaveChangesAsync();
 
                 // 4. Update original transaction status
-                var originalToUpdate = await _posContext.RetailTransactionHeaders
+                var originalToUpdate = await _context.RetailTransactionHeaders
                     .FirstAsync(t => t.Id == originalTransaction.Id);
                 originalToUpdate.Status = TransactionStatus.Refunded;
                 originalToUpdate.ModifiedAt = DateTime.UtcNow;
                 originalToUpdate.ModifiedBy = refundHeader.CreatedBy;
-                await _posContext.SaveChangesAsync();
+                await _context.SaveChangesAsync();
 
                 // Return refund with all relationships loaded
                 return await GetByIdAsync(refundHeader.Id)
@@ -426,14 +424,14 @@ namespace Project420.Retail.POS.DAL.Repositories
                 throw new ArgumentException("Transaction number cannot be empty", nameof(originalTransactionNumber));
 
             // First, get the original transaction by number
-            var originalTransaction = await _posContext.RetailTransactionHeaders
+            var originalTransaction = await _context.RetailTransactionHeaders
                 .FirstOrDefaultAsync(t => t.TransactionNumber == originalTransactionNumber);
 
             if (originalTransaction == null)
                 return new List<RetailTransactionHeader>();
 
             // Then get all refunds referencing this transaction
-            var headers = await _posContext.RetailTransactionHeaders
+            var headers = await _context.RetailTransactionHeaders
                 .Include(t => t.Payments)
                 .Where(t => t.TransactionType == TransactionType.Refund
                          && t.OriginalTransactionId == originalTransaction.Id)
@@ -463,7 +461,7 @@ namespace Project420.Retail.POS.DAL.Repositories
             // Phase 2: Filter by TransactionDetail criteria (SharedDbContext)
 
             // Start with base query (headers and payments from PosDbContext)
-            var query = _posContext.RetailTransactionHeaders
+            var query = _context.RetailTransactionHeaders
                 .Include(t => t.Payments)
                 .AsQueryable();
 
@@ -505,7 +503,7 @@ namespace Project420.Retail.POS.DAL.Repositories
             IEnumerable<int>? detailFilteredIds = null;
             if (criteria.ProductId.HasValue || !string.IsNullOrWhiteSpace(criteria.BatchNumber))
             {
-                var detailQuery = _sharedContext.TransactionDetails.AsQueryable();
+                var detailQuery = _context.TransactionDetails.AsQueryable();
 
                 if (criteria.ProductId.HasValue)
                     detailQuery = detailQuery.Where(d => d.ProductId == criteria.ProductId.Value);
@@ -545,7 +543,7 @@ namespace Project420.Retail.POS.DAL.Repositories
             if (endDate < startDate)
                 throw new ArgumentException("End date must be >= start date", nameof(endDate));
 
-            var transactions = await _posContext.RetailTransactionHeaders
+            var transactions = await _context.RetailTransactionHeaders
                 .Include(t => t.Payments)
                 .Where(t => t.TransactionDate >= startDate && t.TransactionDate <= endDate)
                 .ToListAsync();
@@ -642,7 +640,7 @@ namespace Project420.Retail.POS.DAL.Repositories
             var headerIds = headerData.Select(h => h.Id).ToList();
 
             // Batch load all details for these headers
-            var allDetails = await _sharedContext.TransactionDetails
+            var allDetails = await _context.TransactionDetails
                 .Where(td => headerIds.Contains(td.HeaderId))
                 .ToListAsync();
 

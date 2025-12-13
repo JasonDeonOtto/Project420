@@ -2,10 +2,107 @@
 ## Movement Architecture Implementation Status
 
 **Created**: 2025-12-11
-**Last Updated**: 2025-12-12
-**Status**: 🟢 PHASE 7B IN PROGRESS - Unified Transaction Architecture ~80% Complete
-**Timeline**: Phase 7B mostly complete, database migration pending
+**Last Updated**: 2025-12-13 (Session 2)
+**Status**: 🟢 PHASE 7C COMPLETE - Migration Ready to Apply
+**Timeline**: Phase 7C complete, migration created, Phase 8 ready to continue
 **Goal**: Establish solid foundation for remaining PoC work
+
+---
+
+## 🚨 PHASE 7C: ARCHITECTURAL CORRECTION ✅ COMPLETE
+
+### Issue Identified (2025-12-13)
+**Problem**: Business data tables were incorrectly placed in Project420_Shared database
+- TransactionDetails, Movements, SerialNumbers, BatchNumberSequences were in SharedDbContext
+- These tables need FK relationships with Products (which is in Project420_Dev)
+- Cross-database FK constraints are not possible
+- Cross-database transactions require distributed transaction handling
+
+### Correct Architecture
+| Database | Purpose | Tables |
+|----------|---------|--------|
+| **Project420_Dev** (Business) | All transactional/business data | Products, RetailTransactionHeaders, **TransactionDetails**, **Movements**, **SerialNumbers**, **BatchNumberSequences**, etc. |
+| **Project420_Shared** (Infrastructure) | Cross-cutting services & setup | AuditLogs, ErrorLogs, StationConnections, TransactionNumberSequences, Config tables |
+
+### Solution Implemented ✅ COMPLETE
+1. **Created IBusinessDbContext interface** (`Shared.Core/Abstractions/IBusinessDbContext.cs`)
+   - Defines DbSets for business data: TransactionDetails, Movements, SerialNumbers, BatchNumberSequences, SerialNumberSequences
+   - Allows shared services to access business data without circular dependency
+
+2. **PosDbContext now implements IBusinessDbContext**
+   - Contains all business data DbSets
+   - Single database (Project420_Dev), single transaction scope
+   - FK relationships with Products work properly
+
+3. **Shared services updated to use IBusinessDbContext**
+   - MovementService → uses IBusinessDbContext (not SharedDbContext)
+   - BatchNumberGeneratorService → uses IBusinessDbContext
+   - SerialNumberGeneratorService → uses IBusinessDbContext
+
+4. **DI registration updated**
+   - `IBusinessDbContext` → `PosDbContext` in Program.cs
+   - Services inject interface, DI resolves to PosDbContext
+
+5. **TransactionRepository simplified**
+   - Uses single context (PosDbContext) for all operations
+   - Atomic transactions (no cross-database concerns)
+
+### Benefits of Correction
+- ✅ FK constraints work properly (TransactionDetail → Product)
+- ✅ Single transaction scope (atomic checkout operations)
+- ✅ Simpler queries (no cross-database joins needed)
+- ✅ Better data integrity
+- ✅ Services remain in Shared.Database (shared logic)
+- ✅ Data resides in correct location (business database)
+
+### Files Changed
+| File | Change |
+|------|--------|
+| `Shared.Core/Abstractions/IBusinessDbContext.cs` | NEW - Interface for business DbContext |
+| `Shared.Core/Project420.Shared.Core.csproj` | Added EF Core reference for interface |
+| `POS.DAL/PosDbContext.cs` | Implements IBusinessDbContext, added business DbSets |
+| `Shared.Database/SharedDbContext.cs` | Removed business DbSets (TransactionDetails, Movements, etc.) |
+| `Shared.Database/Services/MovementService.cs` | Uses IBusinessDbContext |
+| `Shared.Database/Services/BatchNumberGeneratorService.cs` | Uses IBusinessDbContext |
+| `Shared.Database/Services/SerialNumberGeneratorService.cs` | Uses IBusinessDbContext |
+| `Shared.Database/Extensions/ServiceCollectionExtensions.cs` | Simplified, removed obsolete registrations |
+| `POS.UI.Blazor/Program.cs` | Added IBusinessDbContext registration, service registrations |
+| `POS.DAL/Repositories/TransactionRepository.cs` | Uses single context (PosDbContext) |
+
+### Build Status
+- ✅ Main projects build successfully (0 errors)
+- ✅ Unit tests updated (Session 2)
+- ✅ Database migration created (Session 2)
+
+### Session 2 Progress (2025-12-13)
+**Unit Tests Fixed:**
+- Created `TestBusinessDbContext` class implementing `IBusinessDbContext` for in-memory testing
+- Updated `MovementServiceTests.cs` to use `TestBusinessDbContext`
+- Updated `BatchNumberGeneratorServiceTests.cs` to use `TestBusinessDbContext`
+- Updated `SerialNumberGeneratorServiceTests.cs` to use `TestBusinessDbContext`
+- All 200+ tests pass
+
+**Migration Created:**
+- Migration: `20251213082925_BusinessDataTables_Phase7C`
+- Location: `POS.DAL/Migrations/`
+- Changes:
+  - Drops old `POSTransactionHeaders` and `POSTransactionDetails` tables
+  - Creates `RetailTransactionHeaders` (renamed from POSTransactionHeaders)
+  - Creates `TransactionDetails` (unified for all transaction types)
+  - Creates `Movements` (for SOH calculation with all indexes)
+  - Creates `BatchNumberSequences` (Phase 8)
+  - Creates `SerialNumberSequences` (Phase 8)
+  - Creates `SerialNumbers` (Phase 8)
+  - All FK constraints and indexes properly configured
+
+**Files Created/Modified (Session 2):**
+| File | Change |
+|------|--------|
+| `tests/Project420.Shared.Tests/TestBusinessDbContext.cs` | NEW - Test implementation of IBusinessDbContext |
+| `tests/Project420.Shared.Tests/Services/MovementServiceTests.cs` | Uses TestBusinessDbContext |
+| `tests/Project420.Shared.Tests/Services/BatchNumberGeneratorServiceTests.cs` | Uses TestBusinessDbContext |
+| `tests/Project420.Shared.Tests/Services/SerialNumberGeneratorServiceTests.cs` | Uses TestBusinessDbContext |
+| `POS.DAL/Migrations/20251213082925_BusinessDataTables_Phase7C.cs` | NEW - Database migration |
 
 ---
 
@@ -276,26 +373,50 @@ Direct Movement Creation Tests:
 
 ---
 
-## 📋 NEXT PHASE: Unified Transaction Architecture
+## 📋 NEXT PHASE: Phase 8 - Batch & Serial Number System
 
-### Phase 7B Overview
-**Status**: PLANNED
-**Estimated Effort**: 2-3 development sessions
-**Documentation**: `docs/roadmap/PHASE-UNIFIED-TRANSACTION-ARCHITECTURE.md`
+### Architecture Summary (Post Phase 7C Correction)
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                      Project420_Dev (Business Database)          │
+│                                                                  │
+│  ┌─────────────────────┐    ┌─────────────────────────────────┐ │
+│  │ Products            │◄───│ TransactionDetails               │ │
+│  │ (Master Data)       │    │ (HeaderId + TransactionType)     │ │
+│  └─────────────────────┘    └─────────────────────────────────┘ │
+│           ▲                             │                        │
+│           │                             ▼                        │
+│  ┌─────────────────────┐    ┌─────────────────────────────────┐ │
+│  │ RetailTransactionHeaders │    │ Movements                   │ │
+│  │ (Sales, Refunds)        │    │ (SOH = IN - OUT)             │ │
+│  └─────────────────────┘    └─────────────────────────────────┘ │
+│                                                                  │
+│  ┌─────────────────────┐    ┌─────────────────────────────────┐ │
+│  │ SerialNumbers       │    │ BatchNumberSequences             │ │
+│  │ (Unit tracking)     │    │ (Batch generation)               │ │
+│  └─────────────────────┘    └─────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────┘
 
-### Architecture Summary
+┌─────────────────────────────────────────────────────────────────┐
+│                  Project420_Shared (Infrastructure Database)     │
+│                                                                  │
+│  ┌─────────────────────┐    ┌─────────────────────────────────┐ │
+│  │ AuditLogs           │    │ ErrorLogs                        │ │
+│  │ (POPIA compliance)  │    │ (Error tracking)                 │ │
+│  └─────────────────────┘    └─────────────────────────────────┘ │
+│                                                                  │
+│  ┌─────────────────────┐    ┌─────────────────────────────────┐ │
+│  │ StationConnections  │    │ TransactionNumberSequences       │ │
+│  │ (Multi-tenant)      │    │ (Number generation)              │ │
+│  └─────────────────────┘    └─────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────┘
 ```
-┌─────────────────────────────┐     ┌─────────────────────────────┐
-│     Project420_Dev          │     │    Project420_Shared        │
-│                             │     │                             │
-│  RetailTransactionHeaders   │────▶│  TransactionDetails         │
-│  (Sales, Refunds, etc.)     │     │  (HeaderId + TransactionType)│
-│                             │     │                             │
-│  GRVHeaders (future)        │────▶│  Movements                  │
-│  RTSHeaders (future)        │     │  (Generated from Details)   │
-│  TransferHeaders (future)   │     │                             │
-└─────────────────────────────┘     └─────────────────────────────┘
-```
+
+### Key Architecture Principle
+- **Shared.Database project** contains service LOGIC (MovementService, BatchNumberGeneratorService, etc.)
+- **Services inject IBusinessDbContext** (resolved to PosDbContext at runtime)
+- **Business DATA** resides in Project420_Dev (single database for transactional consistency)
+- **Infrastructure DATA** resides in Project420_Shared (cross-cutting concerns)
 
 ### Implementation Steps (Phase 7B)
 
@@ -361,7 +482,8 @@ Direct Movement Creation Tests:
 | Navigation property updates | ✅ Complete | Product, Payment, Debtor |
 | BLL project reference | ✅ Complete | Added Shared.Database reference |
 | Build verification | ✅ Complete | 0 errors |
-| Database migrations | 📋 Pending | Table rename migration needed |
+| Database migrations | ✅ Complete | 20251213082925_BusinessDataTables_Phase7C created |
+| Migration applied | 📋 Pending | Run `dotnet ef database update` to apply |
 | Integration testing | 📋 Pending | Full flow testing with database |
 
 ---
@@ -404,24 +526,35 @@ Direct Movement Creation Tests:
 
 ---
 
-**Document Status**: 🟡 PHASE 7B ~80% COMPLETE
-**Completed**: Entity renames, MovementService integration, all code updates
-**Pending**: Database migration for table rename, integration testing
+**Document Status**: 🟢 PHASE 7C COMPLETE - Migration Ready to Apply
+**Completed**: Entity renames, MovementService integration, all code updates, unit tests fixed, migration created
+**Pending**: Apply database migration, integration testing
 **Build Status**: ✅ 0 Errors (excluding Android SDK)
-**Test Status**: ✅ 51/51 MovementService Tests Passing
-**Database Status**: ✅ Project420_Dev (29 tables) + Project420_Shared (7 tables)
+**Test Status**: ✅ 200+ Tests Passing (MovementService, BatchNumberGenerator, SerialNumberGenerator, Luhn)
+**Database Status**: ✅ Project420_Dev + Project420_Shared (migration pending)
 
-### Key Phase 7B Achievements (2025-12-12):
+### Key Phase 7B/7C Achievements:
 - **Unified TransactionDetail**: All POS code now uses Shared.Core.TransactionDetail
 - **MovementService Integration**: Sales, refunds, and voids generate/reverse movements
 - **Entity Rename**: POSTransactionHeader → RetailTransactionHeader
 - **Navigation Updates**: Payment, Debtor, Product all point to correct entities
+- **IBusinessDbContext**: Interface for shared services to access business data
+- **Unit Tests Fixed**: TestBusinessDbContext created for in-memory testing
+- **Migration Created**: All business tables ready to deploy to Project420_Dev
 - **Property Updates**: All code uses VATAmount/LineTotal instead of TaxAmount/Total/Subtotal
 - **Build Clean**: Full solution compiles with 0 errors
 
 ### Remaining Work:
-1. **Database Migration**: Create migration to rename `TransactionHeaders` → `RetailTransactionHeaders`
+1. **Apply Migration**: Run `dotnet ef database update` in POS.DAL project (⚠️ Will drop existing transaction data!)
 2. **Integration Testing**: Test full checkout flow with database
 3. **Verify SOH Calculation**: Confirm movements are being generated correctly
+4. **Continue Phase 8**: BatchNumberGeneratorService and SerialNumberGeneratorService are already implemented and tested
 
-*Unified Transaction Architecture ~80% complete - database migration and testing pending!* 🚀
+### Next Steps (Session 3):
+```bash
+# Apply migration to Project420_Dev database
+cd src/Modules/Retail/POS/Project420.Retail.POS.DAL
+dotnet ef database update --startup-project ../Project420.Retail.POS.UI.Blazor
+```
+
+*Phase 7C COMPLETE - Migration ready to apply! Phase 8 implementation already done!* 🚀

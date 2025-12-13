@@ -21,6 +21,9 @@ public static class ServiceCollectionExtensions
     /// - IAuditLogService (Scoped) - POPIA/Cannabis Act/SARS compliance audit logging
     /// - ITransactionNumberGeneratorService (Scoped) - Database-backed transaction numbering
     ///
+    /// Note: Batch and Serial Number services (Phase 8) are registered in AddSharedDatabaseServices()
+    /// as they require SharedDbContext access.
+    ///
     /// Usage:
     /// <code>
     /// // In Program.cs or Startup.cs:

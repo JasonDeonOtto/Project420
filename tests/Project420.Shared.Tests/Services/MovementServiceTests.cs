@@ -1,10 +1,10 @@
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Logging;
 using Moq;
 using Project420.Shared.Core.Entities;
 using Project420.Shared.Core.Enums;
-using Project420.Shared.Database;
 using Project420.Shared.Database.Services;
 
 namespace Project420.Shared.Tests.Services;
@@ -13,20 +13,25 @@ namespace Project420.Shared.Tests.Services;
 /// Unit tests for MovementService (Movement Architecture - Option A).
 /// Tests SOH calculation, movement generation, and reversal.
 /// </summary>
+/// <remarks>
+/// Uses TestBusinessDbContext which implements IBusinessDbContext for testing.
+/// This allows testing the MovementService without requiring the full PosDbContext.
+/// </remarks>
 public class MovementServiceTests : IDisposable
 {
-    private readonly SharedDbContext _context;
+    private readonly TestBusinessDbContext _context;
     private readonly Mock<ILogger<MovementService>> _loggerMock;
     private readonly MovementService _service;
 
     public MovementServiceTests()
     {
         // Create in-memory database for each test
-        var options = new DbContextOptionsBuilder<SharedDbContext>()
+        var options = new DbContextOptionsBuilder<TestBusinessDbContext>()
             .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+            .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
             .Options;
 
-        _context = new SharedDbContext(options);
+        _context = new TestBusinessDbContext(options);
         _loggerMock = new Mock<ILogger<MovementService>>();
         _service = new MovementService(_context, _loggerMock.Object);
     }

@@ -120,55 +120,18 @@ public class SharedDbContext : DbContext
     public DbSet<TransactionNumberSequence> TransactionNumberSequences { get; set; } = null!;
 
     // ========================================
-    // Movement Architecture (Option A) Tables
+    // NOTE: Business Data Tables Moved to PosDbContext
     // ========================================
-
-    /// <summary>
-    /// Unified transaction details table - All transaction line items stored here.
-    /// </summary>
-    /// <remarks>
-    /// Movement Architecture (Option A):
-    /// - Single table for all transaction types (Sales, GRVs, Refunds, Production, etc.)
-    /// - TransactionType enum acts as discriminator to identify header table
-    /// - Each detail generates corresponding Movement record(s)
-    ///
-    /// Benefits:
-    /// - Consistent movement generation from all transaction types
-    /// - Simplified reporting and queries across transaction types
-    /// - Single source for line item data (DRY principle)
-    ///
-    /// Cannabis Compliance:
-    /// - Batch number tracking for seed-to-sale traceability
-    /// - Serial number tracking for individual unit traceability
-    /// - Full audit trail via AuditableEntity
-    /// </remarks>
-    public DbSet<TransactionDetail> TransactionDetails { get; set; } = null!;
-
-    /// <summary>
-    /// Movement ledger table - Source of truth for SOH calculations.
-    /// </summary>
-    /// <remarks>
-    /// Movement Architecture (Option A):
-    /// - SOH = SUM(Quantity WHERE Direction = IN) - SUM(Quantity WHERE Direction = OUT)
-    /// - SOH is NEVER stored directly - always calculated from movements
-    /// - Movements are immutable once created (soft delete only)
-    ///
-    /// Relationship:
-    /// - Each TransactionDetail generates Movement record(s)
-    /// - Movement.DetailId → TransactionDetail.Id
-    /// - Movement.HeaderId → Transaction header tables
-    ///
-    /// Performance:
-    /// - Indexed on ProductId + TransactionDate for SOH queries
-    /// - Indexed on BatchNumber and SerialNumber for traceability
-    /// - Global query filter excludes soft-deleted records
-    ///
-    /// Cannabis Compliance:
-    /// - Full audit trail for SAHPRA/SARS
-    /// - Batch/serial tracking for seed-to-sale
-    /// - Weight tracking for reconciliation
-    /// </remarks>
-    public DbSet<Movement> Movements { get; set; } = null!;
+    // The following tables have been moved to PosDbContext (Project420_Dev database)
+    // to enable proper FK relationships with Products and other business entities:
+    // - TransactionDetails (unified transaction line items)
+    // - Movements (inventory movement ledger)
+    // - BatchNumberSequences (batch number generation)
+    // - SerialNumberSequences (serial number generation)
+    // - SerialNumbers (serial number master records)
+    //
+    // Services in Shared.Database that need these tables should inject PosDbContext.
+    // SharedDbContext remains for truly cross-cutting infrastructure tables only.
 
     // ========================================
     // OnModelCreating (Fluent API Configuration)
@@ -509,82 +472,17 @@ public class SharedDbContext : DbContext
         });
 
         // ===========================
-        // TRANSACTIONDETAIL CONFIGURATION (Movement Architecture)
+        // NOTE: Business Entity Configurations Moved to PosDbContext
         // ===========================
-        modelBuilder.Entity<TransactionDetail>(entity =>
-        {
-            // Store TransactionType enum as string for readability
-            entity.Property(e => e.TransactionType)
-                .HasConversion<string>()
-                .HasMaxLength(50);
-
-            // Composite index for querying details by header and type (discriminated union pattern)
-            entity.HasIndex(e => new { e.HeaderId, e.TransactionType })
-                .HasDatabaseName("IX_TransactionDetails_HeaderId_TransactionType");
-
-            // Index on ProductId for inventory queries
-            entity.HasIndex(e => e.ProductId)
-                .HasDatabaseName("IX_TransactionDetails_ProductId");
-
-            // Filtered index on BatchNumber (only non-null values)
-            entity.HasIndex(e => e.BatchNumber)
-                .HasFilter("[BatchNumber] IS NOT NULL")
-                .HasDatabaseName("IX_TransactionDetails_BatchNumber");
-
-            // Filtered index on SerialNumber (only non-null values)
-            entity.HasIndex(e => e.SerialNumber)
-                .HasFilter("[SerialNumber] IS NOT NULL")
-                .HasDatabaseName("IX_TransactionDetails_SerialNumber");
-
-            // Global query filter for soft delete (POPIA compliance)
-            entity.HasQueryFilter(e => !e.IsDeleted);
-        });
-
-        // ===========================
-        // MOVEMENT CONFIGURATION (Movement Architecture)
-        // ===========================
-        modelBuilder.Entity<Movement>(entity =>
-        {
-            // Store enums as strings for readability and debugging
-            entity.Property(e => e.TransactionType)
-                .HasConversion<string>()
-                .HasMaxLength(50);
-
-            entity.Property(e => e.Direction)
-                .HasConversion<string>()
-                .HasMaxLength(10);
-
-            // Performance index for SOH calculation queries
-            // SOH = SUM(Quantity WHERE Direction = 'In') - SUM(Quantity WHERE Direction = 'Out')
-            entity.HasIndex(e => new { e.ProductId, e.TransactionDate, e.Direction })
-                .HasDatabaseName("IX_Movements_ProductId_TransactionDate_Direction");
-
-            // Index for movement history queries
-            entity.HasIndex(e => new { e.ProductId, e.TransactionDate })
-                .HasDatabaseName("IX_Movements_ProductId_TransactionDate");
-
-            // Index for linking back to transaction
-            entity.HasIndex(e => new { e.TransactionType, e.HeaderId })
-                .HasDatabaseName("IX_Movements_TransactionType_HeaderId");
-
-            // Filtered index on BatchNumber for traceability queries
-            entity.HasIndex(e => e.BatchNumber)
-                .HasFilter("[BatchNumber] IS NOT NULL")
-                .HasDatabaseName("IX_Movements_BatchNumber");
-
-            // Filtered index on SerialNumber for traceability queries
-            entity.HasIndex(e => e.SerialNumber)
-                .HasFilter("[SerialNumber] IS NOT NULL")
-                .HasDatabaseName("IX_Movements_SerialNumber");
-
-            // Index on LocationId for multi-location inventory
-            entity.HasIndex(e => e.LocationId)
-                .HasFilter("[LocationId] IS NOT NULL")
-                .HasDatabaseName("IX_Movements_LocationId");
-
-            // Global query filter for soft delete (POPIA compliance)
-            entity.HasQueryFilter(e => !e.IsDeleted);
-        });
+        // The following entity configurations have been moved to PosDbContext:
+        // - TransactionDetail
+        // - Movement
+        // - BatchNumberSequence
+        // - SerialNumberSequence
+        // - SerialNumber
+        //
+        // These entities require FK relationships with Products (business database).
+        // Services should inject PosDbContext to access these tables.
     }
 
     // ========================================

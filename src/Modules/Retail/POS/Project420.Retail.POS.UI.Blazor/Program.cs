@@ -2,8 +2,10 @@ using Microsoft.EntityFrameworkCore;
 using Project420.Retail.POS.DAL;
 using Project420.Retail.POS.DAL.Repositories;
 using Project420.Management.DAL;
+using Project420.Shared.Core.Abstractions;
 using Project420.Shared.Database;
 using Project420.Shared.Database.Repositories;
+using Project420.Shared.Database.Services;
 using Project420.Retail.POS.UI.Blazor.Components;
 using Project420.Retail.POS.BLL.Services;
 using Project420.Shared.Infrastructure.Services;
@@ -22,10 +24,16 @@ var builder = WebApplication.CreateBuilder(args);
 var businessConnection = builder.Configuration.GetConnectionString("BusinessConnection");
 var sharedConnection = builder.Configuration.GetConnectionString("SharedConnection");
 
-// Register PosDbContext (Operational POS data)
+// Register PosDbContext (Operational POS data + Unified Transaction/Movement tables)
 // Uses BusinessConnection → Project420_Dev database
+// PosDbContext also implements IBusinessDbContext for shared services
 builder.Services.AddDbContext<PosDbContext>(options =>
     options.UseSqlServer(businessConnection));
+
+// Register IBusinessDbContext → PosDbContext
+// This allows services in Shared.Database (MovementService, BatchNumberGeneratorService, etc.)
+// to access business data tables without circular dependency on POS.DAL
+builder.Services.AddScoped<IBusinessDbContext>(sp => sp.GetRequiredService<PosDbContext>());
 
 // Register ManagementDbContext (Master data)
 // Uses BusinessConnection → Project420_Dev database (different schema)
@@ -101,7 +109,16 @@ builder.Services.AddScoped<ITransactionNumberGeneratorService, TransactionNumber
 builder.Services.AddScoped<IAuditLogService, AuditLogService>();
 
 // Movement Service - Movement Architecture (Option A) for SOH calculation
-builder.Services.AddScoped<Project420.Shared.Database.Services.IMovementService, Project420.Shared.Database.Services.MovementService>();
+// Uses IBusinessDbContext (→ PosDbContext) for business data access
+builder.Services.AddScoped<IMovementService, MovementService>();
+
+// Batch Number Generator Service - 16-digit batch number generation (Phase 8)
+// Uses IBusinessDbContext for business data access
+builder.Services.AddScoped<IBatchNumberGeneratorService, BatchNumberGeneratorService>();
+
+// Serial Number Generator Service - 31/13-digit serial number generation (Phase 8)
+// Uses IBusinessDbContext for business data access
+builder.Services.AddScoped<ISerialNumberGeneratorService, SerialNumberGeneratorService>();
 
 // ========================================
 // BLAZOR SERVICES

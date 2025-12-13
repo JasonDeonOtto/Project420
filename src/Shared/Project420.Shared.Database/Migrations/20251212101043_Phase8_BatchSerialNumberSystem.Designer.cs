@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Project420.Shared.Database;
 
@@ -11,9 +12,11 @@ using Project420.Shared.Database;
 namespace Project420.Shared.Database.Migrations
 {
     [DbContext(typeof(SharedDbContext))]
-    partial class SharedDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251212101043_Phase8_BatchSerialNumberSystem")]
+    partial class Phase8_BatchSerialNumberSystem
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Project420.Shared.Database.Repositories;
 using Project420.Shared.Database.Services;
 using Project420.Shared.Infrastructure.Interfaces;
@@ -12,27 +13,37 @@ namespace Project420.Shared.Database.Extensions;
 public static class ServiceCollectionExtensions
 {
     /// <summary>
-    /// Registers the SharedDbContext and all shared database repositories.
+    /// Registers the SharedDbContext and shared infrastructure repositories.
     /// </summary>
     /// <param name="services">The service collection</param>
     /// <param name="connectionString">Connection string for the shared database</param>
     /// <returns>The service collection for method chaining</returns>
     /// <remarks>
     /// Registered Services:
-    /// - SharedDbContext (Scoped) - Database context for shared tables
+    /// - SharedDbContext (Scoped) - Database context for shared infrastructure tables
     /// - ITransactionNumberRepository (Scoped) - Transaction number sequence repository
     ///
-    /// Database Tables:
+    /// Database Tables (SharedDbContext → Project420_Shared):
     /// - ErrorLogs - Centralized error logging
     /// - AuditLogs - POPIA compliance audit trail
     /// - StationConnections - Multi-tenant station routing
     /// - TransactionNumberSequences - Persistent transaction numbering
     ///
+    /// NOTE: Business data services (IMovementService, IBatchNumberGeneratorService, ISerialNumberGeneratorService)
+    /// now use IBusinessDbContext interface and should be registered separately with PosDbContext.
+    /// See Program.cs for proper registration pattern.
+    ///
     /// Usage:
     /// <code>
     /// // In Program.cs or Startup.cs:
-    /// var connectionString = builder.Configuration.GetConnectionString("SharedConnection");
-    /// builder.Services.AddSharedDatabaseServices(connectionString);
+    /// var sharedConnection = builder.Configuration.GetConnectionString("SharedConnection");
+    /// builder.Services.AddSharedDatabaseServices(sharedConnection);
+    ///
+    /// // Also register business data services with IBusinessDbContext:
+    /// builder.Services.AddScoped&lt;IBusinessDbContext&gt;(sp => sp.GetRequiredService&lt;PosDbContext&gt;());
+    /// builder.Services.AddScoped&lt;IMovementService, MovementService&gt;();
+    /// builder.Services.AddScoped&lt;IBatchNumberGeneratorService, BatchNumberGeneratorService&gt;();
+    /// builder.Services.AddScoped&lt;ISerialNumberGeneratorService, SerialNumberGeneratorService&gt;();
     /// </code>
     ///
     /// Prerequisites:
@@ -51,15 +62,15 @@ public static class ServiceCollectionExtensions
             );
         }
 
-        // Register SharedDbContext
+        // Register SharedDbContext (infrastructure tables only)
         services.AddDbContext<SharedDbContext>(options =>
             options.UseSqlServer(connectionString));
 
-        // Register Repositories
+        // Register Infrastructure Repositories
         services.AddScoped<ITransactionNumberRepository, TransactionNumberRepository>();
 
-        // Register Movement Architecture Services (Option A)
-        services.AddScoped<IMovementService, MovementService>();
+        // NOTE: Business data services (MovementService, BatchNumberGeneratorService, SerialNumberGeneratorService)
+        // require IBusinessDbContext and should be registered separately in Program.cs with PosDbContext.
 
         return services;
     }

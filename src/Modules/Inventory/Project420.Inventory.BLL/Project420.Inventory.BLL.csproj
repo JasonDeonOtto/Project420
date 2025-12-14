@@ -3,10 +3,13 @@
   <ItemGroup>
     <ProjectReference Include="..\Project420.Inventory.Models\Project420.Inventory.Models.csproj" />
     <ProjectReference Include="..\Project420.Inventory.DAL\Project420.Inventory.DAL.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Project420.Shared.Database\Project420.Shared.Database.csproj" />
+    <ProjectReference Include="..\..\Management\Project420.Management.BLL\Project420.Management.BLL.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="FluentValidation" Version="12.1.1" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.0" />
   </ItemGroup>
 
   <PropertyGroup>

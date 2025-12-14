@@ -558,3 +558,133 @@ dotnet ef database update --startup-project ../Project420.Retail.POS.UI.Blazor
 ```
 
 *Phase 7C COMPLETE - Migration ready to apply! Phase 8 implementation already done!* 🚀
+
+---
+
+## 📋 PHASE 9.8: COMPLIANT RECEIPT GENERATION ✅ COMPLETE
+
+**Completed**: 2025-12-14
+**Branch**: `feature/phase9.8-compliant-receipts`
+
+### Implementation Summary
+
+Phase 9.8 implements SARS, SAHPRA, and DALRRD compliant receipt generation for cannabis retail sales.
+
+### Files Created
+
+| File | Description |
+|------|-------------|
+| `POS.BLL/DTOs/ReceiptDtos.cs` | Receipt DTOs (ReceiptDto, ReceiptLineItemDto, ReceiptPaymentDto, GenerateReceiptRequest) |
+| `POS.BLL/Services/IReceiptService.cs` | Receipt service interface + BusinessReceiptSettings |
+| `POS.BLL/Services/ReceiptService.cs` | Full receipt service implementation |
+| `POS.Tests/Services/ReceiptServiceTests.cs` | 30 unit tests |
+
+### Files Modified
+
+| File | Change |
+|------|--------|
+| `POS.UI.Blazor/Program.cs` | Added IReceiptService DI registration |
+| `POS.UI.Blazor/Components/Pages/POSCheckout.razor` | Enhanced receipt display with compliance info |
+
+### Receipt Features Implemented
+
+**Business Header**:
+- Store name, address, phone
+- VAT registration number (SARS compliance)
+- SAHPRA license number (cannabis compliance)
+- DALRRD permit number (hemp compliance)
+
+**Transaction Details**:
+- Receipt/transaction number
+- Date and time
+- Terminal ID
+- Cashier name
+- Customer name
+
+**Line Items with Traceability**:
+- Product name and SKU
+- Quantity and unit price
+- Batch number (SAHPRA seed-to-sale)
+- Serial number (for serialized items)
+- Line VAT amount and total
+
+**VAT Breakdown (SARS Compliance)**:
+- Subtotal excluding VAT
+- VAT amount (15%)
+- VAT rate display
+- Discount amount (if any)
+- Total including VAT
+
+**Payment Details**:
+- Payment method(s) with amounts
+- Amount tendered
+- Change due
+
+**Compliance Notices**:
+- Age verification status
+- Daily limit notice
+- Traceability notice
+
+**Legal Disclaimers**:
+- Adult use only (18+)
+- Keep out of reach of children
+- Do not operate machinery after consumption
+- Cannabis for Private Purposes Act 2024 reference
+- Receipt retention for traceability
+
+### Output Formats
+
+1. **ReceiptDto** - Structured data for UI display
+2. **FormatReceiptAsText()** - Thermal printer format (48-char width)
+3. **FormatReceiptAsHtml()** - HTML format for PDF/email
+
+### Test Coverage
+
+| Test Category | Tests | Status |
+|---------------|-------|--------|
+| Receipt Generation | 12 | ✅ Pass |
+| Compliance Notices | 3 | ✅ Pass |
+| Legal Disclaimers | 4 | ✅ Pass |
+| Text Formatting | 5 | ✅ Pass |
+| HTML Formatting | 4 | ✅ Pass |
+| Business Settings | 2 | ✅ Pass |
+| **Total** | **30** | ✅ **All Pass** |
+
+### Compliance Requirements Met
+
+| Requirement | Status | Implementation |
+|-------------|--------|----------------|
+| SARS VAT Invoice | ✅ | VAT number, breakdown, transaction number |
+| SAHPRA Traceability | ✅ | Batch/serial numbers on line items |
+| DALRRD Permit Display | ✅ | Permit number in header |
+| Cannabis Act Compliance | ✅ | Legal disclaimers, age verification notice |
+| POPIA Customer Privacy | ✅ | Masked ID number display |
+
+### UI Changes
+
+The POSCheckout.razor now displays a professional, compliant receipt after successful checkout with:
+- Monospace font for receipt-like appearance
+- Dark header with business info and licenses
+- Clear line item display with batch/serial numbers
+- VAT breakdown section
+- Compliance notices in highlighted box
+- Legal disclaimers in footer
+- Print Receipt button (stub for future thermal printer integration)
+
+### Build Status
+
+- **Build**: ✅ 0 Errors
+- **Tests**: ✅ 30/30 Passing
+- **Warnings**: 3 (pre-existing, unrelated to Phase 9.8)
+
+### Next Phase
+
+**Phase 9.9: Movement Generation Optimization**
+- Profile movement generation performance
+- Optimize batch inserts
+- Implement async movement generation
+- Add error handling and retry logic
+
+---
+
+*Phase 9.8 COMPLETE - Compliant Receipt Generation Implemented!* 🧾

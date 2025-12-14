@@ -95,6 +95,9 @@ builder.Services.AddScoped<IPaymentReconciliationService, PaymentReconciliationS
 // Transaction Search Service - Advanced search and reporting
 builder.Services.AddScoped<ITransactionSearchService, TransactionSearchService>();
 
+// Receipt Service - Compliant receipt generation (Phase 9.8)
+builder.Services.AddScoped<IReceiptService, ReceiptService>();
+
 // ========================================
 // SHARED SERVICES (Universal across all modules)
 // ========================================

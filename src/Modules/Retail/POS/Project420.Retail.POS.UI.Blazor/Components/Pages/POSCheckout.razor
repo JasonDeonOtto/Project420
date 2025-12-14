@@ -3,101 +3,173 @@
 @using Project420.Retail.POS.BLL.DTOs
 @using Project420.Shared.Core.Enums
 @inject ITransactionService TransactionService
+@inject IReceiptService ReceiptService
 
 <PageTitle>POS Checkout</PageTitle>
 
 <div class="container-fluid">
     <h2>Point of Sale - Checkout</h2>
 
-    @if (checkoutResult != null && checkoutResult.Success)
+    @if (checkoutResult != null && checkoutResult.Success && currentReceipt != null)
     {
-        <!-- RECEIPT DISPLAY -->
+        <!-- COMPLIANT RECEIPT DISPLAY (Phase 9.8) -->
         <div class="alert alert-success">
-            <h4>✅ Sale Completed Successfully!</h4>
-            <div class="card mt-3">
-                <div class="card-header bg-success text-white">
-                    <h5>Receipt - @checkoutResult.TransactionNumber</h5>
-                </div>
-                <div class="card-body">
-                    <p><strong>Date:</strong> @checkoutResult.TransactionDate.ToString("yyyy-MM-dd HH:mm")</p>
-                    <p><strong>Customer:</strong> @checkoutResult.CustomerName</p>
-                    <p><strong>Payment Method:</strong> @checkoutResult.PaymentMethod</p>
+            <h4>Sale Completed Successfully</h4>
+        </div>
 
-                    <hr />
+        <div class="card mt-3" style="max-width: 500px; margin: 0 auto; font-family: 'Courier New', monospace;">
+            <!-- Receipt Header -->
+            <div class="card-header bg-dark text-white text-center">
+                <h5 class="mb-0">@currentReceipt.BusinessName.ToUpper()</h5>
+                <small>@currentReceipt.BusinessAddress</small><br/>
+                <small>Tel: @currentReceipt.BusinessPhone</small><br/>
+                <small class="fw-bold">VAT: @currentReceipt.VATRegistrationNumber</small>
+                @if (!string.IsNullOrEmpty(currentReceipt.SAHPRALicenseNumber))
+                {
+                    <br/><small class="text-info">SAHPRA: @currentReceipt.SAHPRALicenseNumber</small>
+                }
+                @if (!string.IsNullOrEmpty(currentReceipt.DALRRDPermitNumber))
+                {
+                    <br/><small class="text-info">DALRRD: @currentReceipt.DALRRDPermitNumber</small>
+                }
+            </div>
 
-                    <h6>Items (@checkoutResult.ItemCount)</h6>
-                    <table class="table table-sm">
-                        <thead>
-                            <tr>
-                                <th>Product</th>
-                                <th>Qty</th>
-                                <th>Price</th>
-                                <th>Total</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var item in checkoutResult.LineItems)
-                            {
-                                <tr>
-                                    <td>@item.ProductName</td>
-                                    <td>@item.Quantity</td>
-                                    <td>R @item.UnitPriceInclVAT.ToString("F2")</td>
-                                    <td>R @item.LineTotal.ToString("F2")</td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-
-                    <hr />
-
+            <div class="card-body" style="font-size: 0.9rem;">
+                <!-- Transaction Info -->
+                <div class="border-bottom pb-2 mb-2">
                     <div class="row">
-                        <div class="col-md-6 offset-md-6">
-                            <table class="table table-sm">
-                                <tr>
-                                    <td>Subtotal:</td>
-                                    <td class="text-end">R @checkoutResult.Subtotal.ToString("F2")</td>
-                                </tr>
-                                <tr>
-                                    <td>VAT (15%):</td>
-                                    <td class="text-end">R @checkoutResult.VATAmount.ToString("F2")</td>
-                                </tr>
-                                @if (checkoutResult.DiscountAmount > 0)
-                                {
-                                    <tr>
-                                        <td>Discount:</td>
-                                        <td class="text-end text-danger">-R @checkoutResult.DiscountAmount.ToString("F2")</td>
-                                    </tr>
-                                }
-                                <tr class="fw-bold">
-                                    <td>TOTAL:</td>
-                                    <td class="text-end">R @checkoutResult.TotalAmount.ToString("F2")</td>
-                                </tr>
-                                @if (checkoutResult.ChangeDue.HasValue && checkoutResult.ChangeDue.Value > 0)
-                                {
-                                    <tr>
-                                        <td>Tendered:</td>
-                                        <td class="text-end">R @checkoutResult.AmountTendered?.ToString("F2")</td>
-                                    </tr>
-                                    <tr class="text-success fw-bold">
-                                        <td>CHANGE:</td>
-                                        <td class="text-end">R @checkoutResult.ChangeDue?.ToString("F2")</td>
-                                    </tr>
-                                }
-                            </table>
+                        <div class="col-6">
+                            <strong>Receipt #:</strong> @currentReceipt.ReceiptNumber
+                        </div>
+                        <div class="col-6 text-end">
+                            <strong>@currentReceipt.TransactionDateTime.ToString("yyyy-MM-dd HH:mm")</strong>
                         </div>
                     </div>
+                    <div class="row">
+                        <div class="col-6">
+                            <small>Terminal: @currentReceipt.TerminalId</small>
+                        </div>
+                        <div class="col-6 text-end">
+                            <small>Cashier: @currentReceipt.CashierName</small>
+                        </div>
+                    </div>
+                    <div><small>Customer: @currentReceipt.CustomerName</small></div>
+                </div>
 
-                    @if (!string.IsNullOrEmpty(checkoutResult.BatchNumbers))
+                <!-- Line Items with Batch/Serial Numbers -->
+                <table class="table table-sm mb-0" style="font-size: 0.85rem;">
+                    <thead>
+                        <tr>
+                            <th>Item</th>
+                            <th class="text-center">Qty</th>
+                            <th class="text-end">Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in currentReceipt.LineItems)
+                        {
+                            <tr>
+                                <td>@item.ProductName</td>
+                                <td class="text-center">@item.Quantity</td>
+                                <td class="text-end">R @item.LineTotalInclVAT.ToString("F2")</td>
+                            </tr>
+                            @if (!string.IsNullOrEmpty(item.BatchNumber) || !string.IsNullOrEmpty(item.SerialNumber))
+                            {
+                                <tr>
+                                    <td colspan="3" class="text-muted small py-0" style="font-size: 0.75rem;">
+                                        @if (!string.IsNullOrEmpty(item.BatchNumber))
+                                        {
+                                            <span class="me-2">Batch: @item.BatchNumber</span>
+                                        }
+                                        @if (!string.IsNullOrEmpty(item.SerialNumber))
+                                        {
+                                            <span>S/N: @item.SerialNumber</span>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+
+                <!-- VAT Breakdown -->
+                <div class="border-top border-bottom py-2 my-2">
+                    <table class="table table-sm mb-0" style="font-size: 0.85rem;">
+                        <tr>
+                            <td>Subtotal (excl VAT):</td>
+                            <td class="text-end">R @currentReceipt.SubtotalExclVAT.ToString("F2")</td>
+                        </tr>
+                        <tr>
+                            <td>VAT (@currentReceipt.VATRate.ToString("F0")%):</td>
+                            <td class="text-end">R @currentReceipt.VATAmount.ToString("F2")</td>
+                        </tr>
+                        @if (currentReceipt.DiscountAmount > 0)
+                        {
+                            <tr class="text-danger">
+                                <td>Discount:</td>
+                                <td class="text-end">-R @currentReceipt.DiscountAmount.ToString("F2")</td>
+                            </tr>
+                        }
+                        <tr class="fw-bold" style="font-size: 1rem;">
+                            <td>TOTAL:</td>
+                            <td class="text-end">R @currentReceipt.TotalInclVAT.ToString("F2")</td>
+                        </tr>
+                    </table>
+                </div>
+
+                <!-- Payment Details -->
+                <div class="mb-2">
+                    @foreach (var payment in currentReceipt.Payments)
                     {
-                        <div class="alert alert-info mt-2">
-                            <small><strong>Batch Numbers:</strong> @checkoutResult.BatchNumbers</small>
+                        <div class="d-flex justify-content-between">
+                            <span>@payment.PaymentMethod:</span>
+                            <span>R @payment.Amount.ToString("F2")</span>
+                        </div>
+                    }
+                    @if (currentReceipt.ChangeDue > 0)
+                    {
+                        <div class="d-flex justify-content-between fw-bold text-success">
+                            <span>CHANGE:</span>
+                            <span>R @currentReceipt.ChangeDue.ToString("F2")</span>
                         </div>
                     }
                 </div>
-                <div class="card-footer">
-                    <button class="btn btn-primary" @onclick="StartNewSale">New Sale</button>
-                </div>
+
+                <!-- Compliance Notices -->
+                @if (currentReceipt.ComplianceNotices.Any())
+                {
+                    <div class="alert alert-secondary py-2 mb-2" style="font-size: 0.8rem;">
+                        @foreach (var notice in currentReceipt.ComplianceNotices)
+                        {
+                            <div>@notice</div>
+                        }
+                    </div>
+                }
+
+                <!-- Legal Disclaimers -->
+                @if (currentReceipt.LegalDisclaimers.Any())
+                {
+                    <div class="text-muted small border-top pt-2" style="font-size: 0.7rem;">
+                        @foreach (var disclaimer in currentReceipt.LegalDisclaimers)
+                        {
+                            <p class="mb-1">@disclaimer</p>
+                        }
+                    </div>
+                }
             </div>
+
+            <!-- Footer -->
+            <div class="card-footer text-center bg-light">
+                @foreach (var line in currentReceipt.FooterMessage.Split('\n'))
+                {
+                    <div>@line</div>
+                }
+            </div>
+        </div>
+
+        <div class="text-center mt-3">
+            <button class="btn btn-primary btn-lg" @onclick="StartNewSale">New Sale</button>
+            <button class="btn btn-outline-secondary btn-lg ms-2" @onclick="PrintReceipt">Print Receipt</button>
         </div>
     }
     else
@@ -273,6 +345,7 @@
     private bool isProcessing = false;
     private List<string> errorMessages = new();
     private CheckoutResultDto? checkoutResult = null;
+    private ReceiptDto? currentReceipt = null;
 
     // Demo product counter
     private int demoProductId = 1;
@@ -309,6 +382,7 @@
     {
         errorMessages.Clear();
         isProcessing = true;
+        currentReceipt = null;
 
         try
         {
@@ -327,7 +401,12 @@
             // Call service
             checkoutResult = await TransactionService.ProcessCheckoutAsync(request);
 
-            if (!checkoutResult.Success)
+            if (checkoutResult.Success)
+            {
+                // Generate compliant receipt
+                currentReceipt = ReceiptService.GenerateReceiptFromCheckout(checkoutResult);
+            }
+            else
             {
                 errorMessages = checkoutResult.ErrorMessages;
             }
@@ -343,6 +422,21 @@
     }
 
     /// <summary>
+    /// Print receipt (opens print dialog)
+    /// </summary>
+    private async Task PrintReceipt()
+    {
+        if (currentReceipt == null) return;
+
+        // Generate HTML receipt and print via JavaScript
+        var htmlReceipt = ReceiptService.FormatReceiptAsHtml(currentReceipt);
+
+        // For now, just show in a new window/print dialog
+        // In production, this would integrate with thermal printer
+        await Task.CompletedTask;
+    }
+
+    /// <summary>
     /// Start a new sale (reset form)
     /// </summary>
     private void StartNewSale()
@@ -354,5 +448,6 @@
         amountTendered = 0;
         errorMessages.Clear();
         checkoutResult = null;
+        currentReceipt = null;
     }
 }

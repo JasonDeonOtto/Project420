@@ -4,6 +4,7 @@
 @using Project420.Shared.Core.Enums
 @inject ITransactionService TransactionService
 @inject IBarcodeService BarcodeService
+@inject ISAIdValidationService SAIdValidationService
 
 <PageTitle>POS Checkout</PageTitle>
 
@@ -390,20 +391,128 @@
                                    placeholder="Walk-In Customer" />
                         </div>
 
-                        <!-- Age Verification (Cannabis Act Requirement) -->
+                        <!-- Age Verification (Cannabis Act Requirement) - Phase 9.7 Enhanced -->
                         <div class="mb-3 p-3 border rounded @(ageVerified ? "border-success bg-light" : "border-danger")">
-                            <div class="form-check">
-                                <input class="form-check-input"
-                                       type="checkbox"
-                                       id="ageVerified"
-                                       @bind="ageVerified" />
-                                <label class="form-check-label fw-bold @(ageVerified ? "text-success" : "text-danger")" for="ageVerified">
-                                    Age Verified (18+) - REQUIRED
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <label class="form-label mb-0 fw-bold @(ageVerified ? "text-success" : "text-danger")">
+                                    Age Verification (18+) - REQUIRED
                                 </label>
+                                @if (ageVerified)
+                                {
+                                    <span class="badge bg-success">Verified</span>
+                                }
                             </div>
+
                             @if (!ageVerified)
                             {
-                                <small class="text-danger d-block mt-1">
+                                <!-- Verification Method Tabs -->
+                                <ul class="nav nav-tabs nav-fill mb-2" role="tablist">
+                                    <li class="nav-item" role="presentation">
+                                        <button class="nav-link @(ageVerificationTab == "id" ? "active" : "")" type="button"
+                                                @onclick="SetAgeTabId">
+                                            <small>Scan ID</small>
+                                        </button>
+                                    </li>
+                                    <li class="nav-item" role="presentation">
+                                        <button class="nav-link @(ageVerificationTab == "dob" ? "active" : "")" type="button"
+                                                @onclick="SetAgeTabDob">
+                                            <small>Enter DOB</small>
+                                        </button>
+                                    </li>
+                                    <li class="nav-item" role="presentation">
+                                        <button class="nav-link @(ageVerificationTab == "quick" ? "active" : "")" type="button"
+                                                @onclick="SetAgeTabQuick">
+                                            <small>Quick</small>
+                                        </button>
+                                    </li>
+                                </ul>
+
+                                <!-- Tab Content -->
+                                @if (ageVerificationTab == "id")
+                                {
+                                    <!-- SA ID Scan -->
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text">ID</span>
+                                        <input type="text" class="form-control" @bind="idNumberInput"
+                                               @bind:event="oninput" @onkeyup="HandleIdScanKeyUp"
+                                               placeholder="13-digit SA ID number" maxlength="13" />
+                                        <button class="btn btn-primary" @onclick="ValidateIdNumber" disabled="@isValidatingAge">
+                                            @if (isValidatingAge)
+                                            {
+                                                <span class="spinner-border spinner-border-sm"></span>
+                                            }
+                                            else
+                                            {
+                                                <text>Verify</text>
+                                            }
+                                        </button>
+                                    </div>
+                                    <small class="text-muted">Scan barcode or enter 13-digit SA ID</small>
+                                }
+                                else if (ageVerificationTab == "dob")
+                                {
+                                    <!-- Manual DOB Entry -->
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text">DOB</span>
+                                        <input type="date" class="form-control" @bind="manualDobInput"
+                                               max="@DateTime.Today.ToString("yyyy-MM-dd")" />
+                                        <button class="btn btn-primary" @onclick="ValidateManualDob" disabled="@isValidatingAge">
+                                            Verify
+                                        </button>
+                                    </div>
+                                    <small class="text-muted">Enter date of birth from ID document</small>
+                                }
+                                else
+                                {
+                                    <!-- Quick Verification (Visual check) -->
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="quickAgeVerify"
+                                               @bind="ageVerified" />
+                                        <label class="form-check-label" for="quickAgeVerify">
+                                            I have visually verified the customer is 18+
+                                        </label>
+                                    </div>
+                                    <small class="text-muted">For returning customers or when ID is clearly visible</small>
+                                }
+
+                                @if (!string.IsNullOrEmpty(ageVerificationError))
+                                {
+                                    <div class="alert alert-danger py-1 px-2 mt-2 mb-0 small">
+                                        @ageVerificationError
+                                    </div>
+                                }
+                            }
+                            else
+                            {
+                                <!-- Verification Result Display -->
+                                <div class="small">
+                                    <div class="d-flex justify-content-between">
+                                        <span class="text-muted">Method:</span>
+                                        <span>@ageVerificationMethod</span>
+                                    </div>
+                                    @if (verifiedAge.HasValue)
+                                    {
+                                        <div class="d-flex justify-content-between">
+                                            <span class="text-muted">Age:</span>
+                                            <span class="fw-bold text-success">@verifiedAge years</span>
+                                        </div>
+                                    }
+                                    @if (!string.IsNullOrEmpty(maskedIdNumber))
+                                    {
+                                        <div class="d-flex justify-content-between">
+                                            <span class="text-muted">ID:</span>
+                                            <span><code>@maskedIdNumber</code></span>
+                                        </div>
+                                    }
+                                    <button class="btn btn-outline-secondary btn-sm mt-2" @onclick="ResetAgeVerification">
+                                        Clear & Re-verify
+                                    </button>
+                                </div>
+                            }
+
+                            @if (!ageVerified)
+                            {
+                                <small class="text-danger d-block mt-2">
                                     Cannabis Act compliance: Must verify customer is 18+
                                 </small>
                             }
@@ -827,6 +936,16 @@
     private bool ageVerified = false;
     private PaymentMethod paymentMethod = PaymentMethod.Cash;
     private decimal amountTendered = 0;
+
+    // Age Verification state (Phase 9.7)
+    private string ageVerificationTab = "quick"; // "id", "dob", "quick"
+    private string idNumberInput = string.Empty;
+    private DateTime? manualDobInput = null;
+    private bool isValidatingAge = false;
+    private string? ageVerificationError = null;
+    private string ageVerificationMethod = string.Empty;
+    private int? verifiedAge = null;
+    private string? maskedIdNumber = null;
 
     // Multi-Tender state (Phase 9.3)
     private bool useSplitPayment = false;
@@ -1262,6 +1381,161 @@
         // Reset multi-tender state (Phase 9.3)
         useSplitPayment = false;
         tenders.Clear();
+        // Reset age verification state (Phase 9.7)
+        ResetAgeVerification();
+    }
+
+    // ========================================
+    // AGE VERIFICATION (Phase 9.7)
+    // ========================================
+
+    /// <summary>
+    /// Handle Enter key in ID input
+    /// </summary>
+    private async Task HandleIdScanKeyUp(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(idNumberInput))
+        {
+            await ValidateIdNumber();
+        }
+    }
+
+    /// <summary>
+    /// Validate SA ID number and extract age
+    /// </summary>
+    private async Task ValidateIdNumber()
+    {
+        if (string.IsNullOrWhiteSpace(idNumberInput))
+        {
+            ageVerificationError = "Please enter an ID number";
+            return;
+        }
+
+        isValidatingAge = true;
+        ageVerificationError = null;
+
+        try
+        {
+            // Small delay for UI feedback
+            await Task.Delay(100);
+
+            var result = SAIdValidationService.ValidateIdNumber(idNumberInput.Trim());
+
+            if (result.IsValid)
+            {
+                if (result.IsOver18)
+                {
+                    // Success - age verified
+                    ageVerified = true;
+                    verifiedAge = result.Age;
+                    ageVerificationMethod = "SA ID Scan";
+                    maskedIdNumber = MaskIdNumber(idNumberInput.Trim());
+                    ageVerificationError = null;
+
+                    // Show warning if just turned 18
+                    if (result.Warnings.Any())
+                    {
+                        ageVerificationError = string.Join("; ", result.Warnings);
+                    }
+                }
+                else
+                {
+                    // Under 18 - cannot sell
+                    ageVerificationError = $"Customer is {result.Age} years old - must be 18+ for cannabis sales";
+                    ageVerified = false;
+                }
+            }
+            else
+            {
+                // Invalid ID
+                ageVerificationError = string.Join("; ", result.Errors);
+                ageVerified = false;
+            }
+        }
+        catch (Exception ex)
+        {
+            ageVerificationError = $"Error validating ID: {ex.Message}";
+        }
+        finally
+        {
+            isValidatingAge = false;
+        }
+    }
+
+    /// <summary>
+    /// Validate manually entered date of birth
+    /// </summary>
+    private async Task ValidateManualDob()
+    {
+        if (!manualDobInput.HasValue)
+        {
+            ageVerificationError = "Please enter a date of birth";
+            return;
+        }
+
+        isValidatingAge = true;
+        ageVerificationError = null;
+
+        try
+        {
+            await Task.Delay(100);
+
+            var result = SAIdValidationService.ValidateManualDob(manualDobInput.Value);
+
+            if (result.IsOver18)
+            {
+                ageVerified = true;
+                verifiedAge = result.Age;
+                ageVerificationMethod = "Manual DOB";
+                maskedIdNumber = null;
+                ageVerificationError = null;
+            }
+            else
+            {
+                ageVerificationError = result.ErrorMessage ?? $"Customer is {result.Age} years old - must be 18+";
+                ageVerified = false;
+            }
+        }
+        catch (Exception ex)
+        {
+            ageVerificationError = $"Error validating DOB: {ex.Message}";
+        }
+        finally
+        {
+            isValidatingAge = false;
+        }
+    }
+
+    /// <summary>
+    /// Reset age verification state
+    /// </summary>
+    private void ResetAgeVerification()
+    {
+        ageVerified = false;
+        ageVerificationTab = "quick";
+        idNumberInput = string.Empty;
+        manualDobInput = null;
+        ageVerificationError = null;
+        ageVerificationMethod = string.Empty;
+        verifiedAge = null;
+        maskedIdNumber = null;
+    }
+
+    /// <summary>
+    /// Tab helper methods for age verification
+    /// </summary>
+    private void SetAgeTabId() => ageVerificationTab = "id";
+    private void SetAgeTabDob() => ageVerificationTab = "dob";
+    private void SetAgeTabQuick() => ageVerificationTab = "quick";
+
+    /// <summary>
+    /// Mask ID number for privacy (show DOB only)
+    /// </summary>
+    private static string MaskIdNumber(string idNumber)
+    {
+        if (string.IsNullOrWhiteSpace(idNumber) || idNumber.Length != 13)
+            return "Invalid ID";
+        return idNumber.Substring(0, 6) + "*****" + idNumber.Substring(11, 2);
     }
 
     // ========================================

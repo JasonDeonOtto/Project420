@@ -98,6 +98,9 @@ builder.Services.AddScoped<ITransactionSearchService, TransactionSearchService>(
 // Barcode Service - Barcode & Serial Number Scanning (Phase 9.1)
 builder.Services.AddScoped<IBarcodeService, BarcodeService>();
 
+// SA ID Validation Service - Age Verification Enhancement (Phase 9.7)
+builder.Services.AddScoped<ISAIdValidationService, SAIdValidationService>();
+
 // ========================================
 // SHARED SERVICES (Universal across all modules)
 // ========================================

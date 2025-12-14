@@ -798,10 +798,39 @@ public class PaymentTenderDto
 - `/pos/cancel` - Selection screen
 - `/pos/cancel/{transactionNumber}` - Direct lookup
 
-### Phase 9.7: Age Verification Enhancement 📋 PENDING
-- [ ] SA ID card scanning (13-digit)
-- [ ] DOB extraction
-- [ ] Age calculation validation
+### Phase 9.7: Age Verification Enhancement ✅ COMPLETE (2025-12-14)
+**Files Created**:
+| File | Purpose |
+|------|---------|
+| `ISAIdValidationService.cs` | Interface for SA ID validation |
+| `SAIdValidationService.cs` | Full SA ID validation with Luhn algorithm |
+| `AgeVerificationDtos.cs` | DTOs for age verification workflow |
+| `SAIdValidationServiceTests.cs` | 44 unit tests for SA ID validation |
+
+**Files Modified**:
+| File | Change |
+|------|--------|
+| `POSCheckout.razor` | Enhanced age verification UI with ID scan, DOB entry, quick verify tabs |
+| `Program.cs` | Registered ISAIdValidationService in DI |
+
+**Implementation Details**:
+- [x] SA ID format validation (YYMMDDGSSSCAZ - 13 digits)
+- [x] Luhn mod-10 check digit validation
+- [x] DOB extraction from ID (first 6 digits)
+- [x] Century detection (1900s vs 2000s based on current year)
+- [x] Age calculation from DOB
+- [x] Gender extraction (digit 7: 0-4=Female, 5-9=Male)
+- [x] Citizenship extraction (digit 11: 0=SA Citizen, 1=PR)
+- [x] Manual DOB entry with validation
+- [x] ID masking for privacy (850101*****86)
+- [x] 44 comprehensive unit tests
+
+**UI Features**:
+- Tabbed interface: Scan ID | Enter DOB | Quick Verify
+- Real-time validation on ID scan
+- Verification result display (method, age, masked ID)
+- Clear & re-verify option
+- Warning for customers who just turned 18
 
 ### Phase 9.8: Compliant Receipt Generation 📋 PENDING
 - [ ] Batch/SN on receipt line items
@@ -815,10 +844,10 @@ public class PaymentTenderDto
 ---
 
 **Document Status**: 🟢 PHASE 9 IN PROGRESS - Retail POS Completion
-**Last Updated**: 2025-12-14 (Session 7 - Phase 9.6 Complete)
-**Completed**: Phase 7 (A/B/C) + Phase 8 + Phase 9.1 (Barcode) + Phase 9.2 (Discounts) + Phase 9.3 (Multi-Tender) + Phase 9.6 (Transaction Cancellation)
-**Current Phase**: Phase 9 - Retail POS Completion (9.1 ✅ 9.2 ✅ 9.3 ✅ 9.4 ✅ 9.5 ✅ 9.6 ✅ → Next: 9.7)
+**Last Updated**: 2025-12-14 (Session 8 - Phase 9.7 Complete)
+**Completed**: Phase 7 (A/B/C) + Phase 8 + Phase 9.1 (Barcode) + Phase 9.2 (Discounts) + Phase 9.3 (Multi-Tender) + Phase 9.6 (Transaction Cancellation) + Phase 9.7 (Age Verification)
+**Current Phase**: Phase 9 - Retail POS Completion (9.1 ✅ 9.2 ✅ 9.3 ✅ 9.4 ✅ 9.5 ✅ 9.6 ✅ 9.7 ✅ → Next: 9.8)
 **Build Status**: ✅ 0 Errors
-**Test Status**: ✅ 96 POS Tests Passing
+**Test Status**: ✅ 140 POS Tests Passing (96 + 44 SA ID)
 
-*Phase 9.6 COMPLETE! Transaction Cancellation with manager override, pre/post payment workflows. Next: Phase 9.7 (Age Verification Enhancement)* 🚀
+*Phase 9.7 COMPLETE! SA ID validation with Luhn algorithm, DOB extraction, age verification. Next: Phase 9.8 (Compliant Receipt Generation)* 🚀

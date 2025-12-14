@@ -187,6 +187,101 @@ namespace Project420.Retail.POS.BLL.Services
         }
 
         // ========================================
+        // DISCOUNT WITH VAT RECALCULATION (Phase 9.2)
+        // ========================================
+
+        /// <inheritdoc />
+        public (decimal subtotal, decimal vatAmount, decimal total) CalculateLineWithDiscount(decimal originalTotal, decimal discountAmount)
+        {
+            if (discountAmount < 0)
+                throw new ArgumentOutOfRangeException(nameof(discountAmount), "Discount amount cannot be negative");
+
+            if (discountAmount > originalTotal)
+                throw new ArgumentOutOfRangeException(nameof(discountAmount), "Discount amount cannot exceed original total");
+
+            // Step 1: Calculate new total after discount
+            decimal newTotal = RoundToNearestCent(originalTotal - discountAmount);
+
+            // Step 2: Recalculate VAT on the new total (SA compliance)
+            // VAT = NewTotal - (NewTotal / 1.15)
+            decimal newVatAmount = RoundToNearestCent(newTotal - (newTotal / VAT_DIVISOR));
+
+            // Step 3: Calculate new subtotal (excluding VAT)
+            decimal newSubtotal = RoundToNearestCent(newTotal - newVatAmount);
+
+            return (newSubtotal, newVatAmount, newTotal);
+        }
+
+        /// <inheritdoc />
+        public decimal CalculateVATAfterDiscount(decimal discountedTotal)
+        {
+            if (discountedTotal < 0)
+                throw new ArgumentOutOfRangeException(nameof(discountedTotal), "Discounted total cannot be negative");
+
+            // VAT = DiscountedTotal - (DiscountedTotal / 1.15)
+            decimal vatAmount = discountedTotal - (discountedTotal / VAT_DIVISOR);
+            return RoundToNearestCent(vatAmount);
+        }
+
+        /// <inheritdoc />
+        public Dictionary<int, decimal> CalculateHeaderDiscountProration(decimal headerDiscount, List<(int lineId, decimal lineTotal)> lineItems)
+        {
+            var result = new Dictionary<int, decimal>();
+
+            if (lineItems == null || !lineItems.Any())
+                return result;
+
+            if (headerDiscount <= 0)
+            {
+                // No discount to prorate
+                foreach (var item in lineItems)
+                    result[item.lineId] = 0m;
+                return result;
+            }
+
+            decimal totalAmount = lineItems.Sum(x => x.lineTotal);
+
+            if (totalAmount <= 0)
+            {
+                // No amount to prorate against
+                foreach (var item in lineItems)
+                    result[item.lineId] = 0m;
+                return result;
+            }
+
+            decimal allocatedDiscount = 0m;
+
+            // Prorate all lines except the last
+            for (int i = 0; i < lineItems.Count - 1; i++)
+            {
+                var item = lineItems[i];
+                // Formula: LineDiscount = (LineTotal / TotalAmount) × HeaderDiscount
+                decimal proportion = item.lineTotal / totalAmount;
+                decimal lineDiscount = RoundToNearestCent(headerDiscount * proportion);
+                result[item.lineId] = lineDiscount;
+                allocatedDiscount += lineDiscount;
+            }
+
+            // Last line gets the remainder (ensures total equals header discount exactly)
+            var lastItem = lineItems.Last();
+            result[lastItem.lineId] = RoundToNearestCent(headerDiscount - allocatedDiscount);
+
+            return result;
+        }
+
+        /// <inheritdoc />
+        public decimal CalculateDiscountAmount(decimal originalAmount, decimal discountPercentage)
+        {
+            if (discountPercentage < 0 || discountPercentage > 100)
+                throw new ArgumentOutOfRangeException(nameof(discountPercentage), "Discount percentage must be between 0 and 100");
+
+            if (originalAmount < 0)
+                throw new ArgumentOutOfRangeException(nameof(originalAmount), "Original amount cannot be negative");
+
+            return RoundToNearestCent(originalAmount * (discountPercentage / 100m));
+        }
+
+        // ========================================
         // ROUNDING AND VARIANCE
         // ========================================
 

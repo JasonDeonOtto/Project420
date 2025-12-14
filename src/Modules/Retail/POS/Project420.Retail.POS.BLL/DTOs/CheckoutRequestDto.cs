@@ -14,6 +14,11 @@ namespace Project420.Retail.POS.BLL.DTOs
     /// POPIA Compliance:
     /// - Customer data protected and consented
     /// - Audit trail maintained
+    ///
+    /// Multi-Tender Support (Phase 9.3):
+    /// - Supports multiple payment methods per transaction
+    /// - Example: R500 transaction = R200 Cash + R300 Card
+    /// - Use Tenders list for multi-tender, or legacy single payment fields
     /// </remarks>
     public class CheckoutRequestDto
     {
@@ -55,22 +60,67 @@ namespace Project420.Retail.POS.BLL.DTOs
         public List<CartItemDto> CartItems { get; set; } = new();
 
         // ========================================
-        // PAYMENT INFORMATION
+        // PAYMENT INFORMATION - MULTI-TENDER (Phase 9.3)
+        // ========================================
+
+        /// <summary>
+        /// List of payment tenders for multi-tender checkout
+        /// </summary>
+        /// <remarks>
+        /// Use this for multi-tender payments (e.g., Cash + Card).
+        /// If Tenders is populated, the legacy single payment fields are ignored.
+        ///
+        /// Validation Rules:
+        /// - Sum of tender amounts must >= transaction total
+        /// - Each tender must have valid PaymentMethod
+        /// - Card/EFT/Mobile tenders should have Reference populated
+        /// - Only cash tenders can exceed the balance (for change calculation)
+        ///
+        /// Example:
+        /// Transaction total: R500
+        /// Tenders:
+        ///   - { Method: Card, Amount: R300, Reference: "AUTH123" }
+        ///   - { Method: Cash, Amount: R250 } // R50 change due
+        /// </remarks>
+        public List<PaymentTenderDto>? Tenders { get; set; }
+
+        /// <summary>
+        /// Indicates if this is a multi-tender checkout
+        /// </summary>
+        /// <remarks>
+        /// Returns true if Tenders has any items
+        /// </remarks>
+        public bool IsMultiTender => Tenders != null && Tenders.Count > 0;
+
+        // ========================================
+        // PAYMENT INFORMATION - LEGACY SINGLE TENDER
         // ========================================
 
         /// <summary>
         /// Payment method (Cash, Card, EFT, etc.)
         /// </summary>
+        /// <remarks>
+        /// LEGACY: Use Tenders list for multi-tender checkout.
+        /// This field is used if Tenders is null or empty.
+        /// </remarks>
         public PaymentMethod PaymentMethod { get; set; }
 
         /// <summary>
         /// Amount tendered by customer (for cash payments - to calculate change)
         /// </summary>
+        /// <remarks>
+        /// LEGACY: Use Tenders list for multi-tender checkout.
+        /// This field is used if Tenders is null or empty.
+        /// </remarks>
         public decimal? AmountTendered { get; set; }
 
         /// <summary>
         /// External payment reference (card transaction ID, EFT reference, etc.)
         /// </summary>
+        /// <remarks>
+        /// LEGACY: Use Tenders list for multi-tender checkout.
+        /// This field is used if Tenders is null or empty.
+        /// </remarks>
         public string? PaymentReference { get; set; }
 
         // ========================================

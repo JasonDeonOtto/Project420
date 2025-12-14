@@ -526,12 +526,12 @@ Direct Movement Creation Tests:
 
 ---
 
-**Document Status**: 🟢 PHASE 8 COMPLETE - Ready for Phase 9
-**Last Updated**: 2025-12-13 (Session 3)
-**Completed**: Phase 7 (A/B/C) + Phase 8 fully implemented, tested, and deployed
-**Next Phase**: Phase 9 - Retail POS Completion
-**Build Status**: ✅ 0 Errors (excluding Android SDK)
-**Test Status**: ✅ 523 Tests Passing (MovementService 51, BatchNumberGenerator 47, SerialNumberGenerator 51, Luhn 12, + others)
+**Document Status**: 🟢 PHASE 9 IN PROGRESS - Retail POS Completion
+**Last Updated**: 2025-12-13 (Session 4)
+**Completed**: Phase 7 (A/B/C) + Phase 8 + Phase 9.1 (Barcode Scanning)
+**Current Phase**: Phase 9 - Retail POS Completion (9.1 COMPLETE)
+**Build Status**: ✅ 0 Errors
+**Test Status**: ✅ 204 Tests Passing
 **Database Status**: ✅ Project420_Dev (34 tables) + Project420_Shared (5 tables) - FULLY APPLIED
 
 ---
@@ -633,4 +633,165 @@ Direct Movement Creation Tests:
 
 ---
 
-*Phase 7 & 8 COMPLETE! Ready for Phase 9 - Retail POS Completion* 🚀
+## 📊 PHASE 9 PROGRESS TRACKING
+
+### Phase 9.1: Barcode & Serial Number Scanning ✅ COMPLETE (2025-12-13)
+**Files Created**:
+| File | Purpose |
+|------|---------|
+| `POS.BLL/DTOs/BarcodeScanDtos.cs` | DTOs for scan results, product search, SN validation |
+| `POS.BLL/Services/IBarcodeService.cs` | Interface for barcode scanning operations |
+| `POS.BLL/Services/BarcodeService.cs` | Full implementation with EAN-13, Code128, SN support |
+
+**Files Modified**:
+| File | Change |
+|------|--------|
+| `POS.BLL/DTOs/CartItemDto.cs` | Added SerialNumber and IsSerializedItem properties |
+| `POS.UI.Blazor/Program.cs` | Registered IBarcodeService in DI |
+| `POS.UI.Blazor/Components/Pages/POSCheckout.razor` | Full barcode scanning integration |
+
+**Features Implemented**:
+- ✅ Barcode type detection (EAN-13, UPC, Full SN, Short SN, SKU)
+- ✅ EAN-13 check digit validation
+- ✅ Luhn check digit validation for serial numbers
+- ✅ Full serial number lookup (30 digits)
+- ✅ Short serial number lookup (13 digits - EAN-13 compatible)
+- ✅ Standard barcode lookup (ProductBarcodes table)
+- ✅ SKU lookup fallback
+- ✅ Product search by name/SKU/strain
+- ✅ Serialized item detection (can't modify qty, can't add twice)
+- ✅ Stock warning messages (low stock, out of stock)
+- ✅ Integration with POSCheckout.razor UI
+
+**API Summary (IBarcodeService)**:
+```csharp
+Task<BarcodeScanResultDto> ProcessScanAsync(string scannedValue);
+Task<SerialNumberValidationDto> ValidateSerialNumberAsync(string serialNumber);
+Task<ProductSearchResultDto> SearchProductsAsync(string searchTerm, int pageSize = 20);
+Task<CartItemDto?> GetProductForCartAsync(int productId);
+Task<List<SerialNumberValidationDto>> GetAvailableSerialNumbersAsync(int productId, int limit = 50);
+string DetectBarcodeType(string value);
+bool ValidateEAN13CheckDigit(string ean13);
+bool ValidateLuhnCheckDigit(string value);
+```
+
+### Phase 9.2: Line-Level & Header-Level Discounts ✅ COMPLETE (2025-12-14)
+**Files Modified**:
+| File | Change |
+|------|--------|
+| `POS.BLL/DTOs/CartItemDto.cs` | Added DiscountAmount, DiscountPercentage, DiscountReason, OriginalLineTotal properties |
+| `POS.BLL/DTOs/CheckoutResultDto.cs` | Added SerialNumbers property |
+| `POS.BLL/Services/IPOSCalculationService.cs` | Added 4 new discount methods with VAT recalculation |
+| `POS.BLL/Services/POSCalculationService.cs` | Implemented discount methods with SA VAT compliance |
+| `POS.BLL/Services/TransactionService.cs` | Updated to handle line-level discounts and VAT recalculation |
+| `POS.UI.Blazor/Components/Pages/POSCheckout.razor` | Full discount UI (line + header), modal, preview |
+| `tests/Project420.Retail.POS.Tests/Infrastructure/ServiceTestBase.cs` | Added MockPOSCalculationService |
+| `tests/Project420.Retail.POS.Tests/Services/TransactionServiceTests.cs` | Updated for new service signature |
+
+**Features Implemented**:
+- ✅ Line-level discount input (percentage or fixed amount)
+- ✅ Header-level (transaction) discount input
+- ✅ VAT recalculation after discounts (SA compliance: discount total then recalculate VAT)
+- ✅ Discount modal with preview (shows original, discount, new total)
+- ✅ Quick percentage buttons (5%, 10%, 15%, 20%, 25%)
+- ✅ Discount reason selection (Staff, Loyalty, Damaged, Price Match, Promotion, Manager Override)
+- ✅ Cart display with discount column (strikethrough original, show discounted)
+- ✅ Order summary with discount breakdown
+- ✅ Receipt display with line-level discounts
+
+**API Summary (IPOSCalculationService - New Methods)**:
+```csharp
+(decimal subtotal, decimal vatAmount, decimal total) CalculateLineWithDiscount(decimal originalTotal, decimal discountAmount);
+decimal CalculateVATAfterDiscount(decimal discountedTotal);
+Dictionary<int, decimal> CalculateHeaderDiscountProration(decimal headerDiscount, List<(int lineId, decimal lineTotal)> lineItems);
+decimal CalculateDiscountAmount(decimal originalAmount, decimal discountPercentage);
+```
+
+**SA VAT Compliance Note**:
+- Discounts are applied to the total (VAT-inclusive)
+- VAT is then recalculated on the discounted total
+- Formula: New VAT = DiscountedTotal - (DiscountedTotal / 1.15)
+
+### Phase 9.3: Multi-Tender Checkout ✅ COMPLETE (2025-12-14)
+**Files Created**:
+| File | Purpose |
+|------|---------|
+| `POS.BLL/DTOs/PaymentTenderDto.cs` | DTO for individual tender lines + PaymentBreakdownDto |
+
+**Files Modified**:
+| File | Change |
+|------|--------|
+| `POS.BLL/DTOs/CheckoutRequestDto.cs` | Added Tenders list and IsMultiTender property |
+| `POS.BLL/DTOs/CheckoutResultDto.cs` | Added PaymentBreakdown property |
+| `POS.DAL/Repositories/TransactionRepository.cs` | Added multi-payment overload CreateSaleAsync(header, details, List<Payment>) |
+| `POS.BLL/Services/TransactionService.cs` | Creates multiple Payment records, calculates change from cash only |
+| `POS.UI.Blazor/Components/Pages/POSCheckout.razor` | Full multi-tender UI with split payment toggle |
+
+**Features Implemented**:
+- ✅ Split payment toggle to enable multi-tender mode
+- ✅ Add/remove individual tenders (Cash, Card, EFT, Mobile)
+- ✅ Amount input per tender with reference field for non-cash
+- ✅ Running balance display (Transaction Total, Tendered, Remaining, Change)
+- ✅ "Add Remaining as Cash" quick button
+- ✅ Change calculation from cash tenders only
+- ✅ Validation: total tendered >= transaction total
+- ✅ Receipt shows payment breakdown for multi-tender
+- ✅ FIC Act compliance notes for cash > R25,000
+- ✅ Backwards compatible with single payment mode
+
+**API Summary (PaymentTenderDto)**:
+```csharp
+public class PaymentTenderDto
+{
+    public PaymentMethod Method { get; set; }
+    public decimal Amount { get; set; }
+    public string? Reference { get; set; }
+    public string? BankOrProvider { get; set; }
+    public string? MaskedCardNumber { get; set; }
+    public string? CardType { get; set; }
+    public string? AuthorizationCode { get; set; }
+    public bool IsSuccessful { get; set; } = true;
+    public string? Notes { get; set; }
+}
+```
+
+### Phase 9.4: Refund Workflow ✅ ALREADY IMPLEMENTED
+- RefundProcessing.razor with full workflow
+- RefundService with validation and approval
+- Movement reversal (IN movements) on refund
+
+### Phase 9.5: Cash Drop & Cash Out ✅ ALREADY IMPLEMENTED
+- CashDrawerManagement.razor
+- PaymentReconciliationService
+- Denomination counting
+- Variance tracking
+
+### Phase 9.6: Transaction Cancellation 📋 PENDING
+- [ ] VoidTransactionAsync already exists
+- [ ] UI for cancellation workflow
+- [ ] Manager override
+
+### Phase 9.7: Age Verification Enhancement 📋 PENDING
+- [ ] SA ID card scanning (13-digit)
+- [ ] DOB extraction
+- [ ] Age calculation validation
+
+### Phase 9.8: Compliant Receipt Generation 📋 PENDING
+- [ ] Batch/SN on receipt line items
+- [ ] VAT breakdown
+- [ ] Legal disclaimers
+
+### Phase 9.9: Movement Generation Optimization 📋 PENDING
+- [ ] Batch insert performance
+- [ ] Async generation patterns
+
+---
+
+**Document Status**: 🟢 PHASE 9 IN PROGRESS - Retail POS Completion
+**Last Updated**: 2025-12-14 (Session 6 - Phase 9.3 Complete)
+**Completed**: Phase 7 (A/B/C) + Phase 8 + Phase 9.1 (Barcode) + Phase 9.2 (Discounts) + Phase 9.3 (Multi-Tender)
+**Current Phase**: Phase 9 - Retail POS Completion (9.1 ✅ 9.2 ✅ 9.3 ✅ 9.4 ✅ 9.5 ✅ → Next: 9.6)
+**Build Status**: ✅ 0 Errors
+**Test Status**: ✅ 96 POS Tests Passing
+
+*Phase 9.3 COMPLETE! Phases 9.4 (Refund) and 9.5 (Cash Drawer) already implemented. Next: Phase 9.6 (Transaction Cancellation)* 🚀

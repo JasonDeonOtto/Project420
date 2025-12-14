@@ -3,6 +3,7 @@
 @using Project420.Retail.POS.BLL.DTOs
 @using Project420.Shared.Core.Enums
 @inject ITransactionService TransactionService
+@inject IBarcodeService BarcodeService
 
 <PageTitle>POS Checkout</PageTitle>
 
@@ -13,7 +14,7 @@
     {
         <!-- RECEIPT DISPLAY -->
         <div class="alert alert-success">
-            <h4>✅ Sale Completed Successfully!</h4>
+            <h4>Sale Completed Successfully!</h4>
             <div class="card mt-3">
                 <div class="card-header bg-success text-white">
                     <h5>Receipt - @checkoutResult.TransactionNumber</h5>
@@ -30,8 +31,10 @@
                         <thead>
                             <tr>
                                 <th>Product</th>
+                                <th>Batch/SN</th>
                                 <th>Qty</th>
                                 <th>Price</th>
+                                <th>Discount</th>
                                 <th>Total</th>
                             </tr>
                         </thead>
@@ -40,8 +43,28 @@
                             {
                                 <tr>
                                     <td>@item.ProductName</td>
+                                    <td>
+                                        @if (!string.IsNullOrEmpty(item.SerialNumber))
+                                        {
+                                            <small class="text-info">SN: @item.SerialNumber</small>
+                                        }
+                                        else if (!string.IsNullOrEmpty(item.BatchNumber))
+                                        {
+                                            <small class="text-muted">@item.BatchNumber</small>
+                                        }
+                                    </td>
                                     <td>@item.Quantity</td>
                                     <td>R @item.UnitPriceInclVAT.ToString("F2")</td>
+                                    <td>
+                                        @if (item.DiscountAmount > 0)
+                                        {
+                                            <span class="text-danger">-R @item.DiscountAmount.ToString("F2")</span>
+                                        }
+                                        else
+                                        {
+                                            <text>-</text>
+                                        }
+                                    </td>
                                     <td>R @item.LineTotal.ToString("F2")</td>
                                 </tr>
                             }
@@ -72,8 +95,32 @@
                                     <td>TOTAL:</td>
                                     <td class="text-end">R @checkoutResult.TotalAmount.ToString("F2")</td>
                                 </tr>
-                                @if (checkoutResult.ChangeDue.HasValue && checkoutResult.ChangeDue.Value > 0)
+                                @if (checkoutResult.PaymentBreakdown != null && checkoutResult.PaymentBreakdown.Tenders.Count > 1)
                                 {
+                                    <!-- Multi-Tender Payment Breakdown (Phase 9.3) -->
+                                    <tr>
+                                        <td colspan="2" class="pt-2">
+                                            <strong class="text-muted">Payment Breakdown:</strong>
+                                        </td>
+                                    </tr>
+                                    @foreach (var tender in checkoutResult.PaymentBreakdown.Tenders)
+                                    {
+                                        <tr>
+                                            <td class="ps-3">@tender.Method:</td>
+                                            <td class="text-end">R @tender.Amount.ToString("F2")</td>
+                                        </tr>
+                                    }
+                                    @if (checkoutResult.PaymentBreakdown.ChangeDue > 0)
+                                    {
+                                        <tr class="text-success fw-bold">
+                                            <td>CHANGE:</td>
+                                            <td class="text-end">R @checkoutResult.PaymentBreakdown.ChangeDue.ToString("F2")</td>
+                                        </tr>
+                                    }
+                                }
+                                else if (checkoutResult.ChangeDue.HasValue && checkoutResult.ChangeDue.Value > 0)
+                                {
+                                    <!-- Single Tender with Change -->
                                     <tr>
                                         <td>Tendered:</td>
                                         <td class="text-end">R @checkoutResult.AmountTendered?.ToString("F2")</td>
@@ -96,6 +143,8 @@
                 </div>
                 <div class="card-footer">
                     <button class="btn btn-primary" @onclick="StartNewSale">New Sale</button>
+                    <button class="btn btn-outline-secondary ms-2">Print Receipt</button>
+                    <button class="btn btn-outline-secondary ms-2">Email Receipt</button>
                 </div>
             </div>
         </div>
@@ -105,71 +154,233 @@
         <!-- CHECKOUT FORM -->
         <div class="row">
             <div class="col-md-8">
+                <!-- BARCODE SCANNING SECTION (Phase 9.1) -->
+                <div class="card mb-3">
+                    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Scan Item</h5>
+                        <button class="btn btn-sm btn-light" @onclick="() => showProductSearch = !showProductSearch">
+                            @(showProductSearch ? "Hide Search" : "Search Products")
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-@(showProductSearch ? "6" : "12")">
+                                <!-- Barcode/SN Input -->
+                                <div class="input-group">
+                                    <span class="input-group-text">
+                                        <i class="bi bi-upc-scan"></i>
+                                    </span>
+                                    <input @bind="scanInput"
+                                           @bind:event="oninput"
+                                           @onkeyup="HandleScanKeyUp"
+                                           type="text"
+                                           class="form-control form-control-lg"
+                                           placeholder="Scan barcode or enter serial number..."
+                                           autofocus />
+                                    <button class="btn btn-success" @onclick="ProcessScan" disabled="@isScanning">
+                                        @if (isScanning)
+                                        {
+                                            <span class="spinner-border spinner-border-sm"></span>
+                                        }
+                                        else
+                                        {
+                                            <text>Add</text>
+                                        }
+                                    </button>
+                                </div>
+                                @if (!string.IsNullOrEmpty(scanMessage))
+                                {
+                                    <div class="alert @(scanSuccess ? "alert-success" : "alert-danger") mt-2 mb-0 py-2">
+                                        <small>@scanMessage</small>
+                                    </div>
+                                }
+                                @if (!string.IsNullOrEmpty(scanWarning))
+                                {
+                                    <div class="alert alert-warning mt-2 mb-0 py-2">
+                                        <small>@scanWarning</small>
+                                    </div>
+                                }
+                            </div>
+                            @if (showProductSearch)
+                            {
+                                <div class="col-md-6">
+                                    <!-- Product Search -->
+                                    <div class="input-group">
+                                        <input @bind="searchTerm"
+                                               @bind:event="oninput"
+                                               @onkeyup="HandleSearchKeyUp"
+                                               type="text"
+                                               class="form-control"
+                                               placeholder="Search by name, SKU, or strain..." />
+                                        <button class="btn btn-outline-primary" @onclick="SearchProducts" disabled="@isSearching">
+                                            Search
+                                        </button>
+                                    </div>
+                                    @if (searchResults != null && searchResults.Products.Any())
+                                    {
+                                        <div class="list-group mt-2" style="max-height: 200px; overflow-y: auto;">
+                                            @foreach (var product in searchResults.Products)
+                                            {
+                                                <button class="list-group-item list-group-item-action d-flex justify-content-between align-items-center"
+                                                        @onclick="() => AddProductFromSearch(product)">
+                                                    <div>
+                                                        <strong>@product.Name</strong>
+                                                        <br />
+                                                        <small class="text-muted">@product.SKU | R @product.Price.ToString("F2")</small>
+                                                    </div>
+                                                    <span class="badge @(product.StockOnHand > 0 ? "bg-success" : "bg-danger")">
+                                                        @product.StockOnHand
+                                                    </span>
+                                                </button>
+                                            }
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SHOPPING CART -->
                 <div class="card">
-                    <div class="card-header">
-                        <h5>Shopping Cart</h5>
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Shopping Cart (@cart.Count items)</h5>
+                        @if (cart.Count > 0)
+                        {
+                            <button class="btn btn-sm btn-outline-danger" @onclick="ClearCart">Clear Cart</button>
+                        }
                     </div>
                     <div class="card-body">
                         @if (cart.Count == 0)
                         {
-                            <div class="alert alert-warning">
-                                Cart is empty. Add products to continue.
-                            </div>
-
-                            <!-- DEMO: Quick add products -->
-                            <div class="mt-3">
-                                <h6>Quick Add (Demo Data)</h6>
-                                <button class="btn btn-sm btn-outline-primary" @onclick="() => AddDemoProduct(1, 100.00m)">
-                                    Add Cannabis Flower - R100.00
-                                </button>
-                                <button class="btn btn-sm btn-outline-primary ms-2" @onclick="() => AddDemoProduct(2, 50.00m)">
-                                    Add Pre-Roll - R50.00
-                                </button>
+                            <div class="alert alert-info">
+                                Cart is empty. Scan a barcode or search for products to add items.
                             </div>
                         }
                         else
                         {
-                            <table class="table">
+                            <table class="table table-hover">
                                 <thead>
                                     <tr>
                                         <th>Product</th>
-                                        <th>Quantity</th>
-                                        <th>Price</th>
-                                        <th>Total</th>
-                                        <th></th>
+                                        <th style="width: 100px;">Quantity</th>
+                                        <th style="width: 100px;">Price</th>
+                                        <th style="width: 100px;">Discount</th>
+                                        <th style="width: 110px;">Total</th>
+                                        <th style="width: 50px;"></th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     @foreach (var item in cart)
                                     {
                                         <tr>
-                                            <td>@item.ProductName</td>
                                             <td>
-                                                <input type="number" class="form-control form-control-sm" style="width: 80px;"
-                                                       @bind="item.Quantity" min="1" />
+                                                <strong>@item.ProductName</strong>
+                                                <br />
+                                                <small class="text-muted">@item.ProductSku</small>
+                                                @if (!string.IsNullOrEmpty(item.SerialNumber))
+                                                {
+                                                    <br />
+                                                    <small class="text-info">SN: @item.SerialNumber</small>
+                                                }
+                                                @if (!string.IsNullOrEmpty(item.BatchNumber))
+                                                {
+                                                    <br />
+                                                    <small class="text-muted">Batch: @item.BatchNumber</small>
+                                                }
+                                            </td>
+                                            <td>
+                                                @if (item.IsSerializedItem)
+                                                {
+                                                    <span class="badge bg-secondary">1 (Serialized)</span>
+                                                }
+                                                else
+                                                {
+                                                    <div class="input-group input-group-sm">
+                                                        <button class="btn btn-outline-secondary" @onclick="() => UpdateQuantity(item, -1)">-</button>
+                                                        <input type="number" class="form-control text-center" @bind="item.Quantity" min="1" style="width: 50px;" />
+                                                        <button class="btn btn-outline-secondary" @onclick="() => UpdateQuantity(item, 1)">+</button>
+                                                    </div>
+                                                }
                                             </td>
                                             <td>R @item.UnitPriceInclVAT.ToString("F2")</td>
-                                            <td>R @((item.UnitPriceInclVAT * item.Quantity).ToString("F2"))</td>
                                             <td>
-                                                <button class="btn btn-sm btn-danger" @onclick="() => RemoveFromCart(item)">Remove</button>
+                                                @if (item.DiscountAmount > 0)
+                                                {
+                                                    <span class="text-danger">-R @item.DiscountAmount.ToString("F2")</span>
+                                                    <br />
+                                                    <button class="btn btn-link btn-sm p-0 text-muted" @onclick="() => OpenLineDiscountModal(item)">
+                                                        Edit
+                                                    </button>
+                                                    <button class="btn btn-link btn-sm p-0 text-danger ms-1" @onclick="() => ClearLineDiscount(item)">
+                                                        Clear
+                                                    </button>
+                                                }
+                                                else
+                                                {
+                                                    <button class="btn btn-outline-warning btn-sm" @onclick="() => OpenLineDiscountModal(item)">
+                                                        + Disc
+                                                    </button>
+                                                }
+                                            </td>
+                                            <td class="fw-bold">
+                                                @{
+                                                    var originalTotal = item.UnitPriceInclVAT * item.Quantity;
+                                                    var discountedTotal = originalTotal - item.DiscountAmount;
+                                                }
+                                                @if (item.DiscountAmount > 0)
+                                                {
+                                                    <small class="text-muted text-decoration-line-through">R @originalTotal.ToString("F2")</small>
+                                                    <br />
+                                                    <span class="text-success">R @discountedTotal.ToString("F2")</span>
+                                                }
+                                                else
+                                                {
+                                                    <text>R @originalTotal.ToString("F2")</text>
+                                                }
+                                            </td>
+                                            <td>
+                                                <button class="btn btn-sm btn-outline-danger" @onclick="() => RemoveFromCart(item)">
+                                                    X
+                                                </button>
                                             </td>
                                         </tr>
                                     }
                                 </tbody>
+                                <tfoot>
+                                    @{
+                                        var cartSubtotal = cart.Sum(c => c.UnitPriceInclVAT * c.Quantity);
+                                        var lineDiscountsTotal = cart.Sum(c => c.DiscountAmount);
+                                        var cartTotal = cartSubtotal - lineDiscountsTotal;
+                                    }
+                                    @if (lineDiscountsTotal > 0)
+                                    {
+                                        <tr class="table-light">
+                                            <td colspan="4" class="text-end">Subtotal:</td>
+                                            <td colspan="2" class="text-muted">R @cartSubtotal.ToString("F2")</td>
+                                        </tr>
+                                        <tr class="table-light">
+                                            <td colspan="4" class="text-end text-danger">Line Discounts:</td>
+                                            <td colspan="2" class="text-danger">-R @lineDiscountsTotal.ToString("F2")</td>
+                                        </tr>
+                                    }
+                                    <tr class="table-light">
+                                        <td colspan="4" class="text-end"><strong>Cart Total:</strong></td>
+                                        <td colspan="2" class="fw-bold fs-5">
+                                            R @cartTotal.ToString("F2")
+                                        </td>
+                                    </tr>
+                                </tfoot>
                             </table>
-
-                            <div class="text-end">
-                                <h5>Cart Total: R @cart.Sum(c => c.UnitPriceInclVAT * c.Quantity).ToString("F2")</h5>
-                            </div>
                         }
                     </div>
                 </div>
             </div>
 
             <div class="col-md-4">
-                <div class="card">
+                <div class="card position-sticky" style="top: 1rem;">
                     <div class="card-header bg-primary text-white">
-                        <h5>Complete Sale</h5>
+                        <h5 class="mb-0">Complete Sale</h5>
                     </div>
                     <div class="card-body">
                         <!-- Customer Info -->
@@ -180,50 +391,190 @@
                         </div>
 
                         <!-- Age Verification (Cannabis Act Requirement) -->
-                        <div class="mb-3">
+                        <div class="mb-3 p-3 border rounded @(ageVerified ? "border-success bg-light" : "border-danger")">
                             <div class="form-check">
-                                <input class="form-check-input @(ageVerified ? "border-success" : "border-danger")"
+                                <input class="form-check-input"
                                        type="checkbox"
                                        id="ageVerified"
                                        @bind="ageVerified" />
                                 <label class="form-check-label fw-bold @(ageVerified ? "text-success" : "text-danger")" for="ageVerified">
-                                    ✓ Age Verified (18+) - REQUIRED
+                                    Age Verified (18+) - REQUIRED
                                 </label>
                             </div>
                             @if (!ageVerified)
                             {
-                                <small class="text-danger">Cannabis Act compliance: Must verify customer is 18+</small>
+                                <small class="text-danger d-block mt-1">
+                                    Cannabis Act compliance: Must verify customer is 18+
+                                </small>
                             }
                         </div>
 
-                        <!-- Payment Method -->
+                        <!-- Payment Method - Phase 9.3 Multi-Tender Support -->
                         <div class="mb-3">
-                            <label class="form-label">Payment Method</label>
-                            <select class="form-select" @bind="paymentMethod">
-                                <option value="@PaymentMethod.Cash">Cash</option>
-                                <option value="@PaymentMethod.Card">Card</option>
-                                <option value="@PaymentMethod.EFT">EFT</option>
-                                <option value="@PaymentMethod.MobilePayment">Mobile Payment</option>
-                            </select>
-                        </div>
-
-                        <!-- Cash Tendered (if cash payment) -->
-                        @if (paymentMethod == PaymentMethod.Cash)
-                        {
-                            <div class="mb-3">
-                                <label class="form-label">Amount Tendered</label>
-                                <input type="number" class="form-control" @bind="amountTendered"
-                                       step="0.01" min="0" placeholder="0.00" />
-                                @if (amountTendered > 0)
-                                {
-                                    var total = cart.Sum(c => c.UnitPriceInclVAT * c.Quantity);
-                                    var change = amountTendered - total;
-                                    <small class="@(change >= 0 ? "text-success" : "text-danger")">
-                                        Change: R @change.ToString("F2")
-                                    </small>
-                                }
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <label class="form-label mb-0 fw-bold">Payment</label>
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="splitPayment" @bind="useSplitPayment">
+                                    <label class="form-check-label small" for="splitPayment">Split Payment</label>
+                                </div>
                             </div>
-                        }
+
+                            @if (!useSplitPayment)
+                            {
+                                <!-- Single Payment Mode -->
+                                <select class="form-select" @bind="paymentMethod">
+                                    <option value="@PaymentMethod.Cash">Cash</option>
+                                    <option value="@PaymentMethod.Card">Card</option>
+                                    <option value="@PaymentMethod.EFT">EFT</option>
+                                    <option value="@PaymentMethod.MobilePayment">Mobile Payment</option>
+                                </select>
+
+                                <!-- Cash Tendered (if cash payment) -->
+                                @if (paymentMethod == PaymentMethod.Cash)
+                                {
+                                    <div class="mt-2">
+                                        <label class="form-label small">Amount Tendered</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text">R</span>
+                                            <input type="number" class="form-control" @bind="amountTendered"
+                                                   step="0.01" min="0" placeholder="0.00" />
+                                        </div>
+                                        @if (amountTendered > 0)
+                                        {
+                                            var total = GetFinalTotal();
+                                            var change = amountTendered - total;
+                                            <div class="mt-2 p-2 rounded @(change >= 0 ? "bg-success text-white" : "bg-danger text-white")">
+                                                <strong>Change: R @change.ToString("F2")</strong>
+                                            </div>
+                                        }
+                                    </div>
+
+                                    <!-- Quick Cash Amounts -->
+                                    <div class="mt-2">
+                                        <label class="form-label small text-muted">Quick Amount</label>
+                                        <div class="d-flex flex-wrap gap-1">
+                                            @foreach (var amount in new[] { 50m, 100m, 200m, 500m })
+                                            {
+                                                <button class="btn btn-sm btn-outline-secondary" @onclick="() => SetTenderedAmount(amount)">
+                                                    R @amount
+                                                </button>
+                                            }
+                                            <button class="btn btn-sm btn-outline-primary" @onclick="SetExactAmount">
+                                                Exact
+                                            </button>
+                                        </div>
+                                    </div>
+                                }
+                            }
+                            else
+                            {
+                                <!-- Multi-Tender Mode (Phase 9.3) -->
+                                <div class="border rounded p-2 bg-light">
+                                    @{
+                                        var transactionTotal = GetFinalTotal();
+                                        var totalTendered = tenders.Sum(t => t.Amount);
+                                        var remainingBalance = transactionTotal - totalTendered;
+                                        var cashTendered = tenders.Where(t => t.Method == PaymentMethod.Cash).Sum(t => t.Amount);
+                                        var nonCashTendered = tenders.Where(t => t.Method != PaymentMethod.Cash).Sum(t => t.Amount);
+                                        var amountAfterNonCash = Math.Max(0, transactionTotal - nonCashTendered);
+                                        var changeDue = cashTendered > amountAfterNonCash ? cashTendered - amountAfterNonCash : 0;
+                                    }
+
+                                    <!-- Tender List -->
+                                    @if (tenders.Any())
+                                    {
+                                        <div class="mb-2">
+                                            @foreach (var tender in tenders)
+                                            {
+                                                <div class="d-flex align-items-center gap-2 mb-2 p-2 border rounded bg-white">
+                                                    <select class="form-select form-select-sm" style="width: 110px;" @bind="tender.Method">
+                                                        <option value="@PaymentMethod.Cash">Cash</option>
+                                                        <option value="@PaymentMethod.Card">Card</option>
+                                                        <option value="@PaymentMethod.EFT">EFT</option>
+                                                        <option value="@PaymentMethod.MobilePayment">Mobile</option>
+                                                    </select>
+                                                    <div class="input-group input-group-sm flex-grow-1">
+                                                        <span class="input-group-text">R</span>
+                                                        <input type="number" class="form-control" @bind="tender.Amount"
+                                                               step="0.01" min="0" placeholder="0.00" />
+                                                    </div>
+                                                    @if (tender.Method != PaymentMethod.Cash)
+                                                    {
+                                                        <input type="text" class="form-control form-control-sm" style="width: 90px;"
+                                                               @bind="tender.Reference" placeholder="Ref#" />
+                                                    }
+                                                    <button class="btn btn-sm btn-outline-danger" @onclick="() => RemoveTender(tender)">
+                                                        ×
+                                                    </button>
+                                                </div>
+                                            }
+                                        </div>
+                                    }
+
+                                    <!-- Add Tender Button -->
+                                    <div class="d-flex gap-1 flex-wrap mb-2">
+                                        <button class="btn btn-sm btn-outline-success" @onclick="() => AddTender(PaymentMethod.Cash)">
+                                            + Cash
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-primary" @onclick="() => AddTender(PaymentMethod.Card)">
+                                            + Card
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-info" @onclick="() => AddTender(PaymentMethod.EFT)">
+                                            + EFT
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-secondary" @onclick="() => AddTender(PaymentMethod.MobilePayment)">
+                                            + Mobile
+                                        </button>
+                                    </div>
+
+                                    <!-- Quick Amount for Remaining -->
+                                    @if (remainingBalance > 0 && tenders.Any())
+                                    {
+                                        <div class="mb-2">
+                                            <button class="btn btn-sm btn-outline-warning w-100" @onclick="AddRemainingAsCash">
+                                                Add Remaining R @remainingBalance.ToString("F2") as Cash
+                                            </button>
+                                        </div>
+                                    }
+
+                                    <!-- Payment Summary -->
+                                    <div class="border-top pt-2">
+                                        <div class="d-flex justify-content-between small">
+                                            <span>Transaction Total:</span>
+                                            <span class="fw-bold">R @transactionTotal.ToString("F2")</span>
+                                        </div>
+                                        <div class="d-flex justify-content-between small">
+                                            <span>Total Tendered:</span>
+                                            <span class="@(totalTendered >= transactionTotal ? "text-success" : "text-warning") fw-bold">
+                                                R @totalTendered.ToString("F2")
+                                            </span>
+                                        </div>
+                                        @if (remainingBalance > 0)
+                                        {
+                                            <div class="d-flex justify-content-between small text-danger">
+                                                <span>Remaining:</span>
+                                                <span class="fw-bold">R @remainingBalance.ToString("F2")</span>
+                                            </div>
+                                        }
+                                        @if (changeDue > 0)
+                                        {
+                                            <div class="d-flex justify-content-between small text-success">
+                                                <span>Change Due:</span>
+                                                <span class="fw-bold">R @changeDue.ToString("F2")</span>
+                                            </div>
+                                        }
+                                    </div>
+
+                                    <!-- Validation Warning -->
+                                    @if (tenders.Any() && totalTendered < transactionTotal)
+                                    {
+                                        <div class="alert alert-warning py-1 px-2 mt-2 mb-0 small">
+                                            <strong>Insufficient payment:</strong> Add R @remainingBalance.ToString("F2") more
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </div>
 
                         <!-- Error Messages -->
                         @if (errorMessages.Any())
@@ -238,7 +589,83 @@
                             </div>
                         }
 
+                        <!-- Header Discount (Phase 9.2) -->
+                        <div class="mb-3 p-3 border rounded">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <label class="form-label mb-0 fw-bold">Transaction Discount</label>
+                                @if (headerDiscountAmount > 0 || headerDiscountPercentage > 0)
+                                {
+                                    <button class="btn btn-sm btn-outline-danger" @onclick="ClearHeaderDiscount">
+                                        Clear
+                                    </button>
+                                }
+                            </div>
+                            <div class="row g-2">
+                                <div class="col-5">
+                                    <div class="input-group input-group-sm">
+                                        <input type="number" class="form-control" @bind="headerDiscountPercentage"
+                                               @bind:after="ApplyHeaderPercentageDiscount"
+                                               min="0" max="100" step="1" placeholder="0" />
+                                        <span class="input-group-text">%</span>
+                                    </div>
+                                </div>
+                                <div class="col-2 text-center">
+                                    <small class="text-muted">OR</small>
+                                </div>
+                                <div class="col-5">
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text">R</span>
+                                        <input type="number" class="form-control" @bind="headerDiscountAmount"
+                                               @bind:after="ApplyHeaderFixedDiscount"
+                                               min="0" step="0.01" placeholder="0.00" />
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mt-2">
+                                <input type="text" class="form-control form-control-sm" @bind="headerDiscountReason"
+                                       placeholder="Discount reason (e.g., Staff discount, Loyalty)" />
+                            </div>
+                        </div>
+
+                        <!-- Order Summary -->
+                        <div class="border-top pt-3 mb-3">
+                            @{
+                                var summaryCartSubtotal = cart.Sum(c => c.UnitPriceInclVAT * c.Quantity);
+                                var summaryLineDiscounts = cart.Sum(c => c.DiscountAmount);
+                                var afterLineDiscounts = summaryCartSubtotal - summaryLineDiscounts;
+                                var calculatedHeaderDiscount = headerDiscountPercentage > 0
+                                    ? afterLineDiscounts * (headerDiscountPercentage / 100m)
+                                    : headerDiscountAmount;
+                                var summaryFinalTotal = afterLineDiscounts - calculatedHeaderDiscount;
+                            }
+                            <div class="d-flex justify-content-between">
+                                <span>Subtotal:</span>
+                                <span>R @summaryCartSubtotal.ToString("F2")</span>
+                            </div>
+                            @if (summaryLineDiscounts > 0)
+                            {
+                                <div class="d-flex justify-content-between text-danger">
+                                    <span>Line Discounts:</span>
+                                    <span>-R @summaryLineDiscounts.ToString("F2")</span>
+                                </div>
+                            }
+                            @if (calculatedHeaderDiscount > 0)
+                            {
+                                <div class="d-flex justify-content-between text-danger">
+                                    <span>Transaction Discount:</span>
+                                    <span>-R @calculatedHeaderDiscount.ToString("F2")</span>
+                                </div>
+                            }
+                            <div class="d-flex justify-content-between fs-4 fw-bold text-primary">
+                                <span>TOTAL:</span>
+                                <span>R @summaryFinalTotal.ToString("F2")</span>
+                            </div>
+                        </div>
+
                         <!-- Checkout Button -->
+                        @{
+                            var checkoutTotal = cart.Sum(c => c.UnitPriceInclVAT * c.Quantity) - cart.Sum(c => c.DiscountAmount) - (headerDiscountPercentage > 0 ? (cart.Sum(c => c.UnitPriceInclVAT * c.Quantity) - cart.Sum(c => c.DiscountAmount)) * (headerDiscountPercentage / 100m) : headerDiscountAmount);
+                        }
                         <button class="btn btn-success btn-lg w-100"
                                 @onclick="ProcessCheckout"
                                 disabled="@(cart.Count == 0 || !ageVerified || isProcessing)">
@@ -249,7 +676,7 @@
                             }
                             else
                             {
-                                <text>Complete Sale</text>
+                                <text>Complete Sale - R @checkoutTotal.ToString("F2")</text>
                             }
                         </button>
                     </div>
@@ -259,9 +686,141 @@
     }
 </div>
 
+<!-- Discount Modal (Phase 9.2) -->
+@if (showDiscountModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-warning text-dark">
+                    <h5 class="modal-title">
+                        @if (isLineDiscount && discountTargetItem != null)
+                        {
+                            <text>Apply Discount - @discountTargetItem.ProductName</text>
+                        }
+                        else
+                        {
+                            <text>Apply Transaction Discount</text>
+                        }
+                    </h5>
+                    <button type="button" class="btn-close" @onclick="CloseDiscountModal"></button>
+                </div>
+                <div class="modal-body">
+                    @if (isLineDiscount && discountTargetItem != null)
+                    {
+                        var lineTotal = discountTargetItem.UnitPriceInclVAT * discountTargetItem.Quantity;
+                        <p class="mb-3">
+                            <strong>Line Total:</strong> R @lineTotal.ToString("F2")
+                            @if (discountTargetItem.DiscountAmount > 0)
+                            {
+                                <br />
+                                <small class="text-danger">Current discount: R @discountTargetItem.DiscountAmount.ToString("F2")</small>
+                            }
+                        </p>
+                    }
+
+                    <div class="mb-3">
+                        <div class="btn-group w-100" role="group">
+                            <input type="radio" class="btn-check" id="discountPercent" checked="@usePercentageDiscount"
+                                   @onchange="() => usePercentageDiscount = true" />
+                            <label class="btn btn-outline-primary" for="discountPercent">Percentage %</label>
+
+                            <input type="radio" class="btn-check" id="discountFixed" checked="@(!usePercentageDiscount)"
+                                   @onchange="() => usePercentageDiscount = false" />
+                            <label class="btn btn-outline-primary" for="discountFixed">Fixed Amount R</label>
+                        </div>
+                    </div>
+
+                    @if (usePercentageDiscount)
+                    {
+                        <div class="mb-3">
+                            <label class="form-label">Discount Percentage</label>
+                            <div class="input-group">
+                                <input type="number" class="form-control form-control-lg" @bind="discountPercentageInput"
+                                       min="0" max="100" step="1" placeholder="Enter %" />
+                                <span class="input-group-text">%</span>
+                            </div>
+                            <div class="mt-2">
+                                <div class="btn-group btn-group-sm w-100">
+                                    @foreach (var pct in new[] { 5m, 10m, 15m, 20m, 25m })
+                                    {
+                                        <button class="btn btn-outline-secondary" @onclick="() => discountPercentageInput = pct">
+                                            @pct%
+                                        </button>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="mb-3">
+                            <label class="form-label">Discount Amount</label>
+                            <div class="input-group">
+                                <span class="input-group-text">R</span>
+                                <input type="number" class="form-control form-control-lg" @bind="discountAmountInput"
+                                       min="0" step="0.01" placeholder="Enter amount" />
+                            </div>
+                        </div>
+                    }
+
+                    <div class="mb-3">
+                        <label class="form-label">Reason for Discount</label>
+                        <select class="form-select" @bind="discountReason">
+                            <option value="">-- Select reason --</option>
+                            <option value="Staff Discount">Staff Discount</option>
+                            <option value="Loyalty Discount">Loyalty Discount</option>
+                            <option value="Damaged Packaging">Damaged Packaging</option>
+                            <option value="Price Match">Price Match</option>
+                            <option value="Promotion">Promotion</option>
+                            <option value="Manager Override">Manager Override</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+
+                    @if (isLineDiscount && discountTargetItem != null)
+                    {
+                        var previewLineTotal = discountTargetItem.UnitPriceInclVAT * discountTargetItem.Quantity;
+                        var previewDiscount = usePercentageDiscount
+                            ? previewLineTotal * (discountPercentageInput / 100m)
+                            : discountAmountInput;
+                        var previewNewTotal = previewLineTotal - previewDiscount;
+                        <div class="alert alert-info">
+                            <strong>Preview:</strong>
+                            <br />
+                            Original: R @previewLineTotal.ToString("F2")
+                            <br />
+                            Discount: -R @previewDiscount.ToString("F2")
+                            <br />
+                            <strong>New Total: R @previewNewTotal.ToString("F2")</strong>
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseDiscountModal">Cancel</button>
+                    <button type="button" class="btn btn-warning" @onclick="ApplyDiscount">Apply Discount</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     // Cart state
     private List<CartItemDto> cart = new();
+
+    // Barcode scanning state (Phase 9.1)
+    private string scanInput = string.Empty;
+    private string scanMessage = string.Empty;
+    private string scanWarning = string.Empty;
+    private bool scanSuccess = false;
+    private bool isScanning = false;
+
+    // Product search state
+    private bool showProductSearch = false;
+    private string searchTerm = string.Empty;
+    private ProductSearchResultDto? searchResults = null;
+    private bool isSearching = false;
 
     // Checkout form state
     private string customerName = "Walk-In Customer";
@@ -269,29 +828,186 @@
     private PaymentMethod paymentMethod = PaymentMethod.Cash;
     private decimal amountTendered = 0;
 
+    // Multi-Tender state (Phase 9.3)
+    private bool useSplitPayment = false;
+    private List<PaymentTenderDto> tenders = new();
+
+    // Discount state (Phase 9.2)
+    private bool showDiscountModal = false;
+    private CartItemDto? discountTargetItem = null;
+    private bool isLineDiscount = true; // true = line, false = header
+    private decimal discountPercentageInput = 0;
+    private decimal discountAmountInput = 0;
+    private bool usePercentageDiscount = true;
+    private string discountReason = string.Empty;
+    private decimal headerDiscountPercentage = 0;
+    private decimal headerDiscountAmount = 0;
+    private string headerDiscountReason = string.Empty;
+
     // Processing state
     private bool isProcessing = false;
     private List<string> errorMessages = new();
     private CheckoutResultDto? checkoutResult = null;
 
-    // Demo product counter
-    private int demoProductId = 1;
+    /// <summary>
+    /// Handle Enter key in barcode input
+    /// </summary>
+    private async Task HandleScanKeyUp(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(scanInput))
+        {
+            await ProcessScan();
+        }
+    }
 
     /// <summary>
-    /// Add demo product to cart (for testing)
+    /// Process barcode/SN scan
     /// </summary>
-    private void AddDemoProduct(int id, decimal price)
+    private async Task ProcessScan()
     {
-        cart.Add(new CartItemDto
+        if (string.IsNullOrWhiteSpace(scanInput) || isScanning)
+            return;
+
+        isScanning = true;
+        scanMessage = string.Empty;
+        scanWarning = string.Empty;
+
+        try
         {
-            ProductId = id,
-            ProductSku = $"DEMO-{id:D3}",
-            ProductName = id == 1 ? "Cannabis Flower - Indica" : "Cannabis Pre-Roll",
-            UnitPriceInclVAT = price,
-            Quantity = 1,
-            BatchNumber = $"BATCH-{DateTime.Now:yyyyMMdd}-{id:D3}",
-            CostPrice = price * 0.6m // 40% margin
-        });
+            var result = await BarcodeService.ProcessScanAsync(scanInput.Trim());
+
+            if (result.Success && result.CartItem != null)
+            {
+                // Check if serialized item already in cart (can't add twice)
+                if (result.IsSerializedItem)
+                {
+                    var existingSerial = cart.FirstOrDefault(c =>
+                        c.SerialNumber == result.CartItem.SerialNumber);
+                    if (existingSerial != null)
+                    {
+                        scanSuccess = false;
+                        scanMessage = "This serial number is already in the cart";
+                        return;
+                    }
+                    result.CartItem.IsSerializedItem = true;
+                }
+                else
+                {
+                    // Non-serialized: Check if same product already in cart
+                    var existingProduct = cart.FirstOrDefault(c =>
+                        c.ProductId == result.CartItem.ProductId && !c.IsSerializedItem);
+                    if (existingProduct != null)
+                    {
+                        existingProduct.Quantity++;
+                        scanSuccess = true;
+                        scanMessage = $"Added {result.CartItem.ProductName} (Qty: {existingProduct.Quantity})";
+                        scanWarning = result.WarningMessage ?? string.Empty;
+                        scanInput = string.Empty;
+                        return;
+                    }
+                }
+
+                cart.Add(result.CartItem);
+                scanSuccess = true;
+                scanMessage = $"Added {result.CartItem.ProductName}";
+                scanWarning = result.WarningMessage ?? string.Empty;
+                scanInput = string.Empty;
+            }
+            else
+            {
+                scanSuccess = false;
+                scanMessage = result.ErrorMessage ?? "Failed to process scan";
+            }
+        }
+        catch (Exception ex)
+        {
+            scanSuccess = false;
+            scanMessage = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            isScanning = false;
+        }
+    }
+
+    /// <summary>
+    /// Handle Enter key in search input
+    /// </summary>
+    private async Task HandleSearchKeyUp(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(searchTerm))
+        {
+            await SearchProducts();
+        }
+    }
+
+    /// <summary>
+    /// Search products by name/SKU
+    /// </summary>
+    private async Task SearchProducts()
+    {
+        if (string.IsNullOrWhiteSpace(searchTerm) || searchTerm.Length < 2)
+        {
+            searchResults = null;
+            return;
+        }
+
+        isSearching = true;
+        try
+        {
+            searchResults = await BarcodeService.SearchProductsAsync(searchTerm.Trim(), 10);
+        }
+        finally
+        {
+            isSearching = false;
+        }
+    }
+
+    /// <summary>
+    /// Add product from search results to cart
+    /// </summary>
+    private async Task AddProductFromSearch(ProductSearchItemDto product)
+    {
+        if (product.RequiresSerialNumber)
+        {
+            scanSuccess = false;
+            scanMessage = "This product requires serial number scanning";
+            return;
+        }
+
+        // Check if already in cart
+        var existing = cart.FirstOrDefault(c => c.ProductId == product.ProductId && !c.IsSerializedItem);
+        if (existing != null)
+        {
+            existing.Quantity++;
+            scanSuccess = true;
+            scanMessage = $"Added {product.Name} (Qty: {existing.Quantity})";
+        }
+        else
+        {
+            var cartItem = await BarcodeService.GetProductForCartAsync(product.ProductId);
+            if (cartItem != null)
+            {
+                cart.Add(cartItem);
+                scanSuccess = true;
+                scanMessage = $"Added {product.Name}";
+            }
+        }
+
+        // Clear search
+        searchTerm = string.Empty;
+        searchResults = null;
+    }
+
+    /// <summary>
+    /// Update item quantity
+    /// </summary>
+    private void UpdateQuantity(CartItemDto item, int delta)
+    {
+        if (item.IsSerializedItem)
+            return; // Can't change quantity of serialized items
+
+        item.Quantity = Math.Max(1, item.Quantity + delta);
     }
 
     /// <summary>
@@ -300,6 +1016,128 @@
     private void RemoveFromCart(CartItemDto item)
     {
         cart.Remove(item);
+    }
+
+    /// <summary>
+    /// Clear entire cart
+    /// </summary>
+    private void ClearCart()
+    {
+        cart.Clear();
+        scanMessage = string.Empty;
+        scanWarning = string.Empty;
+    }
+
+    /// <summary>
+    /// Set tendered amount to specific value
+    /// </summary>
+    private void SetTenderedAmount(decimal amount)
+    {
+        amountTendered = amount;
+    }
+
+    /// <summary>
+    /// Set tendered to exact total
+    /// </summary>
+    private void SetExactAmount()
+    {
+        amountTendered = GetFinalTotal();
+    }
+
+    // ========================================
+    // MULTI-TENDER HANDLING (Phase 9.3)
+    // ========================================
+
+    /// <summary>
+    /// Calculate the final transaction total (after all discounts)
+    /// </summary>
+    private decimal GetFinalTotal()
+    {
+        var cartSubtotal = cart.Sum(c => c.UnitPriceInclVAT * c.Quantity);
+        var lineDiscounts = cart.Sum(c => c.DiscountAmount);
+        var afterLineDiscounts = cartSubtotal - lineDiscounts;
+
+        // Apply header discount
+        decimal headerDiscount = 0;
+        if (headerDiscountPercentage > 0)
+        {
+            headerDiscount = afterLineDiscounts * (headerDiscountPercentage / 100m);
+        }
+        else if (headerDiscountAmount > 0)
+        {
+            headerDiscount = headerDiscountAmount;
+        }
+
+        return Math.Max(0, afterLineDiscounts - headerDiscount);
+    }
+
+    /// <summary>
+    /// Add a new tender to the list
+    /// </summary>
+    private void AddTender(PaymentMethod method)
+    {
+        var remaining = GetFinalTotal() - tenders.Sum(t => t.Amount);
+        tenders.Add(new PaymentTenderDto
+        {
+            Method = method,
+            Amount = Math.Max(0, remaining), // Default to remaining balance
+            IsSuccessful = true
+        });
+    }
+
+    /// <summary>
+    /// Remove a tender from the list
+    /// </summary>
+    private void RemoveTender(PaymentTenderDto tender)
+    {
+        tenders.Remove(tender);
+    }
+
+    /// <summary>
+    /// Add remaining balance as cash tender
+    /// </summary>
+    private void AddRemainingAsCash()
+    {
+        var remaining = GetFinalTotal() - tenders.Sum(t => t.Amount);
+        if (remaining > 0)
+        {
+            tenders.Add(new PaymentTenderDto
+            {
+                Method = PaymentMethod.Cash,
+                Amount = remaining,
+                IsSuccessful = true
+            });
+        }
+    }
+
+    /// <summary>
+    /// Validate multi-tender payment
+    /// </summary>
+    private bool ValidateTenders(out string errorMessage)
+    {
+        errorMessage = string.Empty;
+        var transactionTotal = GetFinalTotal();
+        var totalTendered = tenders.Sum(t => t.Amount);
+
+        if (!tenders.Any())
+        {
+            errorMessage = "Please add at least one payment tender";
+            return false;
+        }
+
+        if (totalTendered < transactionTotal)
+        {
+            errorMessage = $"Insufficient payment: R {(transactionTotal - totalTendered):F2} more required";
+            return false;
+        }
+
+        // Validate card/EFT tenders have reference (optional but recommended)
+        foreach (var tender in tenders.Where(t => t.Method != PaymentMethod.Cash && string.IsNullOrWhiteSpace(t.Reference)))
+        {
+            // Just a warning, not blocking
+        }
+
+        return true;
     }
 
     /// <summary>
@@ -312,6 +1150,40 @@
 
         try
         {
+            var finalTotal = GetFinalTotal();
+
+            // Validate payment based on mode
+            if (useSplitPayment)
+            {
+                // Multi-tender validation (Phase 9.3)
+                if (!ValidateTenders(out var tenderError))
+                {
+                    errorMessages.Add(tenderError);
+                    return;
+                }
+            }
+            else
+            {
+                // Single payment validation
+                if (paymentMethod == PaymentMethod.Cash && amountTendered < finalTotal)
+                {
+                    errorMessages.Add($"Amount tendered (R{amountTendered:F2}) is less than total (R{finalTotal:F2})");
+                    return;
+                }
+            }
+
+            // Calculate header discount amount (Phase 9.2)
+            var cartTotalForHeaderDiscount = cart.Sum(c => c.UnitPriceInclVAT * c.Quantity) - cart.Sum(c => c.DiscountAmount);
+            decimal? headerDiscountToApply = null;
+            if (headerDiscountPercentage > 0)
+            {
+                headerDiscountToApply = cartTotalForHeaderDiscount * (headerDiscountPercentage / 100m);
+            }
+            else if (headerDiscountAmount > 0)
+            {
+                headerDiscountToApply = headerDiscountAmount;
+            }
+
             // Build checkout request
             var request = new CheckoutRequestDto
             {
@@ -319,10 +1191,34 @@
                 AgeVerified = ageVerified,
                 AgeVerificationDate = DateTime.UtcNow,
                 CartItems = cart,
-                PaymentMethod = paymentMethod,
-                AmountTendered = paymentMethod == PaymentMethod.Cash ? amountTendered : null,
-                ProcessedBy = 1 // TODO: Get from logged-in user
+                ProcessedBy = 1, // TODO: Get from logged-in user
+                DiscountPercentage = headerDiscountPercentage > 0 ? headerDiscountPercentage : null,
+                DiscountAmount = headerDiscountAmount > 0 ? headerDiscountAmount : null
             };
+
+            // Set payment info based on mode (Phase 9.3)
+            if (useSplitPayment && tenders.Any())
+            {
+                // Multi-tender mode - pass the tenders list
+                request.Tenders = tenders.Select(t => new PaymentTenderDto
+                {
+                    Method = t.Method,
+                    Amount = t.Amount,
+                    Reference = t.Reference,
+                    BankOrProvider = t.BankOrProvider,
+                    MaskedCardNumber = t.MaskedCardNumber,
+                    CardType = t.CardType,
+                    AuthorizationCode = t.AuthorizationCode,
+                    IsSuccessful = true,
+                    Notes = t.Notes
+                }).ToList();
+            }
+            else
+            {
+                // Legacy single payment mode
+                request.PaymentMethod = paymentMethod;
+                request.AmountTendered = paymentMethod == PaymentMethod.Cash ? amountTendered : null;
+            }
 
             // Call service
             checkoutResult = await TransactionService.ProcessCheckoutAsync(request);
@@ -354,5 +1250,132 @@
         amountTendered = 0;
         errorMessages.Clear();
         checkoutResult = null;
+        scanInput = string.Empty;
+        scanMessage = string.Empty;
+        scanWarning = string.Empty;
+        searchTerm = string.Empty;
+        searchResults = null;
+        // Reset discount state (Phase 9.2)
+        headerDiscountAmount = 0;
+        headerDiscountPercentage = 0;
+        headerDiscountReason = string.Empty;
+        // Reset multi-tender state (Phase 9.3)
+        useSplitPayment = false;
+        tenders.Clear();
+    }
+
+    // ========================================
+    // DISCOUNT HANDLING (Phase 9.2)
+    // ========================================
+
+    /// <summary>
+    /// Open discount modal for line-level discount
+    /// </summary>
+    private void OpenLineDiscountModal(CartItemDto item)
+    {
+        discountTargetItem = item;
+        isLineDiscount = true;
+        showDiscountModal = true;
+
+        // Pre-fill with existing discount if any
+        if (item.DiscountPercentage.HasValue && item.DiscountPercentage.Value > 0)
+        {
+            usePercentageDiscount = true;
+            discountPercentageInput = item.DiscountPercentage.Value;
+            discountAmountInput = 0;
+        }
+        else if (item.DiscountAmount > 0)
+        {
+            usePercentageDiscount = false;
+            discountAmountInput = item.DiscountAmount;
+            discountPercentageInput = 0;
+        }
+        else
+        {
+            discountPercentageInput = 0;
+            discountAmountInput = 0;
+        }
+
+        discountReason = item.DiscountReason ?? string.Empty;
+    }
+
+    /// <summary>
+    /// Close discount modal
+    /// </summary>
+    private void CloseDiscountModal()
+    {
+        showDiscountModal = false;
+        discountTargetItem = null;
+        discountPercentageInput = 0;
+        discountAmountInput = 0;
+        discountReason = string.Empty;
+    }
+
+    /// <summary>
+    /// Apply discount from modal
+    /// </summary>
+    private void ApplyDiscount()
+    {
+        if (isLineDiscount && discountTargetItem != null)
+        {
+            var lineTotal = discountTargetItem.UnitPriceInclVAT * discountTargetItem.Quantity;
+
+            if (usePercentageDiscount)
+            {
+                discountTargetItem.DiscountPercentage = discountPercentageInput;
+                discountTargetItem.DiscountAmount = Math.Round(lineTotal * (discountPercentageInput / 100m), 2, MidpointRounding.AwayFromZero);
+            }
+            else
+            {
+                discountTargetItem.DiscountPercentage = null;
+                discountTargetItem.DiscountAmount = Math.Min(discountAmountInput, lineTotal); // Can't discount more than line total
+            }
+
+            discountTargetItem.DiscountReason = discountReason;
+        }
+
+        CloseDiscountModal();
+    }
+
+    /// <summary>
+    /// Clear line-level discount
+    /// </summary>
+    private void ClearLineDiscount(CartItemDto item)
+    {
+        item.DiscountAmount = 0;
+        item.DiscountPercentage = null;
+        item.DiscountReason = null;
+    }
+
+    /// <summary>
+    /// Clear header-level discount
+    /// </summary>
+    private void ClearHeaderDiscount()
+    {
+        headerDiscountPercentage = 0;
+        headerDiscountAmount = 0;
+        headerDiscountReason = string.Empty;
+    }
+
+    /// <summary>
+    /// Apply header percentage discount (clears fixed amount)
+    /// </summary>
+    private void ApplyHeaderPercentageDiscount()
+    {
+        if (headerDiscountPercentage > 0)
+        {
+            headerDiscountAmount = 0; // Clear fixed when using percentage
+        }
+    }
+
+    /// <summary>
+    /// Apply header fixed discount (clears percentage)
+    /// </summary>
+    private void ApplyHeaderFixedDiscount()
+    {
+        if (headerDiscountAmount > 0)
+        {
+            headerDiscountPercentage = 0; // Clear percentage when using fixed
+        }
     }
 }

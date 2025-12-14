@@ -59,14 +59,33 @@ namespace Project420.Retail.POS.BLL.DTOs
         public decimal TotalAmount { get; set; }
 
         /// <summary>
-        /// Amount tendered by customer
+        /// Amount tendered by customer (total across all tenders)
         /// </summary>
         public decimal? AmountTendered { get; set; }
 
         /// <summary>
-        /// Change due to customer
+        /// Change due to customer (only from cash tenders)
         /// </summary>
         public decimal? ChangeDue { get; set; }
+
+        // ========================================
+        // MULTI-TENDER PAYMENT BREAKDOWN (Phase 9.3)
+        // ========================================
+
+        /// <summary>
+        /// Detailed payment breakdown for multi-tender transactions
+        /// </summary>
+        /// <remarks>
+        /// Contains all individual tenders with amounts, methods, and references.
+        /// For single-tender transactions, this will have one entry.
+        /// For multi-tender, it shows the split across payment methods.
+        /// </remarks>
+        public PaymentBreakdownDto? PaymentBreakdown { get; set; }
+
+        /// <summary>
+        /// Indicates if this was a multi-tender transaction
+        /// </summary>
+        public bool IsMultiTender => PaymentBreakdown?.Tenders.Count > 1;
 
         // ========================================
         // RECEIPT DATA
@@ -78,8 +97,12 @@ namespace Project420.Retail.POS.BLL.DTOs
         public string CustomerName { get; set; } = string.Empty;
 
         /// <summary>
-        /// Payment method used
+        /// Payment method used (primary method for multi-tender, or the single method)
         /// </summary>
+        /// <remarks>
+        /// For multi-tender, this shows the summary (e.g., "Cash + Card")
+        /// For single tender, this shows the method name
+        /// </remarks>
         public string PaymentMethod { get; set; } = string.Empty;
 
         /// <summary>
@@ -110,5 +133,11 @@ namespace Project420.Retail.POS.BLL.DTOs
         /// Batch numbers for traceability (comma-separated if multiple)
         /// </summary>
         public string? BatchNumbers { get; set; }
+
+        /// <summary>
+        /// Serial numbers for unit traceability (comma-separated if multiple)
+        /// Phase 9.1: Added for serialized item tracking
+        /// </summary>
+        public string? SerialNumbers { get; set; }
     }
 }

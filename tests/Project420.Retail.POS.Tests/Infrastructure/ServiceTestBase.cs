@@ -1,4 +1,5 @@
 using Moq;
+using Project420.Retail.POS.BLL.Services;
 using Project420.Retail.POS.DAL;
 using Project420.Retail.POS.DAL.Repositories;
 using Project420.Shared.Database.Services;
@@ -39,6 +40,11 @@ public abstract class ServiceTestBase : IDisposable
     protected Mock<IMovementService> MockMovementService { get; private set; }
 
     /// <summary>
+    /// Mocked POS Calculation Service (Phase 9.2: Discount calculations)
+    /// </summary>
+    protected Mock<IPOSCalculationService> MockPOSCalculationService { get; private set; }
+
+    /// <summary>
     /// Unique database name for this test instance.
     /// Ensures test isolation.
     /// </summary>
@@ -60,6 +66,7 @@ public abstract class ServiceTestBase : IDisposable
         MockVATService = new Mock<IVATCalculationService>();
         MockTransactionNumberService = new Mock<ITransactionNumberGeneratorService>();
         MockMovementService = new Mock<IMovementService>();
+        MockPOSCalculationService = new Mock<IPOSCalculationService>();
 
         // Setup default mock behaviors
         SetupDefaultMockBehaviors();

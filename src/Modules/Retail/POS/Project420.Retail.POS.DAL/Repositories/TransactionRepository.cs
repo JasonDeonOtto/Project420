@@ -86,6 +86,62 @@ namespace Project420.Retail.POS.DAL.Repositories
             }
         }
 
+        /// <inheritdoc/>
+        /// <remarks>
+        /// Phase 9.3: Multi-Tender Checkout Support.
+        /// Creates multiple Payment records for split payments (e.g., Cash + Card).
+        /// </remarks>
+        public async Task<RetailTransactionHeader> CreateSaleAsync(
+            RetailTransactionHeader header,
+            List<TransactionDetail> details,
+            List<Payment> payments)
+        {
+            // Validation
+            if (header == null) throw new ArgumentNullException(nameof(header));
+            if (details == null || details.Count == 0)
+                throw new ArgumentException("Transaction must have at least one line item", nameof(details));
+            if (payments == null || payments.Count == 0)
+                throw new ArgumentException("Transaction must have at least one payment", nameof(payments));
+
+            // All data now in single PosDbContext - atomic transaction
+            using var transaction = await _context.Database.BeginTransactionAsync();
+
+            try
+            {
+                // 1. Add transaction header
+                _context.RetailTransactionHeaders.Add(header);
+                await _context.SaveChangesAsync();
+
+                // 2. Add transaction details (now in same context)
+                foreach (var detail in details)
+                {
+                    detail.HeaderId = header.Id;
+                    detail.TransactionType = header.TransactionType; // Sale, Refund, etc.
+                    _context.TransactionDetails.Add(detail);
+                }
+                await _context.SaveChangesAsync();
+
+                // 3. Add all payments (multi-tender support)
+                foreach (var payment in payments)
+                {
+                    payment.TransactionHeaderId = header.Id;
+                    _context.Payments.Add(payment);
+                }
+                await _context.SaveChangesAsync();
+
+                await transaction.CommitAsync();
+
+                // Return header with all relationships loaded
+                return await GetByIdAsync(header.Id)
+                    ?? throw new InvalidOperationException("Failed to retrieve created transaction");
+            }
+            catch (Exception)
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+        }
+
         // ========================================
         // READ OPERATIONS
         // ========================================

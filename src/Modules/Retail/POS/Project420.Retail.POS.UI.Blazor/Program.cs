@@ -95,6 +95,9 @@ builder.Services.AddScoped<IPaymentReconciliationService, PaymentReconciliationS
 // Transaction Search Service - Advanced search and reporting
 builder.Services.AddScoped<ITransactionSearchService, TransactionSearchService>();
 
+// Barcode Service - Barcode & Serial Number Scanning (Phase 9.1)
+builder.Services.AddScoped<IBarcodeService, BarcodeService>();
+
 // ========================================
 // SHARED SERVICES (Universal across all modules)
 // ========================================

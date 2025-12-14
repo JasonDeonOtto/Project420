@@ -19,11 +19,28 @@ public class TransactionServiceTests : ServiceTestBase
 
     public TransactionServiceTests()
     {
+        // Phase 9.2: Set up default calculation service behavior for discounts
+        MockPOSCalculationService
+            .Setup(x => x.CalculateLineWithDiscount(It.IsAny<decimal>(), It.IsAny<decimal>()))
+            .Returns((decimal originalTotal, decimal discountAmount) =>
+            {
+                decimal newTotal = originalTotal - discountAmount;
+                decimal newVat = Math.Round(newTotal - (newTotal / 1.15m), 2, MidpointRounding.AwayFromZero);
+                decimal newSubtotal = Math.Round(newTotal - newVat, 2, MidpointRounding.AwayFromZero);
+                return (newSubtotal, newVat, newTotal);
+            });
+
+        MockPOSCalculationService
+            .Setup(x => x.CalculateDiscountAmount(It.IsAny<decimal>(), It.IsAny<decimal>()))
+            .Returns((decimal amount, decimal percentage) =>
+                Math.Round(amount * (percentage / 100m), 2, MidpointRounding.AwayFromZero));
+
         _service = new TransactionService(
             MockTransactionRepository.Object,
             MockVATService.Object,
             MockTransactionNumberService.Object,
-            MockMovementService.Object);
+            MockMovementService.Object,
+            MockPOSCalculationService.Object);
     }
 
     #region ProcessCheckoutAsync - Success Scenarios
@@ -115,8 +132,9 @@ public class TransactionServiceTests : ServiceTestBase
 
         // Assert
         result.Success.Should().BeTrue();
-        result.DiscountAmount.Should().Be(10.00m); // 10% of 100.00
-        result.TotalAmount.Should().Be(90.00m); // 100.00 - 10.00
+        // Phase 9.2: 10% of cart total (2 items × R100 = R200) = R20 discount
+        result.DiscountAmount.Should().Be(20.00m);
+        result.TotalAmount.Should().Be(180.00m); // R200 - R20 = R180
     }
 
     [Fact]
@@ -146,8 +164,9 @@ public class TransactionServiceTests : ServiceTestBase
 
         // Assert
         result.Success.Should().BeTrue();
+        // Phase 9.2: R15 fixed discount on cart total (2 items × R100 = R200)
         result.DiscountAmount.Should().Be(15.00m);
-        result.TotalAmount.Should().Be(85.00m); // 100.00 - 15.00
+        result.TotalAmount.Should().Be(185.00m); // R200 - R15 = R185
     }
 
     [Fact]
@@ -245,9 +264,13 @@ public class TransactionServiceTests : ServiceTestBase
 
         // Assert
         result.Success.Should().BeTrue();
-        result.Subtotal.Should().Be(130.44m); // 86.96 + 43.48
-        result.VATAmount.Should().Be(19.56m); // 13.04 + 6.52
-        result.TotalAmount.Should().Be(150.00m); // 100.00 + 50.00
+        // Phase 9.2: New calculation uses POSCalculationService
+        // Cart: Item 1 (R100 × 2 = R200) + Item 2 (R50 × 1 = R50) = R250 total
+        // VAT is recalculated by POSCalculationService: R250 - (R250/1.15) = R32.61
+        // Subtotal: R250 - R32.61 = R217.39
+        result.Subtotal.Should().Be(217.39m);
+        result.VATAmount.Should().Be(32.61m);
+        result.TotalAmount.Should().Be(250.00m);
         result.ItemCount.Should().Be(2);
     }
 

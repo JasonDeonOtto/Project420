@@ -47,6 +47,33 @@ namespace Project420.Retail.POS.DAL.Repositories
             List<TransactionDetail> details,
             Payment payment);
 
+        /// <summary>
+        /// Create a new POS sale transaction with details and multiple payments (multi-tender)
+        /// </summary>
+        /// <param name="header">Transaction header with customer, totals, etc.</param>
+        /// <param name="details">List of line items (products sold) - unified TransactionDetail</param>
+        /// <param name="payments">List of payments for multi-tender checkout (e.g., Cash + Card)</param>
+        /// <returns>Created transaction header with assigned ID and transaction number</returns>
+        /// <remarks>
+        /// Phase 9.3: Multi-Tender Checkout Support.
+        /// Transactional operation - all entities saved atomically.
+        /// Rollback on any failure to maintain data integrity.
+        ///
+        /// Multi-Tender Example:
+        /// A R500 transaction could be paid with:
+        /// - Cash: R200 (with R50 change from R250 tendered)
+        /// - Card: R300 (exact amount)
+        /// = 2 Payment records created
+        ///
+        /// FIC Act Compliance:
+        /// - If total cash payments > R25,000, FIC reporting triggered
+        /// - Each payment tracked separately for audit
+        /// </remarks>
+        Task<RetailTransactionHeader> CreateSaleAsync(
+            RetailTransactionHeader header,
+            List<TransactionDetail> details,
+            List<Payment> payments);
+
         // ========================================
         // READ OPERATIONS
         // ========================================

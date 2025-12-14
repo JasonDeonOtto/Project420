@@ -150,6 +150,74 @@ namespace Project420.Retail.POS.BLL.Services
         decimal ApplyFixedDiscount(decimal amount, decimal discountAmount);
 
         // ========================================
+        // DISCOUNT WITH VAT RECALCULATION (Phase 9.2)
+        // ========================================
+
+        /// <summary>
+        /// Calculate line item totals after applying a discount, with VAT recalculation.
+        /// This is the SA-compliant way to apply discounts to VAT-inclusive prices.
+        /// </summary>
+        /// <param name="originalTotal">Original line total including VAT (Quantity × UnitPrice)</param>
+        /// <param name="discountAmount">Discount amount to apply</param>
+        /// <returns>Tuple of (newSubtotal, newVAT, newTotal) after discount</returns>
+        /// <remarks>
+        /// SA VAT Compliance:
+        /// When a discount is applied, VAT must be recalculated on the NEW total.
+        ///
+        /// Example: R115.00 item with R11.50 (10%) discount:
+        ///   - New Total = R115.00 - R11.50 = R103.50
+        ///   - New VAT = R103.50 - (R103.50 / 1.15) = R13.50
+        ///   - New Subtotal = R103.50 - R13.50 = R90.00
+        ///
+        /// INCORRECT approach (applying discount to VAT separately):
+        ///   - Old VAT = R15.00, Discount 10% = R1.50 off VAT ❌
+        /// </remarks>
+        (decimal subtotal, decimal vatAmount, decimal total) CalculateLineWithDiscount(decimal originalTotal, decimal discountAmount);
+
+        /// <summary>
+        /// Recalculate VAT on a discounted total (VAT-inclusive amount).
+        /// Use this when the final total has already been discounted.
+        /// </summary>
+        /// <param name="discountedTotal">The total including VAT after discount has been applied</param>
+        /// <returns>VAT amount on the discounted total</returns>
+        /// <remarks>
+        /// Formula: VAT = DiscountedTotal - (DiscountedTotal / 1.15)
+        ///
+        /// Example: R103.50 discounted total
+        ///   - VAT = R103.50 - (R103.50 / 1.15) = R13.50
+        /// </remarks>
+        decimal CalculateVATAfterDiscount(decimal discountedTotal);
+
+        /// <summary>
+        /// Prorate a header-level discount across all line items proportionally.
+        /// This distributes the discount based on each line's share of the total.
+        /// </summary>
+        /// <param name="headerDiscount">Total header discount to distribute</param>
+        /// <param name="lineItems">List of tuples containing (lineId, lineTotal) for each line</param>
+        /// <returns>Dictionary of lineId to prorated discount amount</returns>
+        /// <remarks>
+        /// Formula: LineDiscount = (LineTotal / TotalAmount) × HeaderDiscount
+        ///
+        /// Example: R50 header discount on transaction:
+        ///   - Line 1: R115.00 (57.5%) → R28.75 discount
+        ///   - Line 2: R85.00 (42.5%) → R21.25 discount
+        ///   - Total: R50.00
+        ///
+        /// This ensures the discount is fairly distributed for receipt/VAT purposes.
+        /// Note: The last line may receive a slightly different amount to ensure
+        /// the total prorated discount exactly equals the header discount.
+        /// </remarks>
+        Dictionary<int, decimal> CalculateHeaderDiscountProration(decimal headerDiscount, List<(int lineId, decimal lineTotal)> lineItems);
+
+        /// <summary>
+        /// Calculate the discount amount from a percentage.
+        /// </summary>
+        /// <param name="originalAmount">Original amount to discount</param>
+        /// <param name="discountPercentage">Discount percentage (0-100)</param>
+        /// <returns>The discount amount in Rands</returns>
+        decimal CalculateDiscountAmount(decimal originalAmount, decimal discountPercentage);
+
+        // ========================================
         // ROUNDING AND VARIANCE
         // ========================================
 

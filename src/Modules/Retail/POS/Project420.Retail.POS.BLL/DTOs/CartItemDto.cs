@@ -36,26 +36,70 @@ namespace Project420.Retail.POS.BLL.DTOs
         public string? BatchNumber { get; set; }
 
         /// <summary>
+        /// Serial number for unique item tracking (Cannabis Act requirement)
+        /// </summary>
+        /// <remarks>
+        /// Phase 9.1: Serial numbers enable unit-level traceability.
+        /// Populated when scanning serialized items (pre-rolls, packaged flower, etc.)
+        /// </remarks>
+        public string? SerialNumber { get; set; }
+
+        /// <summary>
+        /// Whether this item was added via serial number scan (unique item)
+        /// </summary>
+        public bool IsSerializedItem { get; set; }
+
+        /// <summary>
         /// Cost price (for profit margin calculation - not shown to customer)
         /// </summary>
         public decimal CostPrice { get; set; }
+
+        // ========================================
+        // DISCOUNT FIELDS (Phase 9.2)
+        // ========================================
+
+        /// <summary>
+        /// Discount amount applied to this line item (in Rands).
+        /// Applied before VAT recalculation for SA compliance.
+        /// </summary>
+        public decimal DiscountAmount { get; set; }
+
+        /// <summary>
+        /// Discount percentage applied (for display purposes).
+        /// If set, DiscountAmount is calculated as: (UnitPriceInclVAT * Quantity) * (DiscountPercentage / 100)
+        /// </summary>
+        public decimal? DiscountPercentage { get; set; }
+
+        /// <summary>
+        /// Reason for discount (e.g., "Staff discount", "Promotion", "Manager override")
+        /// Required for audit trail.
+        /// </summary>
+        public string? DiscountReason { get; set; }
 
         // ========================================
         // CALCULATED FIELDS (populated by service)
         // ========================================
 
         /// <summary>
-        /// Line subtotal (excluding VAT) - calculated
+        /// Original line total before any discount (Quantity * UnitPriceInclVAT)
+        /// </summary>
+        public decimal OriginalLineTotal => Quantity * UnitPriceInclVAT;
+
+        /// <summary>
+        /// Line subtotal (excluding VAT) after discount - calculated
+        /// Formula: (OriginalLineTotal - DiscountAmount) / 1.15
         /// </summary>
         public decimal LineSubtotal { get; set; }
 
         /// <summary>
-        /// Line VAT amount - calculated
+        /// Line VAT amount after discount - calculated
+        /// Formula: (OriginalLineTotal - DiscountAmount) - LineSubtotal
         /// </summary>
         public decimal LineVATAmount { get; set; }
 
         /// <summary>
-        /// Line total (including VAT) - calculated
+        /// Line total (including VAT) after discount - calculated
+        /// Formula: OriginalLineTotal - DiscountAmount
         /// </summary>
         public decimal LineTotal { get; set; }
     }

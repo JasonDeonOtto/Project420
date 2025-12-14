@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Project420.Shared.Core.Abstractions;
@@ -32,6 +33,12 @@ public class MovementService : IMovementService
     private readonly IBusinessDbContext _context;
     private readonly ILogger<MovementService> _logger;
 
+    // Configuration constants for retry logic (Phase 9.9)
+    private const int MaxRetryAttempts = 3;
+    private const int BaseRetryDelayMs = 100;
+    private const int PerformanceWarningThresholdMs = 500;
+    private const int LargeBatchThreshold = 50;
+
     /// <summary>
     /// Initializes a new instance of the MovementService.
     /// </summary>
@@ -49,8 +56,17 @@ public class MovementService : IMovementService
     // ============================================================
 
     /// <inheritdoc />
+    /// <remarks>
+    /// Phase 9.9: Optimized with performance profiling and retry logic.
+    /// - Uses Stopwatch to measure execution time
+    /// - Logs performance warnings for slow operations (>500ms)
+    /// - Implements exponential backoff retry on transient failures
+    /// - Uses AddRangeAsync for efficient batch insert
+    /// </remarks>
     public async Task<int> GenerateMovementsAsync(TransactionType transactionType, int headerId)
     {
+        var stopwatch = Stopwatch.StartNew();
+
         _logger.LogInformation(
             "Generating movements for {TransactionType} transaction {HeaderId}",
             transactionType, headerId);
@@ -64,61 +80,215 @@ public class MovementService : IMovementService
             return 0;
         }
 
-        // Get transaction details for this header
-        var details = await _context.TransactionDetails
-            .Where(d => d.HeaderId == headerId && d.TransactionType == transactionType && !d.IsDeleted)
-            .ToListAsync();
+        try
+        {
+            // Get transaction details for this header
+            var detailQueryStart = stopwatch.ElapsedMilliseconds;
+            var details = await _context.TransactionDetails
+                .Where(d => d.HeaderId == headerId && d.TransactionType == transactionType && !d.IsDeleted)
+                .ToListAsync();
+            var detailQueryTime = stopwatch.ElapsedMilliseconds - detailQueryStart;
 
-        if (!details.Any())
+            if (!details.Any())
+            {
+                _logger.LogWarning(
+                    "No transaction details found for {TransactionType} transaction {HeaderId}",
+                    transactionType, headerId);
+                return 0;
+            }
+
+            // Log if we have a large batch
+            if (details.Count >= LargeBatchThreshold)
+            {
+                _logger.LogInformation(
+                    "Large batch detected: {Count} items for {TransactionType} transaction {HeaderId}",
+                    details.Count, transactionType, headerId);
+            }
+
+            // Get movement direction and type name
+            var direction = GetMovementDirection(transactionType);
+            var movementTypeName = GetMovementTypeName(transactionType);
+
+            // Create movements for each detail (pre-allocate list capacity)
+            var movements = new List<Movement>(details.Count);
+            var transactionDate = DateTime.UtcNow;
+
+            foreach (var detail in details)
+            {
+                var movement = new Movement
+                {
+                    ProductId = detail.ProductId,
+                    ProductSKU = detail.ProductSKU,
+                    ProductName = detail.ProductName,
+                    MovementType = movementTypeName,
+                    Direction = direction,
+                    Quantity = detail.Quantity,
+                    Mass = detail.WeightGrams ?? 0,
+                    Value = detail.LineTotal,
+                    BatchNumber = detail.BatchNumber,
+                    SerialNumber = detail.SerialNumber,
+                    TransactionType = transactionType,
+                    HeaderId = headerId,
+                    DetailId = detail.Id,
+                    MovementReason = $"{movementTypeName} transaction #{headerId}",
+                    TransactionDate = transactionDate,
+                    UserId = detail.CreatedBy // Inherit user from transaction detail
+                };
+
+                movements.Add(movement);
+            }
+
+            // Save all movements with retry logic
+            var saveResult = await SaveMovementsWithRetryAsync(movements, transactionType, headerId);
+
+            stopwatch.Stop();
+
+            // Log performance metrics
+            LogPerformanceMetrics(stopwatch.ElapsedMilliseconds, detailQueryTime, movements.Count, transactionType, headerId);
+
+            _logger.LogInformation(
+                "Generated {Count} {Direction} movements for {TransactionType} transaction {HeaderId} in {ElapsedMs}ms",
+                movements.Count, direction, transactionType, headerId, stopwatch.ElapsedMilliseconds);
+
+            return saveResult;
+        }
+        catch (Exception ex)
+        {
+            stopwatch.Stop();
+            _logger.LogError(ex,
+                "Failed to generate movements for {TransactionType} transaction {HeaderId} after {ElapsedMs}ms",
+                transactionType, headerId, stopwatch.ElapsedMilliseconds);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Save movements with exponential backoff retry logic (Phase 9.9).
+    /// </summary>
+    private async Task<int> SaveMovementsWithRetryAsync(List<Movement> movements, TransactionType transactionType, int headerId)
+    {
+        Exception? lastException = null;
+
+        for (int attempt = 1; attempt <= MaxRetryAttempts; attempt++)
+        {
+            try
+            {
+                // Use AddRange for efficient batch insert
+                _context.Movements.AddRange(movements);
+                await _context.SaveChangesAsync();
+
+                if (attempt > 1)
+                {
+                    _logger.LogInformation(
+                        "Movement save succeeded on attempt {Attempt} for {TransactionType} transaction {HeaderId}",
+                        attempt, transactionType, headerId);
+                }
+
+                return movements.Count;
+            }
+            catch (DbUpdateException ex) when (IsTransientException(ex) && attempt < MaxRetryAttempts)
+            {
+                lastException = ex;
+                var delayMs = BaseRetryDelayMs * (int)Math.Pow(2, attempt - 1); // Exponential backoff
+
+                _logger.LogWarning(ex,
+                    "Transient error on movement save attempt {Attempt}/{MaxAttempts} for {TransactionType} transaction {HeaderId}. Retrying in {DelayMs}ms",
+                    attempt, MaxRetryAttempts, transactionType, headerId, delayMs);
+
+                // Detach the entities so they can be re-added on retry
+                foreach (var movement in movements)
+                {
+                    var entry = _context.Movements.Entry(movement);
+                    if (entry != null)
+                    {
+                        entry.State = EntityState.Detached;
+                    }
+                }
+
+                await Task.Delay(delayMs);
+            }
+            catch (Exception ex)
+            {
+                // Non-transient exception, don't retry
+                _logger.LogError(ex,
+                    "Non-transient error saving movements for {TransactionType} transaction {HeaderId}",
+                    transactionType, headerId);
+                throw;
+            }
+        }
+
+        // All retries exhausted
+        _logger.LogError(lastException,
+            "All {MaxAttempts} retry attempts exhausted for {TransactionType} transaction {HeaderId}",
+            MaxRetryAttempts, transactionType, headerId);
+        throw lastException!;
+    }
+
+    /// <summary>
+    /// Check if an exception is transient and worth retrying.
+    /// Supports PostgreSQL (Npgsql) and common database errors.
+    /// </summary>
+    private static bool IsTransientException(Exception ex)
+    {
+        // Check the exception type name (to avoid direct assembly reference)
+        var exceptionTypeName = ex.InnerException?.GetType().FullName ?? string.Empty;
+
+        // Check for Npgsql (PostgreSQL) transient errors
+        if (exceptionTypeName.Contains("Npgsql") || exceptionTypeName.Contains("Postgres"))
+        {
+            var message = ex.InnerException?.Message?.ToLowerInvariant() ?? string.Empty;
+            return message.Contains("connection") ||
+                   message.Contains("timeout") ||
+                   message.Contains("deadlock") ||
+                   message.Contains("serialization failure") ||
+                   message.Contains("could not connect") ||
+                   message.Contains("broken pipe") ||
+                   message.Contains("40001"); // PostgreSQL serialization failure code
+        }
+
+        // Check for generic SQL Server errors (by type name, no assembly reference)
+        if (exceptionTypeName.Contains("SqlException"))
+        {
+            var message = ex.InnerException?.Message?.ToLowerInvariant() ?? string.Empty;
+            return message.Contains("timeout") ||
+                   message.Contains("deadlock") ||
+                   message.Contains("connection") ||
+                   message.Contains("transport-level error");
+        }
+
+        // Check the main exception message for common transient patterns
+        var mainMessage = ex.Message?.ToLowerInvariant() ?? string.Empty;
+        return mainMessage.Contains("timeout") ||
+               mainMessage.Contains("deadlock") ||
+               mainMessage.Contains("connection") ||
+               mainMessage.Contains("network") ||
+               mainMessage.Contains("transient");
+    }
+
+    /// <summary>
+    /// Log performance metrics and warnings (Phase 9.9).
+    /// </summary>
+    private void LogPerformanceMetrics(long totalMs, long queryMs, int movementCount, TransactionType transactionType, int headerId)
+    {
+        var saveMs = totalMs - queryMs;
+        var avgPerMovement = movementCount > 0 ? (double)totalMs / movementCount : 0;
+
+        // Log performance warning if slow
+        if (totalMs >= PerformanceWarningThresholdMs)
         {
             _logger.LogWarning(
-                "No transaction details found for {TransactionType} transaction {HeaderId}",
-                transactionType, headerId);
-            return 0;
+                "PERFORMANCE: Movement generation took {TotalMs}ms for {Count} movements " +
+                "(query: {QueryMs}ms, save: {SaveMs}ms, avg: {AvgMs:F2}ms/movement) " +
+                "for {TransactionType} transaction {HeaderId}",
+                totalMs, movementCount, queryMs, saveMs, avgPerMovement, transactionType, headerId);
         }
-
-        // Get movement direction and type name
-        var direction = GetMovementDirection(transactionType);
-        var movementTypeName = GetMovementTypeName(transactionType);
-
-        // Create movements for each detail
-        var movements = new List<Movement>();
-        var transactionDate = DateTime.UtcNow;
-
-        foreach (var detail in details)
+        else
         {
-            var movement = new Movement
-            {
-                ProductId = detail.ProductId,
-                ProductSKU = detail.ProductSKU,
-                ProductName = detail.ProductName,
-                MovementType = movementTypeName,
-                Direction = direction,
-                Quantity = detail.Quantity,
-                Mass = detail.WeightGrams ?? 0,
-                Value = detail.LineTotal,
-                BatchNumber = detail.BatchNumber,
-                SerialNumber = detail.SerialNumber,
-                TransactionType = transactionType,
-                HeaderId = headerId,
-                DetailId = detail.Id,
-                MovementReason = $"{movementTypeName} transaction #{headerId}",
-                TransactionDate = transactionDate,
-                UserId = detail.CreatedBy // Inherit user from transaction detail
-            };
-
-            movements.Add(movement);
+            _logger.LogDebug(
+                "Performance: Movement generation took {TotalMs}ms for {Count} movements " +
+                "(query: {QueryMs}ms, save: {SaveMs}ms, avg: {AvgMs:F2}ms/movement)",
+                totalMs, movementCount, queryMs, saveMs, avgPerMovement);
         }
-
-        // Save all movements
-        _context.Movements.AddRange(movements);
-        await _context.SaveChangesAsync();
-
-        _logger.LogInformation(
-            "Generated {Count} {Direction} movements for {TransactionType} transaction {HeaderId}",
-            movements.Count, direction, transactionType, headerId);
-
-        return movements.Count;
     }
 
     /// <inheritdoc />

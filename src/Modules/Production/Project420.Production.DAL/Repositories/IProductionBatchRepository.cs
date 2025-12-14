@@ -54,12 +54,49 @@ public interface IProductionBatchRepository : IRepository<ProductionBatch>
     /// <summary>
     /// Gets batches filtered by strain name.
     /// </summary>
-    Task<IEnumerable<ProductionBatch>> GetByStrainAsync(string strainName);
+    Task<IEnumerable<ProductionBatch?>> GetByStrainAsync(string strainName);
 
     /// <summary>
     /// Checks if a batch number is unique.
     /// </summary>
     Task<bool> IsBatchNumberUniqueAsync(string batchNumber, int? excludeId = null);
 
+    // ============================================================
+    // PHASE 10: Additional Business Queries
+    // ============================================================
 
+    /// <summary>
+    /// Gets a production batch with all related data (ProcessingSteps, QC, LabTests).
+    /// </summary>
+    Task<ProductionBatch?> GetByIdWithAllRelatedDataAsync(int id);
+
+    /// <summary>
+    /// Gets production batches by date range.
+    /// </summary>
+    Task<IEnumerable<ProductionBatch>> GetByDateRangeAsync(DateTime startDate, DateTime endDate);
+
+    /// <summary>
+    /// Gets active production batches (currently in process).
+    /// </summary>
+    Task<IEnumerable<ProductionBatch>> GetActiveBatchesAsync();
+
+    /// <summary>
+    /// Gets batches needing QC (not yet QC tested).
+    /// </summary>
+    Task<IEnumerable<ProductionBatch>> GetBatchesNeedingQCAsync();
+
+    /// <summary>
+    /// Gets batches needing lab testing (QC passed but no lab test).
+    /// </summary>
+    Task<IEnumerable<ProductionBatch>> GetBatchesNeedingLabTestAsync();
+
+    /// <summary>
+    /// Gets completed batches in date range (for reporting).
+    /// </summary>
+    Task<IEnumerable<ProductionBatch>> GetCompletedBatchesAsync(DateTime startDate, DateTime endDate);
+
+    /// <summary>
+    /// Gets batches by product type (pre-roll, flower, etc.).
+    /// </summary>
+    Task<IEnumerable<ProductionBatch>> GetByProductTypeAsync(string productType);
 }

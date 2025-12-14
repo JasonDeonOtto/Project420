@@ -299,7 +299,5 @@ namespace Project420.Production.Models.Entities
         /// Collection of lab tests performed
         /// </summary>
         public virtual ICollection<LabTest> LabTests { get; set; } = new List<LabTest>();
-
-        public virtual ICollection<ProductionBatchStatus> BatchStatus { get; set; } = new List<ProductionBatchStatus>();
     }
 }

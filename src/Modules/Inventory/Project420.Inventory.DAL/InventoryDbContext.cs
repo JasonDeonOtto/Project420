@@ -32,6 +32,7 @@ public class InventoryDbContext : DbContext
     public DbSet<StockTransfer> StockTransfers { get; set; } = null!;
     public DbSet<StockAdjustment> StockAdjustments { get; set; } = null!;
     public DbSet<StockCount> StockCounts { get; set; } = null!;
+    public DbSet<GrvHeader> GrvHeaders { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -80,6 +81,17 @@ public class InventoryDbContext : DbContext
             entity.HasIndex(sc => sc.CountType);
             entity.HasIndex(sc => sc.VarianceInvestigated);
             entity.HasQueryFilter(sc => !sc.IsDeleted);
+        });
+
+        // GrvHeader
+        modelBuilder.Entity<GrvHeader>(entity =>
+        {
+            entity.HasIndex(g => g.GrvNumber).IsUnique();
+            entity.HasIndex(g => g.SupplierId);
+            entity.HasIndex(g => g.ReceivedDate);
+            entity.HasIndex(g => g.Status);
+            entity.HasIndex(g => g.PurchaseOrderId);
+            entity.HasQueryFilter(g => !g.IsDeleted);
         });
     }
 

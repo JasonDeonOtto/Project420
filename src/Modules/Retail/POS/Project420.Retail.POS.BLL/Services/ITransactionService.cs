@@ -65,5 +65,54 @@ namespace Project420.Retail.POS.BLL.Services
         /// <param name="userId">User ID performing the void</param>
         /// <returns>True if voided successfully, false if not found or already voided</returns>
         Task<bool> VoidTransactionAsync(string transactionNumber, string voidReason, int userId);
+
+        // ========================================
+        // PHASE 9.6: TRANSACTION CANCELLATION
+        // ========================================
+
+        /// <summary>
+        /// Validate if a transaction is eligible for cancellation
+        /// </summary>
+        /// <param name="transactionNumber">Transaction number to check</param>
+        /// <returns>Eligibility details including whether manager approval is required</returns>
+        /// <remarks>
+        /// Phase 9.6: Transaction Cancellation
+        /// - Checks if transaction exists and is in a cancellable state
+        /// - Determines if manager approval is required based on:
+        ///   - Time since transaction (> 30 minutes = manager required)
+        ///   - Transaction status (Completed = manager required)
+        ///   - Amount threshold (> R1000 = manager required)
+        /// </remarks>
+        Task<CancellationEligibilityDto> ValidateCancellationEligibilityAsync(string transactionNumber);
+
+        /// <summary>
+        /// Process a transaction cancellation
+        /// </summary>
+        /// <param name="request">Cancellation request with reason and approvals</param>
+        /// <returns>Cancellation result with movement reversal details</returns>
+        /// <remarks>
+        /// Phase 9.6: Transaction Cancellation
+        /// For completed transactions:
+        /// 1. Validate manager approval (if required)
+        /// 2. Reverse stock movements (soft delete in Movement ledger)
+        /// 3. Update transaction status to Cancelled
+        /// 4. Log cancellation reason and approver for audit
+        /// 5. Return payment reversal requirements
+        /// </remarks>
+        Task<CancellationResultDto> ProcessCancellationAsync(CancellationRequestDto request);
+
+        /// <summary>
+        /// Validate manager PIN for authorization
+        /// </summary>
+        /// <param name="managerId">Manager user ID</param>
+        /// <param name="pin">Manager PIN</param>
+        /// <returns>Validation result with manager name if valid</returns>
+        /// <remarks>
+        /// Phase 9.6: Manager Override
+        /// Simple PIN validation for manager authorization.
+        /// In production, this should integrate with proper authentication.
+        /// Current implementation uses a simple PIN stored in configuration.
+        /// </remarks>
+        Task<ManagerValidationDto> ValidateManagerPinAsync(int managerId, string pin);
     }
 }

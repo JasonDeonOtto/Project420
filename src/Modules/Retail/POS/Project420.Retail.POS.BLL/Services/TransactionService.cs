@@ -381,6 +381,271 @@ namespace Project420.Retail.POS.BLL.Services
         // PRIVATE HELPER METHODS
         // ========================================
 
+        // ========================================
+        // PHASE 9.6: TRANSACTION CANCELLATION
+        // ========================================
+
+        /// <inheritdoc/>
+        public async Task<CancellationEligibilityDto> ValidateCancellationEligibilityAsync(string transactionNumber)
+        {
+            var result = new CancellationEligibilityDto
+            {
+                TransactionNumber = transactionNumber
+            };
+
+            // Get the transaction
+            var transaction = await _transactionRepository.GetByTransactionNumberAsync(transactionNumber);
+            if (transaction == null)
+            {
+                result.IsEligible = false;
+                result.IneligibilityReasons.Add($"Transaction '{transactionNumber}' not found");
+                return result;
+            }
+
+            // Populate transaction details
+            result.Status = transaction.Status;
+            result.TransactionDate = transaction.TransactionDate;
+            result.TotalAmount = transaction.TotalAmount;
+            result.MinutesSinceTransaction = (int)(DateTime.UtcNow - transaction.TransactionDate).TotalMinutes;
+            result.ItemCount = transaction.TransactionDetails.Count;
+            result.PaymentMethod = transaction.Payments.FirstOrDefault()?.PaymentMethod.ToString() ?? "Unknown";
+
+            // Map items
+            result.Items = transaction.TransactionDetails.Select(d => new CancellationItemDto
+            {
+                ProductId = d.ProductId,
+                ProductSku = d.ProductSKU,
+                ProductName = d.ProductName,
+                Quantity = (int)d.Quantity,
+                UnitPrice = d.UnitPrice,
+                LineTotal = d.LineTotal,
+                BatchNumber = d.BatchNumber,
+                SerialNumber = d.SerialNumber
+            }).ToList();
+
+            // Check eligibility based on status
+            if (transaction.Status == TransactionStatus.Cancelled)
+            {
+                result.IsEligible = false;
+                result.IneligibilityReasons.Add("Transaction is already cancelled");
+                return result;
+            }
+
+            if (transaction.Status == TransactionStatus.Refunded)
+            {
+                result.IsEligible = false;
+                result.IneligibilityReasons.Add("Transaction has been refunded - cannot cancel a refunded transaction");
+                return result;
+            }
+
+            // Check if transaction is too old (>24 hours = cannot cancel, must refund)
+            if (result.MinutesSinceTransaction > 1440) // 24 hours
+            {
+                result.IsEligible = false;
+                result.IneligibilityReasons.Add("Transaction is older than 24 hours - please use the refund process instead");
+                return result;
+            }
+
+            // Transaction is eligible
+            result.IsEligible = true;
+
+            // Determine if manager approval is required
+            // Manager approval required for:
+            // 1. Completed transactions (payment already taken)
+            // 2. Transactions > 30 minutes old
+            // 3. Transactions > R1000 total
+            if (transaction.Status == TransactionStatus.Completed)
+            {
+                result.RequiresManagerApproval = true;
+                result.ManagerApprovalReason = "Manager approval required for completed transactions";
+            }
+            else if (result.MinutesSinceTransaction > 30)
+            {
+                result.RequiresManagerApproval = true;
+                result.ManagerApprovalReason = "Manager approval required for transactions over 30 minutes old";
+            }
+            else if (transaction.TotalAmount > 1000)
+            {
+                result.RequiresManagerApproval = true;
+                result.ManagerApprovalReason = "Manager approval required for transactions over R1,000";
+            }
+
+            // Add warnings
+            if (result.MinutesSinceTransaction > 60 && result.MinutesSinceTransaction <= 1440)
+            {
+                result.Warnings.Add($"Transaction is {result.MinutesSinceTransaction / 60} hours old - consider using refund process instead");
+            }
+
+            if (transaction.Status == TransactionStatus.Completed)
+            {
+                result.Warnings.Add("Cancelling a completed transaction will reverse stock movements and require payment reversal");
+            }
+
+            return result;
+        }
+
+        /// <inheritdoc/>
+        public async Task<CancellationResultDto> ProcessCancellationAsync(CancellationRequestDto request)
+        {
+            var result = new CancellationResultDto
+            {
+                TransactionNumber = request.TransactionNumber
+            };
+
+            // Handle pre-payment cancellation (cart clear - no database changes needed)
+            if (request.IsPrePaymentCancellation)
+            {
+                result.Success = true;
+                result.CancellationDate = DateTime.UtcNow;
+                result.Reason = request.Reason;
+                result.ProcessedByUserId = request.ProcessedByUserId;
+                result.MovementsReversed = 0;
+                result.RequiresPaymentReversal = false;
+                return result;
+            }
+
+            // For completed transactions, validate and process
+            var eligibility = await ValidateCancellationEligibilityAsync(request.TransactionNumber);
+            if (!eligibility.IsEligible)
+            {
+                result.Success = false;
+                result.ErrorMessages.AddRange(eligibility.IneligibilityReasons);
+                return result;
+            }
+
+            // Validate manager approval if required
+            if (eligibility.RequiresManagerApproval)
+            {
+                if (request.ManagerApprovalUserId == null || string.IsNullOrEmpty(request.ManagerPin))
+                {
+                    result.Success = false;
+                    result.ErrorMessages.Add("Manager approval is required for this cancellation");
+                    return result;
+                }
+
+                var managerValidation = await ValidateManagerPinAsync(request.ManagerApprovalUserId.Value, request.ManagerPin);
+                if (!managerValidation.IsValid)
+                {
+                    result.Success = false;
+                    result.ErrorMessages.Add(managerValidation.ErrorMessage ?? "Invalid manager credentials");
+                    return result;
+                }
+            }
+
+            try
+            {
+                // Get transaction for status check
+                var transaction = await _transactionRepository.GetByTransactionNumberAsync(request.TransactionNumber);
+                if (transaction == null)
+                {
+                    result.Success = false;
+                    result.ErrorMessages.Add("Transaction not found");
+                    return result;
+                }
+
+                // Build cancellation reason for audit
+                var cancellationReason = $"Reason: {request.Reason}";
+                if (!string.IsNullOrEmpty(request.Notes))
+                {
+                    cancellationReason += $" | Notes: {request.Notes}";
+                }
+                if (request.ManagerApprovalUserId.HasValue)
+                {
+                    cancellationReason += $" | Manager Approved: User ID {request.ManagerApprovalUserId}";
+                }
+                cancellationReason += $" | Cancelled by: User ID {request.ProcessedByUserId}";
+
+                // Reverse movements (Phase 7B - soft delete movements)
+                var movementsReversed = await _movementService.ReverseMovementsAsync(
+                    transaction.TransactionType,
+                    transaction.Id,
+                    cancellationReason);
+
+                // Void the transaction
+                var voided = await _transactionRepository.VoidTransactionAsync(
+                    transaction.Id,
+                    cancellationReason,
+                    request.ProcessedByUserId);
+
+                if (!voided)
+                {
+                    result.Success = false;
+                    result.ErrorMessages.Add("Failed to void transaction");
+                    return result;
+                }
+
+                // Build success result
+                result.Success = true;
+                result.CancellationDate = DateTime.UtcNow;
+                result.MovementsReversed = movementsReversed;
+                result.Reason = request.Reason;
+                result.ProcessedByUserId = request.ProcessedByUserId;
+                result.ManagerApprovalUserId = request.ManagerApprovalUserId;
+
+                // Payment reversal info
+                if (eligibility.Status == TransactionStatus.Completed)
+                {
+                    result.RequiresPaymentReversal = true;
+                    result.RefundAmount = eligibility.TotalAmount;
+                    result.OriginalPaymentMethod = eligibility.PaymentMethod;
+                }
+            }
+            catch (Exception ex)
+            {
+                result.Success = false;
+                result.ErrorMessages.Add($"Cancellation failed: {ex.Message}");
+            }
+
+            return result;
+        }
+
+        /// <inheritdoc/>
+        public async Task<ManagerValidationDto> ValidateManagerPinAsync(int managerId, string pin)
+        {
+            // Simple PIN validation for PoC
+            // In production, this should validate against user management system
+            // For now, accept any 4+ digit PIN for manager IDs > 0
+
+            if (managerId <= 0)
+            {
+                return new ManagerValidationDto
+                {
+                    IsValid = false,
+                    ErrorMessage = "Invalid manager ID"
+                };
+            }
+
+            if (string.IsNullOrEmpty(pin) || pin.Length < 4)
+            {
+                return new ManagerValidationDto
+                {
+                    IsValid = false,
+                    ErrorMessage = "PIN must be at least 4 digits"
+                };
+            }
+
+            // For PoC: Accept PIN "1234" for any valid manager ID
+            // or any numeric PIN >= 4 digits
+            if (pin == "1234" || (pin.All(char.IsDigit) && pin.Length >= 4))
+            {
+                return new ManagerValidationDto
+                {
+                    IsValid = true,
+                    ManagerName = $"Manager #{managerId}" // Would lookup from user service in production
+                };
+            }
+
+            return new ManagerValidationDto
+            {
+                IsValid = false,
+                ErrorMessage = "Invalid PIN"
+            };
+        }
+
+        // ========================================
+        // PRIVATE HELPER METHODS
+        // ========================================
+
         /// <summary>
         /// Validate checkout request before processing
         /// </summary>

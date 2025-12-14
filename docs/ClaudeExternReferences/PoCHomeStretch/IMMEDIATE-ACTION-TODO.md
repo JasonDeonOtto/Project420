@@ -766,10 +766,37 @@ public class PaymentTenderDto
 - Denomination counting
 - Variance tracking
 
-### Phase 9.6: Transaction Cancellation 📋 PENDING
-- [ ] VoidTransactionAsync already exists
-- [ ] UI for cancellation workflow
-- [ ] Manager override
+### Phase 9.6: Transaction Cancellation ✅ COMPLETE (2025-12-14)
+**Files Created**:
+| File | Purpose |
+|------|---------|
+| `TransactionCancellation.razor` | Full cancellation UI with pre/post payment workflows |
+
+**Files Modified**:
+| File | Change |
+|------|--------|
+| `TransactionService.cs` | Added ValidateCancellationEligibilityAsync, ProcessCancellationAsync, ValidateManagerPinAsync |
+
+**Implementation Details**:
+- [x] Pre-payment cancellation (cart clear) - no DB changes
+- [x] Post-payment cancellation (void) - movement reversal
+- [x] Manager override requirement for completed transactions
+- [x] Cancellation eligibility validation (status, age, amount thresholds)
+- [x] 11 cancellation reasons (CancellationReason enum)
+- [x] Manager PIN validation (PoC: 4+ digit numeric or "1234")
+- [x] Audit trail with reason, notes, user, manager
+- [x] Payment reversal notification for completed transactions
+
+**Business Rules**:
+- Completed transactions require manager approval
+- Transactions > 30 minutes old require manager approval
+- Transactions > R1,000 require manager approval
+- Transactions > 24 hours cannot be cancelled (use refund instead)
+- Already cancelled/refunded transactions cannot be re-cancelled
+
+**Routes**:
+- `/pos/cancel` - Selection screen
+- `/pos/cancel/{transactionNumber}` - Direct lookup
 
 ### Phase 9.7: Age Verification Enhancement 📋 PENDING
 - [ ] SA ID card scanning (13-digit)
@@ -788,10 +815,10 @@ public class PaymentTenderDto
 ---
 
 **Document Status**: 🟢 PHASE 9 IN PROGRESS - Retail POS Completion
-**Last Updated**: 2025-12-14 (Session 6 - Phase 9.3 Complete)
-**Completed**: Phase 7 (A/B/C) + Phase 8 + Phase 9.1 (Barcode) + Phase 9.2 (Discounts) + Phase 9.3 (Multi-Tender)
-**Current Phase**: Phase 9 - Retail POS Completion (9.1 ✅ 9.2 ✅ 9.3 ✅ 9.4 ✅ 9.5 ✅ → Next: 9.6)
+**Last Updated**: 2025-12-14 (Session 7 - Phase 9.6 Complete)
+**Completed**: Phase 7 (A/B/C) + Phase 8 + Phase 9.1 (Barcode) + Phase 9.2 (Discounts) + Phase 9.3 (Multi-Tender) + Phase 9.6 (Transaction Cancellation)
+**Current Phase**: Phase 9 - Retail POS Completion (9.1 ✅ 9.2 ✅ 9.3 ✅ 9.4 ✅ 9.5 ✅ 9.6 ✅ → Next: 9.7)
 **Build Status**: ✅ 0 Errors
 **Test Status**: ✅ 96 POS Tests Passing
 
-*Phase 9.3 COMPLETE! Phases 9.4 (Refund) and 9.5 (Cash Drawer) already implemented. Next: Phase 9.6 (Transaction Cancellation)* 🚀
+*Phase 9.6 COMPLETE! Transaction Cancellation with manager override, pre/post payment workflows. Next: Phase 9.7 (Age Verification Enhancement)* 🚀

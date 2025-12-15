@@ -1,3 +1,5 @@
+using Project420.Shared.Core.Enums;
+
 namespace Project420.Retail.POS.BLL.DTOs
 {
     /// <summary>
@@ -39,6 +41,44 @@ namespace Project420.Retail.POS.BLL.DTOs
         /// Cost price (for profit margin calculation - not shown to customer)
         /// </summary>
         public decimal CostPrice { get; set; }
+
+        // ========================================
+        // BARCODE/SERIAL NUMBER TRACKING (Phase 8.4)
+        // ========================================
+
+        /// <summary>
+        /// Serial number for unique item tracking (SAHPRA compliance)
+        /// </summary>
+        /// <remarks>
+        /// Populated when scanning a unique serial number barcode.
+        /// Enables individual unit traceability for recalls and compliance.
+        /// </remarks>
+        public string? SerialNumber { get; set; }
+
+        /// <summary>
+        /// Raw barcode value that was scanned
+        /// </summary>
+        public string? BarcodeValue { get; set; }
+
+        /// <summary>
+        /// Type of barcode scanned (EAN13, Serial, QR, etc.)
+        /// </summary>
+        public BarcodeType? BarcodeType { get; set; }
+
+        /// <summary>
+        /// Indicates if this is a unique serialized item vs standard product
+        /// </summary>
+        public bool IsUniqueItem { get; set; }
+
+        /// <summary>
+        /// ProductBarcode ID for duplicate prevention (unique items only)
+        /// </summary>
+        public int? ProductBarcodeId { get; set; }
+
+        /// <summary>
+        /// Weight in grams (for cannabis products - SAHPRA compliance)
+        /// </summary>
+        public decimal? WeightGrams { get; set; }
 
         // ========================================
         // CALCULATED FIELDS (populated by service)

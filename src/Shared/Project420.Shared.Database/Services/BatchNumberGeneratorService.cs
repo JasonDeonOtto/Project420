@@ -8,14 +8,18 @@ using Project420.Shared.Core.Enums;
 namespace Project420.Shared.Database.Services;
 
 /// <summary>
-/// Service for generating unique batch numbers following the 16-digit format: SSTTYYYYMMDDNNNN
+/// Service for generating unique batch numbers following the 12-digit week-based format: SSTTYYYWWNNNN
 /// </summary>
 /// <remarks>
-/// Batch Number Format (16 digits): SSTTYYYYMMDDNNNN
+/// Batch Number Format (12 digits): SSTTYYYWWNNNN
 /// - SS: Site ID (01-99)
-/// - TT: Batch Type code (10=Production, 20=Transfer, etc.)
-/// - YYYYMMDD: Batch date
-/// - NNNN: Daily sequence per site/type (0001-9999)
+/// - TT: Batch Type code (10=Production, 20=GRV, 30=Transfer, etc.)
+/// - YY: Year (2-digit, e.g., 25 for 2025)
+/// - WW: ISO week number (01-53)
+/// - NNNN: Weekly sequence per site/type (0001-9999)
+///
+/// Visual Identification Example:
+/// 011025510001 = Site 01, Production (10), 2025, Week 51, Batch #1
 ///
 /// Thread Safety:
 /// - Uses database-level locking via transactions
@@ -24,7 +28,8 @@ namespace Project420.Shared.Database.Services;
 /// Cannabis Compliance:
 /// - SAHPRA seed-to-sale traceability
 /// - Unique batch identification for audit trail
-/// - Date component enables FIFO/FEFO inventory management
+/// - Week component enables FIFO/FEFO inventory management
+/// - Serial numbers embed batch reference (YYWWNNNN) for full traceability
 ///
 /// Architecture:
 /// - Uses IBusinessDbContext interface to access business data tables
@@ -62,23 +67,28 @@ public class BatchNumberGeneratorService : IBatchNumberGeneratorService
         }
 
         var date = batchDate?.Date ?? DateTime.Today;
+        var year = ISOWeek.GetYear(date);
+        var week = ISOWeek.GetWeekOfYear(date);
         var user = requestedBy ?? _defaultUser;
 
+        // Create a "week date" for storage (first day of the ISO week)
+        var weekDate = ISOWeek.ToDateTime(year, week, DayOfWeek.Monday);
+
         _logger.LogDebug(
-            "Generating batch number for Site {SiteId}, Type {BatchType}, Date {Date}",
-            siteId, batchType, date);
+            "Generating batch number for Site {SiteId}, Type {BatchType}, Year {Year}, Week {Week}",
+            siteId, batchType, year, week);
 
         // Use a transaction for atomic increment
         await using var transaction = await _context.Database.BeginTransactionAsync();
 
         try
         {
-            // Find or create sequence record for this site/type/date
+            // Find or create sequence record for this site/type/week
             var sequence = await _context.BatchNumberSequences
                 .FirstOrDefaultAsync(s =>
                     s.SiteId == siteId &&
                     s.BatchType == batchType &&
-                    s.BatchDate == date &&
+                    s.BatchDate == weekDate &&
                     !s.IsDeleted);
 
             if (sequence == null)
@@ -88,7 +98,7 @@ public class BatchNumberGeneratorService : IBatchNumberGeneratorService
                 {
                     SiteId = siteId,
                     BatchType = batchType,
-                    BatchDate = date,
+                    BatchDate = weekDate, // Store the week start date
                     CurrentSequence = 0,
                     MaxSequence = 9999,
                     CreatedAt = DateTime.UtcNow,
@@ -102,8 +112,8 @@ public class BatchNumberGeneratorService : IBatchNumberGeneratorService
             {
                 throw new InvalidOperationException(
                     $"Maximum batch sequence ({sequence.MaxSequence}) reached for " +
-                    $"Site {siteId}, Type {batchType}, Date {date:yyyy-MM-dd}. " +
-                    "Cannot generate more batch numbers for this combination today.");
+                    $"Site {siteId}, Type {batchType}, Year {year}, Week {week}. " +
+                    "Cannot generate more batch numbers for this combination this week.");
             }
 
             // Increment sequence
@@ -116,12 +126,12 @@ public class BatchNumberGeneratorService : IBatchNumberGeneratorService
             await _context.SaveChangesAsync();
             await transaction.CommitAsync();
 
-            // Format batch number: SSTTYYYYMMDDNNNN
-            var batchNumber = FormatBatchNumber(siteId, batchType, date, sequence.CurrentSequence);
+            // Format batch number: SSTTYYYWWNNNN (12 digits)
+            var batchNumber = FormatBatchNumber(siteId, batchType, year, week, sequence.CurrentSequence);
 
             _logger.LogInformation(
-                "Generated batch number {BatchNumber} for Site {SiteId}, Type {BatchType}",
-                batchNumber, siteId, batchType);
+                "Generated batch number {BatchNumber} for Site {SiteId}, Type {BatchType}, Week {Year}-W{Week}",
+                batchNumber, siteId, batchType, year, week);
 
             return batchNumber;
         }
@@ -129,8 +139,8 @@ public class BatchNumberGeneratorService : IBatchNumberGeneratorService
         {
             await transaction.RollbackAsync();
             _logger.LogError(ex,
-                "Failed to generate batch number for Site {SiteId}, Type {BatchType}, Date {Date}",
-                siteId, batchType, date);
+                "Failed to generate batch number for Site {SiteId}, Type {BatchType}, Year {Year}, Week {Week}",
+                siteId, batchType, year, week);
             throw;
         }
     }
@@ -141,8 +151,8 @@ public class BatchNumberGeneratorService : IBatchNumberGeneratorService
         if (string.IsNullOrWhiteSpace(batchNumber))
             return false;
 
-        // Must be exactly 16 digits
-        if (batchNumber.Length != 16)
+        // Must be exactly 12 digits
+        if (batchNumber.Length != 12)
             return false;
 
         // Must be all numeric
@@ -162,13 +172,16 @@ public class BatchNumberGeneratorService : IBatchNumberGeneratorService
             if (!Enum.IsDefined(typeof(BatchType), components.BatchType))
                 return false;
 
-            // Validate sequence (0001-9999)
-            if (components.Sequence < 1 || components.Sequence > 9999)
+            // Validate year (reasonable range: 20-99 for 2020-2099)
+            if (components.Year < 20 || components.Year > 99)
                 return false;
 
-            // Validate date (reasonable range)
-            if (components.BatchDate < new DateTime(2020, 1, 1) ||
-                components.BatchDate > DateTime.Today.AddYears(1))
+            // Validate week (01-53)
+            if (components.Week < 1 || components.Week > 53)
+                return false;
+
+            // Validate sequence (0001-9999)
+            if (components.Sequence < 1 || components.Sequence > 9999)
                 return false;
 
             return true;
@@ -187,10 +200,10 @@ public class BatchNumberGeneratorService : IBatchNumberGeneratorService
             throw new ArgumentException("Batch number cannot be null or empty.", nameof(batchNumber));
         }
 
-        if (batchNumber.Length != 16)
+        if (batchNumber.Length != 12)
         {
             throw new ArgumentException(
-                $"Batch number must be exactly 16 digits. Got {batchNumber.Length} characters.",
+                $"Batch number must be exactly 12 digits. Got {batchNumber.Length} characters.",
                 nameof(batchNumber));
         }
 
@@ -201,16 +214,18 @@ public class BatchNumberGeneratorService : IBatchNumberGeneratorService
                 nameof(batchNumber));
         }
 
-        // Extract components: SSTTYYYYMMDDNNNN
+        // Extract components: SSTTYYYWWNNNN (12 digits)
         // SS: Site ID (positions 0-1)
         // TT: Batch Type (positions 2-3)
-        // YYYYMMDD: Date (positions 4-11)
-        // NNNN: Sequence (positions 12-15)
+        // YY: Year (positions 4-5)
+        // WW: Week (positions 6-7)
+        // NNNN: Sequence (positions 8-11)
 
         var siteIdStr = batchNumber.Substring(0, 2);
         var batchTypeStr = batchNumber.Substring(2, 2);
-        var dateStr = batchNumber.Substring(4, 8);
-        var sequenceStr = batchNumber.Substring(12, 4);
+        var yearStr = batchNumber.Substring(4, 2);
+        var weekStr = batchNumber.Substring(6, 2);
+        var sequenceStr = batchNumber.Substring(8, 4);
 
         // Parse site ID
         if (!int.TryParse(siteIdStr, out int siteId) || siteId < 1 || siteId > 99)
@@ -237,12 +252,19 @@ public class BatchNumberGeneratorService : IBatchNumberGeneratorService
 
         var batchType = (BatchType)batchTypeInt;
 
-        // Parse date
-        if (!DateTime.TryParseExact(dateStr, "yyyyMMdd",
-            CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime batchDate))
+        // Parse year (2-digit)
+        if (!int.TryParse(yearStr, out int year) || year < 20 || year > 99)
         {
             throw new ArgumentException(
-                $"Invalid date '{dateStr}' in batch number. Expected YYYYMMDD format.",
+                $"Invalid year '{yearStr}' in batch number. Must be 20-99.",
+                nameof(batchNumber));
+        }
+
+        // Parse week (01-53)
+        if (!int.TryParse(weekStr, out int week) || week < 1 || week > 53)
+        {
+            throw new ArgumentException(
+                $"Invalid week '{weekStr}' in batch number. Must be 01-53.",
                 nameof(batchNumber));
         }
 
@@ -258,7 +280,8 @@ public class BatchNumberGeneratorService : IBatchNumberGeneratorService
         {
             SiteId = siteId,
             BatchType = batchType,
-            BatchDate = batchDate,
+            Year = year,
+            Week = week,
             Sequence = sequence,
             OriginalBatchNumber = batchNumber
         };
@@ -267,13 +290,16 @@ public class BatchNumberGeneratorService : IBatchNumberGeneratorService
     /// <inheritdoc />
     public async Task<int> GetCurrentSequenceAsync(int siteId, BatchType batchType, DateTime batchDate)
     {
-        var date = batchDate.Date;
+        // Convert date to week start date
+        var year = ISOWeek.GetYear(batchDate);
+        var week = ISOWeek.GetWeekOfYear(batchDate);
+        var weekDate = ISOWeek.ToDateTime(year, week, DayOfWeek.Monday);
 
         var sequence = await _context.BatchNumberSequences
             .FirstOrDefaultAsync(s =>
                 s.SiteId == siteId &&
                 s.BatchType == batchType &&
-                s.BatchDate == date &&
+                s.BatchDate == weekDate &&
                 !s.IsDeleted);
 
         return sequence?.CurrentSequence ?? 0;
@@ -287,11 +313,14 @@ public class BatchNumberGeneratorService : IBatchNumberGeneratorService
 
         var components = ParseBatchNumber(batchNumber);
 
+        // Convert year/week to week start date
+        var weekDate = ISOWeek.ToDateTime(2000 + components.Year, components.Week, DayOfWeek.Monday);
+
         var sequence = await _context.BatchNumberSequences
             .FirstOrDefaultAsync(s =>
                 s.SiteId == components.SiteId &&
                 s.BatchType == components.BatchType &&
-                s.BatchDate == components.BatchDate &&
+                s.BatchDate == weekDate &&
                 !s.IsDeleted);
 
         // If no sequence exists, batch number doesn't exist
@@ -305,12 +334,22 @@ public class BatchNumberGeneratorService : IBatchNumberGeneratorService
     /// <summary>
     /// Formats a batch number from its components.
     /// </summary>
-    private static string FormatBatchNumber(int siteId, BatchType batchType, DateTime date, int sequence)
+    /// <param name="siteId">Site ID (1-99)</param>
+    /// <param name="batchType">Batch type</param>
+    /// <param name="year">Full year (e.g., 2025)</param>
+    /// <param name="week">ISO week number (1-53)</param>
+    /// <param name="sequence">Weekly sequence (1-9999)</param>
+    /// <returns>12-digit batch number (SSTTYYYWWNNNN)</returns>
+    private static string FormatBatchNumber(int siteId, BatchType batchType, int year, int week, int sequence)
     {
-        // Format: SSTTYYYYMMDDNNNN (16 digits)
+        // Format: SSTTYYYWWNNNN (12 digits)
+        // Use last 2 digits of year
+        var yearShort = year % 100;
+
         return $"{siteId:D2}" +                              // SS: Site ID (2 digits)
                $"{(int)batchType:D2}" +                      // TT: Batch Type (2 digits)
-               $"{date:yyyyMMdd}" +                          // YYYYMMDD: Date (8 digits)
+               $"{yearShort:D2}" +                           // YY: Year (2 digits)
+               $"{week:D2}" +                                // WW: Week (2 digits)
                $"{sequence:D4}";                             // NNNN: Sequence (4 digits)
     }
 }

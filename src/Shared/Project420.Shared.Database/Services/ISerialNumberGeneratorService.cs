@@ -3,224 +3,214 @@ using Project420.Shared.Core.Enums;
 namespace Project420.Shared.Database.Services;
 
 /// <summary>
-/// Service for generating unique serial numbers in two formats:
-/// - Full Serial Number (30 digits + check digit) for QR codes
-/// - Short Serial Number (13 digits) for barcodes/EAN-13
+/// Service for generating unique serial numbers in the 16-digit batch-linked format.
+/// Format: TTYYYWWBBBBSSSSSS
 /// </summary>
 /// <remarks>
-/// Full Serial Number Format (30+1 digits): SS+SSS+TT+YYYYMMDD+BBBB+UUUUU+WWWW+Q+C
-/// - SS: Site ID (2 digits, 01-99)
-/// - SSS: Strain Code (3 digits, 100-999)
-/// - TT: Batch Type (2 digits, from BatchType enum)
-/// - YYYYMMDD: Production date (8 digits)
-/// - BBBB: Batch sequence (4 digits)
-/// - UUUUU: Unit sequence within batch (5 digits)
-/// - WWWW: Weight in tenths of grams (4 digits, e.g., 0035 = 3.5g)
-/// - Q: Quantity/Pack code (1 digit, 1=single, 2=pack of 2, etc.)
-/// - C: Luhn check digit (1 digit)
+/// Serial Number Format (16 digits): TTYYYWWBBBBSSSSSS
+/// - TT: Serial Type (2 digits - operation type code)
+/// - YY: Year (2 digits, e.g., 25 for 2025)
+/// - WW: ISO week number (01-53)
+/// - BBBB: Parent batch sequence (4 digits - links to batch's NNNN)
+/// - SSSSSS: Serial sequence within batch (000001-999999)
 ///
-/// Short Serial Number Format (13 digits): SSYYMMDDNNNNN
-/// - SS: Site ID (2 digits)
-/// - YYMMDD: Date in short format (6 digits)
-/// - NNNNN: Daily sequence (5 digits)
+/// Example: 1025510001000001
+/// - Production type (10), 2025, Week 51, from Batch 0001, Serial #1
 ///
-/// Strain Code Encoding:
-/// - 100-199: Sativa strains
-/// - 200-299: Indica strains
-/// - 300-399: Hybrid strains
-/// - 400-499: CBD-only strains
-/// - 500-999: Reserved for future use
+/// Visual Identification:
+/// ┌──────────────────────────────────────────────┐
+/// │ 10 25 51 0001 000001                         │
+/// │  │  │  │  │    └── Serial #1 from this batch │
+/// │  │  │  │  └────── From Batch 0001            │
+/// │  │  │  └───────── Week 51                    │
+/// │  │  └──────────── 2025                       │
+/// │  └─────────────── Production type            │
+/// └──────────────────────────────────────────────┘
+///
+/// Serial Type Codes (TT):
+/// - 10: Production (manufacturing output)
+/// - 20: GRV (goods received from supplier)
+/// - 30: Retail (subbed for retail sale)
+/// - 40: Bucking (cannabis processing)
+/// - 50: Transfer (inter-location)
+/// - 60: Adjustment (stocktake variance)
+///
+/// Batch Linkage:
+/// - BBBB matches the batch's sequence (NNNN from SSTTYYYWWNNNN)
+/// - Combined with YYWW, uniquely identifies parent batch
+/// - Full traceability: Serial → Batch → Production origin
 ///
 /// Cannabis Compliance:
 /// - SAHPRA unit-level traceability (seed-to-sale)
-/// - Instant visual identification of production details
-/// - Critical for recalls and quality control
-/// - Barcode/QR compatible (all numeric)
+/// - Batch linkage enables recall management
+/// - Week-based tracking aligns with production cycles
+/// - All numeric (barcode-friendly)
 /// </remarks>
 public interface ISerialNumberGeneratorService
 {
     /// <summary>
-    /// Generates a full serial number (31 digits including check digit).
+    /// Generates a serial number (16 digits) linked to a parent batch.
     /// </summary>
-    /// <param name="siteId">Site ID (1-99)</param>
-    /// <param name="strainCode">Strain code (100-999, first digit indicates type)</param>
-    /// <param name="batchType">Type of batch</param>
-    /// <param name="productionDate">Production date (defaults to today)</param>
-    /// <param name="batchSequence">Batch sequence for this site/type/date (1-9999)</param>
-    /// <param name="weightGrams">Weight in grams (0.1 to 999.9)</param>
-    /// <param name="packQty">Pack quantity code (0-9, where 0=bulk, 1=single, 2=pack of 2, etc.)</param>
+    /// <param name="siteId">Site ID (1-99) - for sequence isolation</param>
+    /// <param name="serialType">Type of serial (determines TT component)</param>
+    /// <param name="batchNumber">Parent batch number (12-digit SSTTYYYWWNNNN format) - extracts YYWW and BBBB</param>
     /// <param name="requestedBy">User requesting serial number (for audit)</param>
-    /// <returns>Full serial number generation result with full SN, short SN, and components</returns>
+    /// <returns>Serial number generation result with SN and components</returns>
+    /// <exception cref="ArgumentException">If batch number format is invalid</exception>
     Task<SerialNumberResult> GenerateSerialNumberAsync(
         int siteId,
-        int strainCode,
-        BatchType batchType,
-        DateTime? productionDate = null,
-        int? batchSequence = null,
-        decimal weightGrams = 0m,
-        int packQty = 1,
+        SerialType serialType,
+        string batchNumber,
         string? requestedBy = null);
 
     /// <summary>
     /// Generates multiple serial numbers for a batch (bulk packaging).
     /// </summary>
-    /// <param name="count">Number of serial numbers to generate</param>
+    /// <param name="count">Number of serial numbers to generate (1-999999)</param>
     /// <param name="siteId">Site ID (1-99)</param>
-    /// <param name="strainCode">Strain code (100-999)</param>
-    /// <param name="batchType">Type of batch</param>
-    /// <param name="productionDate">Production date</param>
-    /// <param name="batchSequence">Batch sequence</param>
-    /// <param name="weightGrams">Weight per unit</param>
-    /// <param name="packQty">Pack quantity code</param>
+    /// <param name="serialType">Type of serial</param>
+    /// <param name="batchNumber">Parent batch number</param>
     /// <param name="requestedBy">User requesting serial numbers</param>
     /// <returns>List of serial number results</returns>
     Task<List<SerialNumberResult>> GenerateBulkSerialNumbersAsync(
         int count,
         int siteId,
-        int strainCode,
-        BatchType batchType,
-        DateTime? productionDate = null,
-        int? batchSequence = null,
-        decimal weightGrams = 0m,
-        int packQty = 1,
+        SerialType serialType,
+        string batchNumber,
         string? requestedBy = null);
 
     /// <summary>
-    /// Validates a full serial number (including Luhn check digit).
+    /// Validates a serial number format (16 digits).
     /// </summary>
-    /// <param name="fullSerialNumber">The full serial number to validate</param>
-    /// <returns>True if valid format and check digit, false otherwise</returns>
-    bool ValidateFullSerialNumber(string fullSerialNumber);
+    /// <param name="serialNumber">The serial number to validate</param>
+    /// <returns>True if valid 16-digit format, false otherwise</returns>
+    bool ValidateSerialNumber(string serialNumber);
 
     /// <summary>
-    /// Validates a short serial number format.
+    /// Parses a serial number into its components.
     /// </summary>
-    /// <param name="shortSerialNumber">The short serial number to validate</param>
-    /// <returns>True if valid format, false otherwise</returns>
-    bool ValidateShortSerialNumber(string shortSerialNumber);
-
-    /// <summary>
-    /// Parses a full serial number into its components.
-    /// </summary>
-    /// <param name="fullSerialNumber">The full serial number to parse</param>
+    /// <param name="serialNumber">The 16-digit serial number to parse</param>
     /// <returns>Parsed components</returns>
     /// <exception cref="ArgumentException">If format is invalid</exception>
-    FullSerialNumberComponents ParseFullSerialNumber(string fullSerialNumber);
+    SerialNumberComponents ParseSerialNumber(string serialNumber);
 
     /// <summary>
-    /// Parses a short serial number into its components.
+    /// Gets the serial type name from a serial type code.
     /// </summary>
-    /// <param name="shortSerialNumber">The short serial number to parse</param>
-    /// <returns>Parsed components</returns>
-    /// <exception cref="ArgumentException">If format is invalid</exception>
-    ShortSerialNumberComponents ParseShortSerialNumber(string shortSerialNumber);
+    /// <param name="serialType">Serial type</param>
+    /// <returns>Human-readable type name</returns>
+    string GetSerialTypeName(SerialType serialType);
 
     /// <summary>
-    /// Gets the strain type description from a strain code.
+    /// Derives the parent batch number from a serial number.
     /// </summary>
-    /// <param name="strainCode">Strain code (100-999)</param>
-    /// <returns>Strain type (Sativa, Indica, Hybrid, CBD, Unknown)</returns>
-    string GetStrainType(int strainCode);
+    /// <param name="serialNumber">The 16-digit serial number</param>
+    /// <param name="siteId">Site ID to reconstruct full batch number</param>
+    /// <returns>12-digit parent batch number (SSTTYYYWWNNNN)</returns>
+    /// <remarks>
+    /// Note: This reconstructs the batch number but cannot determine the
+    /// original batch type (TT in batch) from the serial alone. The serial's
+    /// TT is the serial type, not the batch type. For full reconstruction,
+    /// the batch type must be provided or looked up.
+    /// </remarks>
+    string DeriveParentBatchNumber(string serialNumber, int siteId, BatchType batchType);
 }
 
 /// <summary>
-/// Result of serial number generation containing both full and short formats.
+/// Serial type codes for unit-level tracking.
+/// These codes are embedded in the serial number (TT component).
+/// </summary>
+public enum SerialType
+{
+    /// <summary>Production output (manufacturing)</summary>
+    Production = 10,
+
+    /// <summary>Goods Received Voucher (supplier receipt)</summary>
+    GRV = 20,
+
+    /// <summary>Retail sub (unit prepared for retail sale)</summary>
+    Retail = 30,
+
+    /// <summary>Bucking (cannabis processing step)</summary>
+    Bucking = 40,
+
+    /// <summary>Transfer (inter-location movement)</summary>
+    Transfer = 50,
+
+    /// <summary>Adjustment (stocktake variance)</summary>
+    Adjustment = 60,
+
+    /// <summary>Packaging (final packaging step)</summary>
+    Packaging = 70,
+
+    /// <summary>Quality Control sample</summary>
+    QCSample = 80,
+
+    /// <summary>Destruction (disposed/destroyed unit)</summary>
+    Destruction = 90
+}
+
+/// <summary>
+/// Result of serial number generation (16-digit format).
 /// </summary>
 public record SerialNumberResult
 {
-    /// <summary>Full serial number (31 digits with check digit)</summary>
-    public string FullSerialNumber { get; init; } = string.Empty;
+    /// <summary>16-digit serial number (TTYYYWWBBBBSSSSSS)</summary>
+    public string SerialNumber { get; init; } = string.Empty;
 
-    /// <summary>Short serial number (13 digits for barcode)</summary>
-    public string ShortSerialNumber { get; init; } = string.Empty;
-
-    /// <summary>Site ID</summary>
+    /// <summary>Site ID used for sequence generation</summary>
     public int SiteId { get; init; }
 
-    /// <summary>Strain code</summary>
-    public int StrainCode { get; init; }
+    /// <summary>Serial type</summary>
+    public SerialType SerialType { get; init; }
 
-    /// <summary>Strain type description</summary>
-    public string StrainType { get; init; } = string.Empty;
+    /// <summary>Serial type name (human-readable)</summary>
+    public string SerialTypeName { get; init; } = string.Empty;
 
-    /// <summary>Batch type</summary>
-    public BatchType BatchType { get; init; }
+    /// <summary>Year (2-digit, e.g., 25 for 2025)</summary>
+    public int Year { get; init; }
 
-    /// <summary>Production date</summary>
-    public DateTime ProductionDate { get; init; }
+    /// <summary>ISO week number (1-53)</summary>
+    public int Week { get; init; }
 
-    /// <summary>Batch sequence for this site/type/date</summary>
+    /// <summary>Parent batch sequence (1-9999)</summary>
     public int BatchSequence { get; init; }
 
-    /// <summary>Unit sequence within the batch</summary>
-    public int UnitSequence { get; init; }
-
-    /// <summary>Weight in grams</summary>
-    public decimal WeightGrams { get; init; }
-
-    /// <summary>Pack quantity</summary>
-    public int PackQty { get; init; }
-
-    /// <summary>Luhn check digit</summary>
-    public int CheckDigit { get; init; }
-}
-
-/// <summary>
-/// Parsed components of a full serial number.
-/// </summary>
-public record FullSerialNumberComponents
-{
-    /// <summary>Site ID (1-99)</summary>
-    public int SiteId { get; init; }
-
-    /// <summary>Strain code (100-999)</summary>
-    public int StrainCode { get; init; }
-
-    /// <summary>Strain type description</summary>
-    public string StrainType { get; init; } = string.Empty;
-
-    /// <summary>Batch type</summary>
-    public BatchType BatchType { get; init; }
-
-    /// <summary>Production date</summary>
-    public DateTime ProductionDate { get; init; }
-
-    /// <summary>Batch sequence</summary>
-    public int BatchSequence { get; init; }
-
-    /// <summary>Unit sequence</summary>
-    public int UnitSequence { get; init; }
-
-    /// <summary>Weight in grams (decoded from tenths)</summary>
-    public decimal WeightGrams { get; init; }
-
-    /// <summary>Pack quantity code</summary>
-    public int PackQty { get; init; }
-
-    /// <summary>Check digit</summary>
-    public int CheckDigit { get; init; }
-
-    /// <summary>Original full serial number</summary>
-    public string OriginalSerialNumber { get; init; } = string.Empty;
-
-    /// <summary>Whether the check digit is valid</summary>
-    public bool IsCheckDigitValid { get; init; }
-}
-
-/// <summary>
-/// Parsed components of a short serial number.
-/// </summary>
-public record ShortSerialNumberComponents
-{
-    /// <summary>Site ID (1-99)</summary>
-    public int SiteId { get; init; }
-
-    /// <summary>Production date</summary>
-    public DateTime ProductionDate { get; init; }
-
-    /// <summary>Daily sequence</summary>
+    /// <summary>Serial sequence within the batch (1-999999)</summary>
     public int Sequence { get; init; }
 
-    /// <summary>Original short serial number</summary>
+    /// <summary>Parent batch number (12 digits)</summary>
+    public string ParentBatchNumber { get; init; } = string.Empty;
+}
+
+/// <summary>
+/// Parsed components of a serial number (16-digit format: TTYYYWWBBBBSSSSSS).
+/// </summary>
+public record SerialNumberComponents
+{
+    /// <summary>Serial type</summary>
+    public SerialType SerialType { get; init; }
+
+    /// <summary>Serial type name (human-readable)</summary>
+    public string SerialTypeName { get; init; } = string.Empty;
+
+    /// <summary>Year (2-digit, e.g., 25 for 2025)</summary>
+    public int Year { get; init; }
+
+    /// <summary>ISO week number (1-53)</summary>
+    public int Week { get; init; }
+
+    /// <summary>Parent batch sequence (1-9999)</summary>
+    public int BatchSequence { get; init; }
+
+    /// <summary>Serial sequence within the batch (1-999999)</summary>
+    public int Sequence { get; init; }
+
+    /// <summary>Original serial number string</summary>
     public string OriginalSerialNumber { get; init; } = string.Empty;
+
+    /// <summary>
+    /// Gets the approximate first day of the serial's week.
+    /// </summary>
+    public DateTime ApproximateDate => System.Globalization.ISOWeek.ToDateTime(2000 + Year, Week, DayOfWeek.Monday);
 }

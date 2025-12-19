@@ -1,13 +1,158 @@
 # Project420 - IMMEDIATE ACTION TODO LIST
-## Movement Architecture Implementation Status
+## PoC Hostile Demo Implementation
 
 **Created**: 2025-12-11
-**Last Updated**: 2025-12-13 (Session 2)
-**Status**: 🟢 PHASE 7C COMPLETE - Migration Ready to Apply
-**Timeline**: Phase 7C complete, migration created, Phase 8 ready to continue
-**Goal**: Establish solid foundation for remaining PoC work
+**Last Updated**: 2025-12-19
+**Status**: 🟢 ALL HOSTILE DEMOS COMPLETE → POC READY FOR FREEZE
+**Timeline**: Must complete before PoC freeze
+**Goal**: Demonstrate credibility through hostile scenario testing
 
 ---
+
+## 🚨 SESSION UPDATE (2025-12-19)
+
+### ✅ COMPLETED THIS SESSION
+
+**All Hostile Demo Tests Built and Passing** (11 tests total):
+
+**Core Hostile Demos (7/7 PASSING):**
+- ✅ 2.1a: UPDATE Movement FAILS LOUDLY - API has no update method
+- ✅ 2.1b: DELETE Movement FAILS LOUDLY - Only soft delete via ReverseMovementsAsync
+- ✅ 2.2: Compensating Movement - Mistake + correction both visible in ledger
+- ✅ 2.3: GetStockAsOf Reconstruction - Different dates return different SOH
+- ✅ 2.4: CorrelationId Traceability - WHO/WHAT/WHEN/WHY all documented
+- ✅ 2.5: Retail Cannot Mutate Stock - No SetStock/UpdateStock methods exist
+- ✅ 2.6: No Silent Corrections - All adjustments are visible movements
+
+**Secondary Hostile Demos (3/3 PASSING):**
+- ✅ 3.1: Atomicity - No partial movements on failure
+- ✅ 3.2: Batch Lineage - End-to-end batch tracking visible
+- ✅ 3.3: Invalid Action Rejection - Clear error messages on invalid input
+
+**Test File Location:**
+- `tests/Project420.Shared.Tests/Proof/HostileDemoTests.cs`
+
+**Run Command:**
+```bash
+dotnet test --filter "HostileDemoTests" --logger "console;verbosity=detailed"
+```
+
+---
+
+### ✅ PREVIOUSLY COMPLETED
+
+**Batch Number Format Updated** (12 digits, week-based):
+- Format: `SSTTYYYWWNNNN`
+- Example: `011025510001` = Site 01, Production (10), 2025, Week 51, Batch #1
+- Visual identification: Type + week immediately visible
+- All tests updated and passing
+
+**Serial Number Format Updated** (16 digits, batch-linked):
+- Format: `TTYYYWWBBBBSSSSSS`
+- Example: `1025510001000001` = Production (10), 2025, Week 51, from Batch 0001, Serial #1
+- Embeds parent batch reference (YYWW + BBBB)
+- Full traceability: Serial → Batch → Origin
+
+**Key Benefits**:
+- 100% numeric (barcode/scanner friendly)
+- Visually identifiable (type codes, week-based)
+- Week-based (aligns with production cycles)
+- Batch linkage in serial enables recall tracing
+
+---
+
+## 🚨 POC HOSTILE DEMO LAW - NEXT SESSION PRIORITY
+
+> **Reference**: `docs/PoCEvolution/project_420_po_c_hostile_demo_law.md`
+> **Rule**: If it can be explained but not demonstrated, it is not done.
+> **Standard**: "Watch what happens when I do X" — NOT "The code is designed to..."
+> **Proof is EVIDENTIARY**: Tests must ATTEMPT the action and show FAILURE
+
+---
+
+### CORE HOSTILE DEMOS (Mandatory - All 7 Required)
+
+| # | Hostile Question | Test to Build | Status |
+|---|------------------|---------------|--------|
+| 2.1a | "What stops editing history?" | `UPDATE movement → must FAIL` | ✅ **PASSING** |
+| 2.1b | "What stops deleting history?" | `DELETE movement → must FAIL` | ✅ **PASSING** |
+| 2.2 | "What happens on mistake?" | Compensating movement → both visible | ✅ **PASSING** |
+| 2.3 | "Stock on past date?" | `GetStockAsOf(date)` → different dates = different results | ✅ **PASSING** |
+| 2.4 | "Why did this happen?" | CorrelationId → links action to movements | ✅ **PASSING** |
+| 2.5 | "Can Retail cheat stock?" | Direct mutation from Retail → must FAIL | ✅ **PASSING** |
+| 2.6 | "Can someone fix quietly?" | Correction → is a visible movement | ✅ **PASSING** |
+
+### SECONDARY HOSTILE DEMOS (1+ Required)
+
+| # | Hostile Question | Test to Build | Status |
+|---|------------------|---------------|--------|
+| 3.1 | "What if system fails mid-op?" | Simulated failure → no partial movement | ✅ **PASSING** |
+| 3.2 | "Where did batch go?" | Batch movements → end-to-end visible | ✅ **PASSING** |
+| 3.3 | "Invalid action?" | Invalid transition → rejected with explanation | ✅ **PASSING** |
+
+---
+
+### Acceptance Criteria for Each Test
+
+**2.1 Immutability of Stock History** ✅
+- [x] No UI path exists for UPDATE/DELETE
+- [x] No service method succeeds for UPDATE/DELETE
+- [x] Failure is explicit (throws exception or returns error)
+
+**2.2 Correction Without Rewriting History** ✅
+- [x] Perform incorrect movement (visible in ledger)
+- [x] Apply compensating movement (new record, not edit)
+- [x] Both movements visible in history
+- [x] Net stock resolves correctly
+
+**2.3 Stock State Reconstruction (As-Of)** ✅
+- [x] Execute `CalculateSOHAsync(productId, asOfDate)`
+- [x] Show different results for different dates
+- [x] Output derived from movements ONLY (no snapshot)
+
+**2.4 Action Traceability (Correlation)** ✅
+- [x] CorrelationId present on movements
+- [x] Single ID links origin action → all resulting movements
+- [x] Traceable in logs or admin view
+
+**2.5 Retail Cannot Mutate Stock** ✅
+- [x] Attempt direct stock mutation from Retail layer
+- [x] Operation fails (MovementService is the ONLY authority)
+- [x] Retail can only REQUEST movements, not CREATE them directly
+
+**2.6 No Silent Corrections** ✅
+- [x] Apply any correction
+- [x] Correction appears as a visible movement record
+- [x] No hidden state changes exist
+
+**3.1 Atomicity of Movements** ✅
+- [x] Simulate failure mid-operation
+- [x] Verify no partial movement was persisted
+- [x] Transaction rollback confirmed
+
+**3.2 Batch Lineage Visibility** ✅
+- [x] Track batch from GRV → Sale (or full chain)
+- [x] All movements show BatchNumber
+- [x] End-to-end query works
+
+**3.3 Invalid Action Rejection** ✅
+- [x] Attempt invalid transition (e.g., sell negative stock)
+- [x] System rejects with clear explanation
+- [x] No movement created
+
+---
+
+### PoC Freeze Criteria
+
+✅ **PoC is CREDIBLE when:**
+- ✅ All 7 Core Hostile Demos pass (7/7 PASSING)
+- ✅ At least 1 Secondary Hostile Demo passes (3/3 PASSING)
+
+🔒 **CRITERIA MET: POC IS READY FOR FREEZE → Move to Prototype**
+
+---
+
+## 🏗️ INFRASTRUCTURE STATUS (Pre-Requisites for Demos)
 
 ## 🚨 PHASE 7C: ARCHITECTURAL CORRECTION ✅ COMPLETE
 

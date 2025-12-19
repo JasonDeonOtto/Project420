@@ -37,14 +37,24 @@ dotnet watch test
 ## Test Structure
 
 ```
-Project420.Management.Tests/
-├── Services/
-│   └── StockManagement/
-│       └── ProductServiceTests.cs (12 tests)
-├── Validators/
-│   └── CustomerRegistrationValidatorTests.cs (16 tests)
-└── Helpers/
-    └── TestDbContextFactory.cs
+tests/
+├── Project420.Management.Tests/
+│   ├── Services/
+│   │   └── StockManagement/
+│   │       └── ProductServiceTests.cs (12 tests)
+│   ├── Validators/
+│   │   └── CustomerRegistrationValidatorTests.cs (16 tests)
+│   └── Helpers/
+│       └── TestDbContextFactory.cs
+├── Project420.ProofRunner/          ⭐ NEW: Evidence Runner
+│   ├── Program.cs
+│   ├── Evidence/
+│   │   ├── ImmutabilityEvidence.cs
+│   │   ├── CompensationEvidence.cs
+│   │   ├── ReplayEvidence.cs
+│   │   └── TraceabilityEvidence.cs
+│   └── Infrastructure/
+│       └── EvidenceDbContextFactory.cs
 ```
 
 ---
@@ -108,6 +118,76 @@ Total tests: 28
 **Cannabis Compliance Tests**: ✅ Age verification working
 **POPIA Compliance Tests**: ✅ Consent validation working
 **Business Logic Tests**: ✅ Stock management working
+
+---
+
+## ⭐ Evidence Runner (Client Demonstrations)
+
+### Purpose
+**Single-command proof** for hostile client demonstrations. Shows business rules work correctly in plain English.
+
+**This is NOT unit tests** - it's a client-facing demonstration tool.
+
+### How to Run
+
+#### Quick Demo (Console Output)
+```bash
+cd tests/Project420.ProofRunner
+dotnet run
+```
+
+**Output:**
+```
+--------------------------------
+Project420 Evidence Check
+--------------------------------
+✔ Stock history is immutable
+✔ Corrections create compensating movements
+✔ Stock can be reconstructed as-of a date
+✔ All movements are traceable to an actor
+
+Evidence Status: PASS
+--------------------------------
+```
+
+### What It Proves
+
+| Evidence | Business Rule Demonstrated |
+|----------|----------------------------|
+| **Immutability** | Stock movements cannot be modified after creation |
+| **Compensation** | Errors are corrected with new entries, not by editing history |
+| **Replay** | Stock levels can be calculated as-of any historical date |
+| **Traceability** | All movements trace back to an actor (audit compliance) |
+
+### When to Use
+
+**Use Evidence Runner when:**
+- Client asks hostile question: "How do you ensure data isn't tampered with?"
+- Compliance demo: "Show me your audit trail works"
+- Live proof: Run it during the meeting (takes <1 second)
+
+**Use Unit Tests when:**
+- Development and debugging
+- CI/CD pipelines
+- Technical code review
+
+### Client Demo Script
+
+**Client asks**: "What stops someone from just changing the stock records?"
+
+**You demonstrate**:
+```bash
+cd tests/Project420.ProofRunner
+dotnet run
+```
+
+**You show**: Console output proving:
+1. ✔ History is write-once (immutable)
+2. ✔ Corrections require compensating entries
+3. ✔ Full audit trail to reconstruct history
+4. ✔ All changes traced to users
+
+**Result**: Client sees executable proof, not promises.
 
 ---
 

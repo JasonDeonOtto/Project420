@@ -1,32 +1,46 @@
+using System.Globalization;
 using Project420.Shared.Core.Enums;
 
 namespace Project420.Shared.Database.Services;
 
 /// <summary>
-/// Service for generating unique batch numbers following the 16-digit format.
-/// Format: SSTTYYYYMMDDNNNN
+/// Service for generating unique batch numbers following the 12-digit week-based format.
+/// Format: SSTTYYYWWNNNN
 /// </summary>
 /// <remarks>
-/// Batch Number Format (16 digits): SSTTYYYYMMDDNNNN
+/// Batch Number Format (12 digits): SSTTYYYWWNNNN
 /// - SS: Site ID (01-99)
-/// - TT: Batch Type code (10=Production, 20=Transfer, etc.)
-/// - YYYYMMDD: Batch date
-/// - NNNN: Daily sequence per site/type (0001-9999)
+/// - TT: Batch Type code (10=Production, 20=GRV, 30=Transfer, etc.)
+/// - YY: Year (2-digit, e.g., 25 for 2025)
+/// - WW: ISO week number (01-53)
+/// - NNNN: Weekly sequence per site/type (0001-9999)
 ///
-/// Example: 0110202512060001
-/// - Site 01, Production (10), Dec 6 2025, batch #1
+/// Example: 011025510001
+/// - Site 01, Production (10), 2025, Week 51, batch #1
+///
+/// Visual Identification:
+/// ┌──────────────────────────────────────┐
+/// │ 01 10 25 51 0001                     │
+/// │  │  │  │  │  └── Batch #1 this week  │
+/// │  │  │  │  └───── Week 51             │
+/// │  │  │  └──────── 2025                │
+/// │  │  └─────────── Production batch    │
+/// │  └────────────── Site 01             │
+/// └──────────────────────────────────────┘
 ///
 /// Key Features:
 /// - Site isolation (each site has independent sequences)
 /// - Type visible (instant identification of batch purpose)
-/// - Date embedded (supports FIFO/FEFO inventory management)
-/// - Daily reset per type/site (keeps numbers manageable)
-/// - 16 digits (barcode-friendly, all numeric)
+/// - Week-based (aligns with production cycles)
+/// - Weekly reset per type/site (keeps sequences manageable)
+/// - 12 digits (compact, barcode-friendly, all numeric)
+/// - Serial numbers embed batch reference for traceability
 ///
 /// Cannabis Compliance:
 /// - SAHPRA seed-to-sale traceability
 /// - Unique batch identification for audit trail
 /// - Supports recall management and quality control
+/// - Week granularity sufficient for compliance reporting
 /// </remarks>
 public interface IBatchNumberGeneratorService
 {
@@ -35,9 +49,9 @@ public interface IBatchNumberGeneratorService
     /// </summary>
     /// <param name="siteId">Site ID (1-99, will be zero-padded to 2 digits)</param>
     /// <param name="batchType">Type of batch (determines the TT component)</param>
-    /// <param name="batchDate">Date of the batch (defaults to today if not specified)</param>
+    /// <param name="batchDate">Date of the batch (defaults to today if not specified). Used to derive week number.</param>
     /// <param name="requestedBy">User requesting the batch number (for audit trail)</param>
-    /// <returns>16-digit batch number string (SSTTYYYYMMDDNNNN)</returns>
+    /// <returns>12-digit batch number string (SSTTYYYWWNNNN)</returns>
     /// <exception cref="ArgumentOutOfRangeException">If siteId is not between 1-99</exception>
     Task<string> GenerateBatchNumberAsync(
         int siteId,
@@ -49,7 +63,7 @@ public interface IBatchNumberGeneratorService
     /// Validates a batch number string for correct format.
     /// </summary>
     /// <param name="batchNumber">The batch number to validate</param>
-    /// <returns>True if valid 16-digit format, false otherwise</returns>
+    /// <returns>True if valid 12-digit format (SSTTYYYWWNNNN), false otherwise</returns>
     bool ValidateBatchNumber(string batchNumber);
 
     /// <summary>
@@ -78,22 +92,30 @@ public interface IBatchNumberGeneratorService
 }
 
 /// <summary>
-/// Parsed components of a batch number.
+/// Parsed components of a batch number (12-digit format: SSTTYYYWWNNNN).
 /// </summary>
 public record BatchNumberComponents
 {
     /// <summary>Site ID (1-99)</summary>
     public int SiteId { get; init; }
 
-    /// <summary>Batch type (Production, Transfer, etc.)</summary>
+    /// <summary>Batch type (Production, GRV, Transfer, etc.)</summary>
     public BatchType BatchType { get; init; }
 
-    /// <summary>Batch date</summary>
-    public DateTime BatchDate { get; init; }
+    /// <summary>Year (2-digit, e.g., 25 for 2025)</summary>
+    public int Year { get; init; }
 
-    /// <summary>Daily sequence number (1-9999)</summary>
+    /// <summary>ISO week number (1-53)</summary>
+    public int Week { get; init; }
+
+    /// <summary>Weekly sequence number (1-9999)</summary>
     public int Sequence { get; init; }
 
     /// <summary>Original batch number string</summary>
     public string OriginalBatchNumber { get; init; } = string.Empty;
+
+    /// <summary>
+    /// Gets the approximate first day of the batch week.
+    /// </summary>
+    public DateTime ApproximateDate => ISOWeek.ToDateTime(2000 + Year, Week, DayOfWeek.Monday);
 }

@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
   <ItemGroup>
+    <ProjectReference Include="..\..\..\Management\Project420.Management.BLL\Project420.Management.BLL.csproj" />
     <ProjectReference Include="..\Project420.Retail.POS.DAL\Project420.Retail.POS.DAL.csproj" />
     <ProjectReference Include="..\Project420.Retail.POS.BLL\Project420.Retail.POS.BLL.csproj" />
     <ProjectReference Include="..\..\..\Management\Project420.Management.DAL\Project420.Management.DAL.csproj" />

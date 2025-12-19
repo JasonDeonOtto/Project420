@@ -1,3 +1,4 @@
+using System.Globalization;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -9,9 +10,9 @@ using Project420.Shared.Database.Services;
 namespace Project420.Shared.Tests.Services;
 
 /// <summary>
-/// Unit tests for BatchNumberGeneratorService (Phase 8).
+/// Unit tests for BatchNumberGeneratorService.
 /// Tests batch number generation, validation, and parsing.
-/// Format: SSTTYYYYMMDDNNNN (16 digits)
+/// Format: SSTTYYYWWNNNN (12 digits, week-based)
 /// </summary>
 /// <remarks>
 /// Uses TestBusinessDbContext which implements IBusinessDbContext for testing.
@@ -47,19 +48,19 @@ public class BatchNumberGeneratorServiceTests : IDisposable
     // ============================================================
 
     [Fact]
-    public async Task GenerateBatchNumberAsync_Should_Generate_16_Digit_Number()
+    public async Task GenerateBatchNumberAsync_Should_Generate_12_Digit_Number()
     {
         // Arrange
         var siteId = 1;
         var batchType = BatchType.Production;
-        var date = new DateTime(2025, 12, 12);
+        var date = new DateTime(2025, 12, 19); // Week 51 of 2025
 
         // Act
         var result = await _service.GenerateBatchNumberAsync(siteId, batchType, date, TestUser);
 
         // Assert
         result.Should().NotBeNullOrEmpty();
-        result.Length.Should().Be(16);
+        result.Length.Should().Be(12);
     }
 
     [Fact]
@@ -68,15 +69,15 @@ public class BatchNumberGeneratorServiceTests : IDisposable
         // Arrange
         var siteId = 1;
         var batchType = BatchType.Production; // 10
-        var date = new DateTime(2025, 12, 12);
+        var date = new DateTime(2025, 12, 15); // Week 51 of 2025
 
         // Act
         var result = await _service.GenerateBatchNumberAsync(siteId, batchType, date, TestUser);
 
         // Assert
-        // Format: SSTTYYYYMMDDNNNN
-        // SS = 01, TT = 10, YYYYMMDD = 20251212, NNNN = 0001
-        result.Should().Be("0110202512120001");
+        // Format: SSTTYYYWWNNNN
+        // SS = 01, TT = 10, YY = 25, WW = 51, NNNN = 0001
+        result.Should().Be("011025510001");
     }
 
     [Fact]
@@ -85,7 +86,7 @@ public class BatchNumberGeneratorServiceTests : IDisposable
         // Arrange
         var siteId = 1;
         var batchType = BatchType.Production;
-        var date = new DateTime(2025, 12, 12);
+        var date = new DateTime(2025, 12, 15); // Week 51
 
         // Act
         var result1 = await _service.GenerateBatchNumberAsync(siteId, batchType, date, TestUser);
@@ -99,23 +100,44 @@ public class BatchNumberGeneratorServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task GenerateBatchNumberAsync_Should_Have_Separate_Sequences_Per_Date()
+    public async Task GenerateBatchNumberAsync_Should_Have_Separate_Sequences_Per_Week()
     {
         // Arrange
         var siteId = 1;
         var batchType = BatchType.Production;
-        var date1 = new DateTime(2025, 12, 12);
-        var date2 = new DateTime(2025, 12, 13);
+        var week51Date = new DateTime(2025, 12, 15); // Week 51
+        var week52Date = new DateTime(2025, 12, 22); // Week 52
 
         // Act
-        var result1Day1 = await _service.GenerateBatchNumberAsync(siteId, batchType, date1, TestUser);
-        var result2Day1 = await _service.GenerateBatchNumberAsync(siteId, batchType, date1, TestUser);
-        var result1Day2 = await _service.GenerateBatchNumberAsync(siteId, batchType, date2, TestUser);
+        var result1Week51 = await _service.GenerateBatchNumberAsync(siteId, batchType, week51Date, TestUser);
+        var result2Week51 = await _service.GenerateBatchNumberAsync(siteId, batchType, week51Date, TestUser);
+        var result1Week52 = await _service.GenerateBatchNumberAsync(siteId, batchType, week52Date, TestUser);
 
         // Assert
-        result1Day1.Should().EndWith("0001");
-        result2Day1.Should().EndWith("0002");
-        result1Day2.Should().EndWith("0001"); // Resets for new date
+        result1Week51.Should().EndWith("0001");
+        result2Week51.Should().EndWith("0002");
+        result1Week52.Should().EndWith("0001"); // Resets for new week
+    }
+
+    [Fact]
+    public async Task GenerateBatchNumberAsync_Same_Week_Different_Days_Should_Share_Sequence()
+    {
+        // Arrange
+        var siteId = 1;
+        var batchType = BatchType.Production;
+        // Both dates are in Week 51 of 2025
+        var monday = new DateTime(2025, 12, 15); // Monday
+        var friday = new DateTime(2025, 12, 19); // Friday
+
+        // Act
+        var result1 = await _service.GenerateBatchNumberAsync(siteId, batchType, monday, TestUser);
+        var result2 = await _service.GenerateBatchNumberAsync(siteId, batchType, friday, TestUser);
+
+        // Assert - Same week should increment the same sequence
+        result1.Should().EndWith("0001");
+        result2.Should().EndWith("0002");
+        result1.Substring(4, 4).Should().Be("2551"); // YYWW
+        result2.Substring(4, 4).Should().Be("2551"); // Same YYWW
     }
 
     [Fact]
@@ -123,15 +145,15 @@ public class BatchNumberGeneratorServiceTests : IDisposable
     {
         // Arrange
         var siteId = 1;
-        var date = new DateTime(2025, 12, 12);
+        var date = new DateTime(2025, 12, 15);
 
         // Act
         var production = await _service.GenerateBatchNumberAsync(siteId, BatchType.Production, date, TestUser);
         var transfer = await _service.GenerateBatchNumberAsync(siteId, BatchType.Transfer, date, TestUser);
 
         // Assert
-        production.Should().Contain("10"); // Production type code
-        transfer.Should().Contain("20");   // Transfer type code
+        production.Substring(2, 2).Should().Be("10"); // Production type code
+        transfer.Substring(2, 2).Should().Be("20");   // Transfer type code
         production.Should().EndWith("0001");
         transfer.Should().EndWith("0001");
     }
@@ -141,7 +163,7 @@ public class BatchNumberGeneratorServiceTests : IDisposable
     {
         // Arrange
         var batchType = BatchType.Production;
-        var date = new DateTime(2025, 12, 12);
+        var date = new DateTime(2025, 12, 15);
 
         // Act
         var site1 = await _service.GenerateBatchNumberAsync(1, batchType, date, TestUser);
@@ -167,7 +189,7 @@ public class BatchNumberGeneratorServiceTests : IDisposable
     public async Task GenerateBatchNumberAsync_Should_Use_Correct_Type_Codes(BatchType batchType, string expectedCode)
     {
         // Arrange
-        var date = new DateTime(2025, 12, 12);
+        var date = new DateTime(2025, 12, 15);
 
         // Act
         var result = await _service.GenerateBatchNumberAsync(1, batchType, date, TestUser);
@@ -183,13 +205,15 @@ public class BatchNumberGeneratorServiceTests : IDisposable
         var siteId = 1;
         var batchType = BatchType.Production;
         var today = DateTime.Today;
+        var expectedYear = ISOWeek.GetYear(today) % 100;
+        var expectedWeek = ISOWeek.GetWeekOfYear(today);
 
         // Act
         var result = await _service.GenerateBatchNumberAsync(siteId, batchType, requestedBy: TestUser);
 
         // Assert
-        var expectedDate = today.ToString("yyyyMMdd");
-        result.Substring(4, 8).Should().Be(expectedDate);
+        var yearWeek = result.Substring(4, 4);
+        yearWeek.Should().Be($"{expectedYear:D2}{expectedWeek:D2}");
     }
 
     // ============================================================
@@ -197,9 +221,9 @@ public class BatchNumberGeneratorServiceTests : IDisposable
     // ============================================================
 
     [Theory]
-    [InlineData("0110202512120001", true)]
-    [InlineData("9990202512129999", true)]
-    [InlineData("0120202312010100", true)]
+    [InlineData("011025510001", true)]  // Valid: Site 01, Production, 2025-W51, Seq 1
+    [InlineData("992099539999", true)]  // Valid: Site 99, Transfer, 2099-W53, Seq 9999
+    [InlineData("012020010100", true)]  // Valid: Site 01, Transfer, 2020-W01, Seq 100
     public void ValidateBatchNumber_Should_Return_True_For_Valid_Numbers(string batchNumber, bool expected)
     {
         // Act
@@ -210,12 +234,14 @@ public class BatchNumberGeneratorServiceTests : IDisposable
     }
 
     [Theory]
-    [InlineData("")]           // Empty
-    [InlineData(null)]         // Null
-    [InlineData("01102025121")] // Too short (11 chars)
-    [InlineData("011020251212000123")] // Too long (18 chars)
-    [InlineData("ABCD202512120001")] // Non-numeric
-    [InlineData("0099202512120001")] // Invalid batch type 99
+    [InlineData("")]                    // Empty
+    [InlineData(null)]                  // Null
+    [InlineData("0110255100")]          // Too short (10 chars)
+    [InlineData("01102551000123")]      // Too long (14 chars)
+    [InlineData("ABCD25510001")]        // Non-numeric
+    [InlineData("019925510001")]        // Invalid batch type 99
+    [InlineData("011025540001")]        // Invalid week 54
+    [InlineData("011019510001")]        // Invalid year 19 (before 2020)
     public void ValidateBatchNumber_Should_Return_False_For_Invalid_Numbers(string batchNumber)
     {
         // Act
@@ -233,7 +259,7 @@ public class BatchNumberGeneratorServiceTests : IDisposable
     public void ParseBatchNumber_Should_Extract_All_Components()
     {
         // Arrange
-        var batchNumber = "0110202512120001";
+        var batchNumber = "011025510001";
 
         // Act
         var components = _service.ParseBatchNumber(batchNumber);
@@ -241,7 +267,8 @@ public class BatchNumberGeneratorServiceTests : IDisposable
         // Assert
         components.SiteId.Should().Be(1);
         components.BatchType.Should().Be(BatchType.Production);
-        components.BatchDate.Should().Be(new DateTime(2025, 12, 12));
+        components.Year.Should().Be(25);
+        components.Week.Should().Be(51);
         components.Sequence.Should().Be(1);
     }
 
@@ -249,7 +276,7 @@ public class BatchNumberGeneratorServiceTests : IDisposable
     public void ParseBatchNumber_Should_Handle_Max_Values()
     {
         // Arrange
-        var batchNumber = "9990202512319999";
+        var batchNumber = "999025539999";
 
         // Act
         var components = _service.ParseBatchNumber(batchNumber);
@@ -257,8 +284,23 @@ public class BatchNumberGeneratorServiceTests : IDisposable
         // Assert
         components.SiteId.Should().Be(99);
         components.BatchType.Should().Be(BatchType.Reserved); // 90
-        components.BatchDate.Should().Be(new DateTime(2025, 12, 31));
+        components.Year.Should().Be(25);
+        components.Week.Should().Be(53);
         components.Sequence.Should().Be(9999);
+    }
+
+    [Fact]
+    public void ParseBatchNumber_ApproximateDate_Should_Return_Week_Start()
+    {
+        // Arrange
+        var batchNumber = "011025510001"; // 2025, Week 51
+
+        // Act
+        var components = _service.ParseBatchNumber(batchNumber);
+
+        // Assert
+        // Week 51 of 2025 starts on Monday, December 15
+        components.ApproximateDate.Should().Be(new DateTime(2025, 12, 15));
     }
 
     [Theory]
@@ -284,7 +326,7 @@ public class BatchNumberGeneratorServiceTests : IDisposable
         // Arrange
         var siteId = 1;
         var batchType = BatchType.Production;
-        var date = new DateTime(2025, 12, 12);
+        var date = new DateTime(2025, 12, 15);
 
         // Act
         var sequence = await _service.GetCurrentSequenceAsync(siteId, batchType, date);
@@ -299,7 +341,7 @@ public class BatchNumberGeneratorServiceTests : IDisposable
         // Arrange
         var siteId = 1;
         var batchType = BatchType.Production;
-        var date = new DateTime(2025, 12, 12);
+        var date = new DateTime(2025, 12, 15);
 
         await _service.GenerateBatchNumberAsync(siteId, batchType, date, TestUser);
         await _service.GenerateBatchNumberAsync(siteId, batchType, date, TestUser);
@@ -318,7 +360,7 @@ public class BatchNumberGeneratorServiceTests : IDisposable
         // Arrange
         var siteId = 1;
         var batchType = BatchType.Production;
-        var date = new DateTime(2025, 12, 12);
+        var date = new DateTime(2025, 12, 15);
         var batchNumber = await _service.GenerateBatchNumberAsync(siteId, batchType, date, TestUser);
 
         // Act
@@ -331,8 +373,8 @@ public class BatchNumberGeneratorServiceTests : IDisposable
     [Fact]
     public async Task BatchNumberExistsAsync_Should_Return_False_For_NonExisting()
     {
-        // Arrange
-        var nonExistingBatch = "9999202512129999";
+        // Arrange - Valid format but sequence doesn't exist
+        var nonExistingBatch = "999025519999";
 
         // Act
         var exists = await _service.BatchNumberExistsAsync(nonExistingBatch);
@@ -353,7 +395,7 @@ public class BatchNumberGeneratorServiceTests : IDisposable
     {
         // Arrange
         var batchType = BatchType.Production;
-        var date = new DateTime(2025, 12, 12);
+        var date = new DateTime(2025, 12, 15);
 
         // Act
         var act = async () => await _service.GenerateBatchNumberAsync(siteId, batchType, date, TestUser);
@@ -368,7 +410,8 @@ public class BatchNumberGeneratorServiceTests : IDisposable
         // Arrange
         var siteId = 1;
         var batchType = BatchType.Production;
-        var date = new DateTime(2025, 12, 12);
+        var date = new DateTime(2025, 12, 15);
+        var expectedWeekDate = ISOWeek.ToDateTime(2025, 51, DayOfWeek.Monday);
 
         // Act
         await _service.GenerateBatchNumberAsync(siteId, batchType, date, TestUser);
@@ -378,7 +421,7 @@ public class BatchNumberGeneratorServiceTests : IDisposable
         sequences.Should().HaveCount(1);
         sequences[0].SiteId.Should().Be(siteId);
         sequences[0].BatchType.Should().Be(batchType);
-        sequences[0].BatchDate.Should().Be(date);
+        sequences[0].BatchDate.Should().Be(expectedWeekDate); // Week start date
         sequences[0].CurrentSequence.Should().Be(1);
     }
 
@@ -388,7 +431,7 @@ public class BatchNumberGeneratorServiceTests : IDisposable
         // Arrange
         var siteId = 1;
         var batchType = BatchType.Production;
-        var date = new DateTime(2025, 12, 12);
+        var date = new DateTime(2025, 12, 15);
 
         // Act
         await _service.GenerateBatchNumberAsync(siteId, batchType, date, TestUser);
@@ -397,5 +440,32 @@ public class BatchNumberGeneratorServiceTests : IDisposable
         var sequence = await _context.BatchNumberSequences.FirstAsync();
         sequence.CreatedBy.Should().Be(TestUser);
         sequence.CreatedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(5));
+    }
+
+    // ============================================================
+    // VISUAL IDENTIFICATION TESTS
+    // ============================================================
+
+    [Fact]
+    public async Task GenerateBatchNumber_Should_Be_Visually_Identifiable()
+    {
+        // This test documents the visual identification capability of the new format
+        // Format: SS TT YY WW NNNN
+        //         01 10 25 51 0001
+        //         │  │  │  │  └── Batch #1 this week
+        //         │  │  │  └───── Week 51
+        //         │  │  └──────── 2025
+        //         │  └─────────── Production batch (10)
+        //         └────────────── Site 01
+
+        var date = new DateTime(2025, 12, 15);
+        var batch = await _service.GenerateBatchNumberAsync(1, BatchType.Production, date, TestUser);
+
+        // Parse visually
+        batch.Substring(0, 2).Should().Be("01", "Site ID should be 01");
+        batch.Substring(2, 2).Should().Be("10", "Type should be Production (10)");
+        batch.Substring(4, 2).Should().Be("25", "Year should be 25");
+        batch.Substring(6, 2).Should().Be("51", "Week should be 51");
+        batch.Substring(8, 4).Should().Be("0001", "Sequence should be 0001");
     }
 }

@@ -1,3 +1,4 @@
+using System.Globalization;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -5,24 +6,24 @@ using Microsoft.Extensions.Logging;
 using Moq;
 using Project420.Shared.Core.Enums;
 using Project420.Shared.Database.Services;
-using Project420.Shared.Database.Utilities;
 
 namespace Project420.Shared.Tests.Services;
 
 /// <summary>
-/// Unit tests for SerialNumberGeneratorService (Phase 8).
+/// Unit tests for SerialNumberGeneratorService.
 /// Tests serial number generation, validation, and parsing.
-/// Full SN: 31 digits (30 + Luhn check)
-/// Short SN: 13 digits
+/// Format: TTYYYWWBBBBSSSSSS (16 digits, batch-linked)
 /// </summary>
 /// <remarks>
 /// Uses TestBusinessDbContext which implements IBusinessDbContext for testing.
-/// This allows testing without requiring the full PosDbContext.
+/// The serial number service depends on BatchNumberGeneratorService for batch validation.
 /// </remarks>
 public class SerialNumberGeneratorServiceTests : IDisposable
 {
     private readonly TestBusinessDbContext _context;
-    private readonly Mock<ILogger<SerialNumberGeneratorService>> _loggerMock;
+    private readonly Mock<ILogger<SerialNumberGeneratorService>> _snLoggerMock;
+    private readonly Mock<ILogger<BatchNumberGeneratorService>> _batchLoggerMock;
+    private readonly BatchNumberGeneratorService _batchService;
     private readonly SerialNumberGeneratorService _service;
     private const string TestUser = "TestUser";
 
@@ -34,8 +35,11 @@ public class SerialNumberGeneratorServiceTests : IDisposable
             .Options;
 
         _context = new TestBusinessDbContext(options);
-        _loggerMock = new Mock<ILogger<SerialNumberGeneratorService>>();
-        _service = new SerialNumberGeneratorService(_context, _loggerMock.Object, TestUser);
+        _snLoggerMock = new Mock<ILogger<SerialNumberGeneratorService>>();
+        _batchLoggerMock = new Mock<ILogger<BatchNumberGeneratorService>>();
+
+        _batchService = new BatchNumberGeneratorService(_context, _batchLoggerMock.Object, TestUser);
+        _service = new SerialNumberGeneratorService(_context, _snLoggerMock.Object, _batchService, TestUser);
     }
 
     public void Dispose()
@@ -45,220 +49,150 @@ public class SerialNumberGeneratorServiceTests : IDisposable
     }
 
     // ============================================================
-    // FULL SERIAL NUMBER GENERATION TESTS
+    // SERIAL NUMBER GENERATION TESTS
     // ============================================================
 
     [Fact]
-    public async Task GenerateSerialNumberAsync_Should_Generate_30_Digit_Full_SN()
+    public async Task GenerateSerialNumberAsync_Should_Generate_16_Digit_Number()
     {
         // Arrange
         var siteId = 1;
-        var strainCode = 100; // Sativa
-        var batchType = BatchType.Production;
-        var date = new DateTime(2025, 12, 12);
-        var batchSequence = 1;
-        var weight = 3.5m;
-        var packQty = 1;
+        var serialType = SerialType.Production;
+        var date = new DateTime(2025, 12, 15); // Week 51
+        var batchNumber = await _batchService.GenerateBatchNumberAsync(
+            siteId, BatchType.Production, date, TestUser);
 
         // Act
         var result = await _service.GenerateSerialNumberAsync(
-            siteId, strainCode, batchType, date, batchSequence, weight, packQty, TestUser);
+            siteId, serialType, batchNumber, TestUser);
 
         // Assert
-        // Format: SS(2)+SSS(3)+TT(2)+YYYYMMDD(8)+BBBB(4)+UUUUU(5)+WWWW(4)+Q(1)+C(1) = 30 digits
-        result.FullSerialNumber.Should().NotBeNullOrEmpty();
-        result.FullSerialNumber.Length.Should().Be(30);
+        result.SerialNumber.Should().NotBeNullOrEmpty();
+        result.SerialNumber.Length.Should().Be(16);
     }
 
     [Fact]
-    public async Task GenerateSerialNumberAsync_Should_Generate_13_Digit_Short_SN()
+    public async Task GenerateSerialNumberAsync_Should_Format_Correctly()
     {
         // Arrange
         var siteId = 1;
-        var strainCode = 100;
-        var batchType = BatchType.Production;
-        var date = new DateTime(2025, 12, 12);
+        var serialType = SerialType.Production; // 10
+        var date = new DateTime(2025, 12, 15); // Week 51
+        var batchNumber = await _batchService.GenerateBatchNumberAsync(
+            siteId, BatchType.Production, date, TestUser);
 
         // Act
         var result = await _service.GenerateSerialNumberAsync(
-            siteId, strainCode, batchType, date, 1, 3.5m, 1, TestUser);
+            siteId, serialType, batchNumber, TestUser);
 
         // Assert
-        result.ShortSerialNumber.Should().NotBeNullOrEmpty();
-        result.ShortSerialNumber.Length.Should().Be(13);
+        // Format: TTYYYWWBBBBSSSSSS
+        // TT = 10 (Production), YY = 25, WW = 51, BBBB = 0001, SSSSSS = 000001
+        result.SerialNumber.Should().Be("1025510001000001");
     }
 
     [Fact]
-    public async Task GenerateSerialNumberAsync_Should_Include_Valid_Luhn_Check_Digit()
+    public async Task GenerateSerialNumberAsync_Should_Increment_Sequence()
     {
         // Arrange
         var siteId = 1;
-        var strainCode = 100;
-        var batchType = BatchType.Production;
-        var date = new DateTime(2025, 12, 12);
+        var serialType = SerialType.Production;
+        var date = new DateTime(2025, 12, 15);
+        var batchNumber = await _batchService.GenerateBatchNumberAsync(
+            siteId, BatchType.Production, date, TestUser);
 
         // Act
-        var result = await _service.GenerateSerialNumberAsync(
-            siteId, strainCode, batchType, date, 1, 3.5m, 1, TestUser);
+        var result1 = await _service.GenerateSerialNumberAsync(siteId, serialType, batchNumber, TestUser);
+        var result2 = await _service.GenerateSerialNumberAsync(siteId, serialType, batchNumber, TestUser);
+        var result3 = await _service.GenerateSerialNumberAsync(siteId, serialType, batchNumber, TestUser);
 
         // Assert
-        var isValid = LuhnCheckDigit.Validate(result.FullSerialNumber);
-        isValid.Should().BeTrue();
+        result1.SerialNumber.Should().EndWith("000001");
+        result2.SerialNumber.Should().EndWith("000002");
+        result3.SerialNumber.Should().EndWith("000003");
     }
 
     [Fact]
-    public async Task GenerateSerialNumberAsync_Should_Encode_Site_Correctly()
-    {
-        // Arrange
-        var siteId = 5;
-
-        // Act
-        var result = await _service.GenerateSerialNumberAsync(
-            siteId, 100, BatchType.Production, DateTime.Today, 1, 3.5m, 1, TestUser);
-
-        // Assert
-        // First 2 digits are Site ID
-        result.FullSerialNumber.Substring(0, 2).Should().Be("05");
-    }
-
-    [Fact]
-    public async Task GenerateSerialNumberAsync_Should_Encode_StrainCode_Correctly()
-    {
-        // Arrange
-        var strainCode = 150; // Sativa (100-199)
-
-        // Act
-        var result = await _service.GenerateSerialNumberAsync(
-            1, strainCode, BatchType.Production, DateTime.Today, 1, 3.5m, 1, TestUser);
-
-        // Assert
-        // Strain code is positions 3-5 (index 2-4)
-        result.FullSerialNumber.Substring(2, 3).Should().Be("150");
-        result.StrainCode.Should().Be(150);
-    }
-
-    [Fact]
-    public async Task GenerateSerialNumberAsync_Should_Encode_BatchType_Correctly()
-    {
-        // Arrange
-        var batchType = BatchType.Transfer; // 20
-
-        // Act
-        var result = await _service.GenerateSerialNumberAsync(
-            1, 100, batchType, DateTime.Today, 1, 3.5m, 1, TestUser);
-
-        // Assert
-        // Batch type is positions 6-7 (index 5-6)
-        result.FullSerialNumber.Substring(5, 2).Should().Be("20");
-        result.BatchType.Should().Be(BatchType.Transfer);
-    }
-
-    [Fact]
-    public async Task GenerateSerialNumberAsync_Should_Encode_Date_Correctly()
-    {
-        // Arrange
-        var date = new DateTime(2025, 12, 12);
-
-        // Act
-        var result = await _service.GenerateSerialNumberAsync(
-            1, 100, BatchType.Production, date, 1, 3.5m, 1, TestUser);
-
-        // Assert
-        // Date is positions 8-15 (index 7-14) YYYYMMDD
-        result.FullSerialNumber.Substring(7, 8).Should().Be("20251212");
-        result.ProductionDate.Should().Be(date);
-    }
-
-    [Fact]
-    public async Task GenerateSerialNumberAsync_Should_Encode_Weight_In_Tenths()
-    {
-        // Arrange
-        var weight = 3.5m; // Should encode as 0035 (35 tenths of gram)
-
-        // Act
-        var result = await _service.GenerateSerialNumberAsync(
-            1, 100, BatchType.Production, DateTime.Today, 1, weight, 1, TestUser);
-
-        // Assert
-        // Format: SS(2)+SSS(3)+TT(2)+YYYYMMDD(8)+BBBB(4)+UUUUU(5)+WWWW(4)+Q(1)+C(1)
-        // Weight starts at position 24 (index 24-27) WWWW
-        result.FullSerialNumber.Substring(24, 4).Should().Be("0035");
-        result.WeightGrams.Should().Be(3.5m);
-    }
-
-    [Fact]
-    public async Task GenerateSerialNumberAsync_Should_Encode_PackQty_Correctly()
-    {
-        // Arrange
-        var packQty = 5;
-
-        // Act
-        var result = await _service.GenerateSerialNumberAsync(
-            1, 100, BatchType.Production, DateTime.Today, 1, 3.5m, packQty, TestUser);
-
-        // Assert
-        // Format: SS(2)+SSS(3)+TT(2)+YYYYMMDD(8)+BBBB(4)+UUUUU(5)+WWWW(4)+Q(1)+C(1)
-        // Pack qty is at position 28 (index 28) Q
-        result.FullSerialNumber[28].Should().Be('5');
-        result.PackQty.Should().Be(5);
-    }
-
-    [Fact]
-    public async Task GenerateSerialNumberAsync_Should_Increment_Unit_Sequence()
+    public async Task GenerateSerialNumberAsync_Should_Extract_YearWeek_From_Batch()
     {
         // Arrange
         var siteId = 1;
-        var strainCode = 100;
-        var batchType = BatchType.Production;
-        var date = new DateTime(2025, 12, 12);
-        var batchSequence = 1;
-
-        // Act
-        var result1 = await _service.GenerateSerialNumberAsync(
-            siteId, strainCode, batchType, date, batchSequence, 3.5m, 1, TestUser);
-        var result2 = await _service.GenerateSerialNumberAsync(
-            siteId, strainCode, batchType, date, batchSequence, 3.5m, 1, TestUser);
-        var result3 = await _service.GenerateSerialNumberAsync(
-            siteId, strainCode, batchType, date, batchSequence, 3.5m, 1, TestUser);
-
-        // Assert
-        result1.UnitSequence.Should().Be(1);
-        result2.UnitSequence.Should().Be(2);
-        result3.UnitSequence.Should().Be(3);
-    }
-
-    // ============================================================
-    // SHORT SERIAL NUMBER TESTS
-    // ============================================================
-
-    [Fact]
-    public async Task GenerateSerialNumberAsync_ShortSN_Should_Include_Site()
-    {
-        // Arrange
-        var siteId = 5;
+        var date = new DateTime(2025, 12, 15); // Week 51
+        var batchNumber = await _batchService.GenerateBatchNumberAsync(
+            siteId, BatchType.Production, date, TestUser);
 
         // Act
         var result = await _service.GenerateSerialNumberAsync(
-            siteId, 100, BatchType.Production, DateTime.Today, 1, 3.5m, 1, TestUser);
+            siteId, SerialType.Retail, batchNumber, TestUser);
 
         // Assert
-        // Short SN format: SSYYMMDDNNNNN
-        result.ShortSerialNumber.Substring(0, 2).Should().Be("05");
+        // Serial should have same YYWW as the batch
+        result.SerialNumber.Substring(2, 4).Should().Be("2551"); // YY=25, WW=51
+        result.Year.Should().Be(25);
+        result.Week.Should().Be(51);
     }
 
     [Fact]
-    public async Task GenerateSerialNumberAsync_ShortSN_Should_Include_ShortDate()
+    public async Task GenerateSerialNumberAsync_Should_Extract_BatchSequence_From_Batch()
     {
         // Arrange
-        var date = new DateTime(2025, 12, 12);
+        var siteId = 1;
+        var date = new DateTime(2025, 12, 15);
+
+        // Generate 3 batches to get batch sequence 3
+        await _batchService.GenerateBatchNumberAsync(siteId, BatchType.Production, date, TestUser);
+        await _batchService.GenerateBatchNumberAsync(siteId, BatchType.Production, date, TestUser);
+        var batchNumber = await _batchService.GenerateBatchNumberAsync(
+            siteId, BatchType.Production, date, TestUser); // Seq 0003
 
         // Act
         var result = await _service.GenerateSerialNumberAsync(
-            1, 100, BatchType.Production, date, 1, 3.5m, 1, TestUser);
+            siteId, SerialType.Production, batchNumber, TestUser);
 
         // Assert
-        // Short SN format: SSYYMMDDNNNNN - date is YYMMDD
-        result.ShortSerialNumber.Substring(2, 6).Should().Be("251212");
+        result.SerialNumber.Substring(6, 4).Should().Be("0003"); // BBBB from batch
+        result.BatchSequence.Should().Be(3);
+    }
+
+    [Theory]
+    [InlineData(SerialType.Production, "10")]
+    [InlineData(SerialType.GRV, "20")]
+    [InlineData(SerialType.Retail, "30")]
+    [InlineData(SerialType.Bucking, "40")]
+    [InlineData(SerialType.Transfer, "50")]
+    [InlineData(SerialType.Adjustment, "60")]
+    [InlineData(SerialType.Packaging, "70")]
+    [InlineData(SerialType.QCSample, "80")]
+    [InlineData(SerialType.Destruction, "90")]
+    public async Task GenerateSerialNumberAsync_Should_Use_Correct_Type_Codes(
+        SerialType serialType, string expectedCode)
+    {
+        // Arrange
+        var date = new DateTime(2025, 12, 15);
+        var batchNumber = await _batchService.GenerateBatchNumberAsync(
+            1, BatchType.Production, date, TestUser);
+
+        // Act
+        var result = await _service.GenerateSerialNumberAsync(1, serialType, batchNumber, TestUser);
+
+        // Assert
+        result.SerialNumber.Substring(0, 2).Should().Be(expectedCode);
+    }
+
+    [Fact]
+    public async Task GenerateSerialNumberAsync_Should_Store_ParentBatchNumber()
+    {
+        // Arrange
+        var date = new DateTime(2025, 12, 15);
+        var batchNumber = await _batchService.GenerateBatchNumberAsync(
+            1, BatchType.Production, date, TestUser);
+
+        // Act
+        var result = await _service.GenerateSerialNumberAsync(
+            1, SerialType.Production, batchNumber, TestUser);
+
+        // Assert
+        result.ParentBatchNumber.Should().Be(batchNumber);
     }
 
     // ============================================================
@@ -270,10 +204,13 @@ public class SerialNumberGeneratorServiceTests : IDisposable
     {
         // Arrange
         var count = 5;
+        var date = new DateTime(2025, 12, 15);
+        var batchNumber = await _batchService.GenerateBatchNumberAsync(
+            1, BatchType.Production, date, TestUser);
 
         // Act
         var results = await _service.GenerateBulkSerialNumbersAsync(
-            count, 1, 100, BatchType.Production, DateTime.Today, 1, 3.5m, 1, TestUser);
+            count, 1, SerialType.Production, batchNumber, TestUser);
 
         // Assert
         results.Should().HaveCount(5);
@@ -284,31 +221,34 @@ public class SerialNumberGeneratorServiceTests : IDisposable
     {
         // Arrange
         var count = 10;
+        var date = new DateTime(2025, 12, 15);
+        var batchNumber = await _batchService.GenerateBatchNumberAsync(
+            1, BatchType.Production, date, TestUser);
 
         // Act
         var results = await _service.GenerateBulkSerialNumbersAsync(
-            count, 1, 100, BatchType.Production, DateTime.Today, 1, 3.5m, 1, TestUser);
+            count, 1, SerialType.Production, batchNumber, TestUser);
 
         // Assert
-        var fullSNs = results.Select(r => r.FullSerialNumber).ToList();
-        fullSNs.Distinct().Count().Should().Be(count);
-
-        var shortSNs = results.Select(r => r.ShortSerialNumber).ToList();
-        shortSNs.Distinct().Count().Should().Be(count);
+        var serialNumbers = results.Select(r => r.SerialNumber).ToList();
+        serialNumbers.Distinct().Count().Should().Be(count);
     }
 
     [Fact]
-    public async Task GenerateBulkSerialNumbersAsync_Should_Have_Sequential_UnitSequences()
+    public async Task GenerateBulkSerialNumbersAsync_Should_Have_Sequential_Sequences()
     {
         // Arrange
         var count = 5;
+        var date = new DateTime(2025, 12, 15);
+        var batchNumber = await _batchService.GenerateBatchNumberAsync(
+            1, BatchType.Production, date, TestUser);
 
         // Act
         var results = await _service.GenerateBulkSerialNumbersAsync(
-            count, 1, 100, BatchType.Production, DateTime.Today, 1, 3.5m, 1, TestUser);
+            count, 1, SerialType.Production, batchNumber, TestUser);
 
         // Assert
-        var sequences = results.Select(r => r.UnitSequence).ToList();
+        var sequences = results.Select(r => r.Sequence).ToList();
         sequences.Should().BeEquivalentTo(new[] { 1, 2, 3, 4, 5 });
     }
 
@@ -316,81 +256,35 @@ public class SerialNumberGeneratorServiceTests : IDisposable
     // VALIDATION TESTS
     // ============================================================
 
-    [Fact]
-    public async Task ValidateFullSerialNumber_Should_Return_True_For_Valid()
+    [Theory]
+    [InlineData("1025510001000001", true)]  // Valid: Production, 2025-W51, Batch 1, Seq 1
+    [InlineData("3025510001999999", true)]  // Valid: Retail, 2025-W51, Batch 1, Seq 999999
+    [InlineData("9020010001000001", true)]  // Valid: Destruction, 2020-W01, Batch 1, Seq 1
+    public void ValidateSerialNumber_Should_Return_True_For_Valid_Numbers(string serialNumber, bool expected)
     {
-        // Arrange
-        var result = await _service.GenerateSerialNumberAsync(
-            1, 100, BatchType.Production, DateTime.Today, 1, 3.5m, 1, TestUser);
-
         // Act
-        var isValid = _service.ValidateFullSerialNumber(result.FullSerialNumber);
+        var result = _service.ValidateSerialNumber(serialNumber);
 
         // Assert
-        isValid.Should().BeTrue();
+        result.Should().Be(expected);
     }
 
     [Theory]
-    [InlineData("")]
-    [InlineData(null)]
-    [InlineData("12345")] // Too short
-    [InlineData("12345678901234567890123456789012345")] // Too long (35)
-    [InlineData("ABCDEFGHIJKLMNOPQRSTUVWXYZ1234")] // Non-numeric (30 chars)
-    public void ValidateFullSerialNumber_Should_Return_False_For_Invalid(string serialNumber)
+    [InlineData("")]                        // Empty
+    [InlineData(null)]                      // Null
+    [InlineData("10255100010000")]          // Too short (14 chars)
+    [InlineData("102551000100000123")]      // Too long (18 chars)
+    [InlineData("ABCD510001000001")]        // Non-numeric
+    [InlineData("9925510001000001")]        // Invalid serial type 99
+    [InlineData("1025540001000001")]        // Invalid week 54
+    [InlineData("1019510001000001")]        // Invalid year 19 (before 2020)
+    public void ValidateSerialNumber_Should_Return_False_For_Invalid_Numbers(string serialNumber)
     {
         // Act
-        var isValid = _service.ValidateFullSerialNumber(serialNumber);
+        var result = _service.ValidateSerialNumber(serialNumber);
 
         // Assert
-        isValid.Should().BeFalse();
-    }
-
-    [Fact]
-    public void ValidateFullSerialNumber_Should_Return_False_For_Invalid_Luhn()
-    {
-        // Arrange - Create a 30-digit number but with wrong check digit
-        // Valid base (29 digits): 01100102025121200010000100351
-        // Correct check digit would be calculated from this base
-        // We'll use a wrong check digit (0 instead of the correct one)
-        var baseSN = "01100102025121200010000100351";
-        var correctCheck = LuhnCheckDigit.Calculate(baseSN);
-        var wrongCheck = (correctCheck + 1) % 10; // Use wrong check digit
-        var invalidSerial = baseSN + wrongCheck.ToString();
-
-        // Act
-        var isValid = _service.ValidateFullSerialNumber(invalidSerial);
-
-        // Assert
-        isValid.Should().BeFalse();
-    }
-
-    [Fact]
-    public async Task ValidateShortSerialNumber_Should_Return_True_For_Valid()
-    {
-        // Arrange
-        var result = await _service.GenerateSerialNumberAsync(
-            1, 100, BatchType.Production, DateTime.Today, 1, 3.5m, 1, TestUser);
-
-        // Act
-        var isValid = _service.ValidateShortSerialNumber(result.ShortSerialNumber);
-
-        // Assert
-        isValid.Should().BeTrue();
-    }
-
-    [Theory]
-    [InlineData("")]
-    [InlineData(null)]
-    [InlineData("12345")] // Too short
-    [InlineData("12345678901234")] // Too long (14)
-    [InlineData("ABCDEFGHIJKLM")] // Non-numeric
-    public void ValidateShortSerialNumber_Should_Return_False_For_Invalid(string serialNumber)
-    {
-        // Act
-        var isValid = _service.ValidateShortSerialNumber(serialNumber);
-
-        // Assert
-        isValid.Should().BeFalse();
+        result.Should().BeFalse();
     }
 
     // ============================================================
@@ -398,97 +292,109 @@ public class SerialNumberGeneratorServiceTests : IDisposable
     // ============================================================
 
     [Fact]
-    public async Task ParseFullSerialNumber_Should_Extract_All_Components()
+    public void ParseSerialNumber_Should_Extract_All_Components()
     {
         // Arrange
-        var date = new DateTime(2025, 12, 12);
-        var result = await _service.GenerateSerialNumberAsync(
-            1, 150, BatchType.Transfer, date, 5, 7.5m, 2, TestUser);
+        var serialNumber = "3025510003000042";
 
         // Act
-        var parsed = _service.ParseFullSerialNumber(result.FullSerialNumber);
+        var components = _service.ParseSerialNumber(serialNumber);
 
         // Assert
-        parsed.SiteId.Should().Be(1);
-        parsed.StrainCode.Should().Be(150);
-        parsed.BatchType.Should().Be(BatchType.Transfer);
-        parsed.ProductionDate.Should().Be(date);
-        parsed.BatchSequence.Should().Be(5);
-        parsed.WeightGrams.Should().Be(7.5m);
-        parsed.PackQty.Should().Be(2);
-        parsed.IsCheckDigitValid.Should().BeTrue();
+        components.SerialType.Should().Be(SerialType.Retail);
+        components.Year.Should().Be(25);
+        components.Week.Should().Be(51);
+        components.BatchSequence.Should().Be(3);
+        components.Sequence.Should().Be(42);
     }
 
     [Fact]
-    public async Task ParseShortSerialNumber_Should_Extract_Components()
+    public void ParseSerialNumber_Should_Handle_Max_Values()
     {
         // Arrange
-        var date = new DateTime(2025, 12, 12);
-        var result = await _service.GenerateSerialNumberAsync(
-            5, 100, BatchType.Production, date, 1, 3.5m, 1, TestUser);
+        var serialNumber = "9099539999999999";
 
         // Act
-        var parsed = _service.ParseShortSerialNumber(result.ShortSerialNumber);
+        var components = _service.ParseSerialNumber(serialNumber);
 
         // Assert
-        parsed.SiteId.Should().Be(5);
-        parsed.ProductionDate.Should().Be(date);
-        parsed.Sequence.Should().BeGreaterThan(0);
+        components.SerialType.Should().Be(SerialType.Destruction);
+        components.Year.Should().Be(99);
+        components.Week.Should().Be(53);
+        components.BatchSequence.Should().Be(9999);
+        components.Sequence.Should().Be(999999);
+    }
+
+    [Fact]
+    public void ParseSerialNumber_ApproximateDate_Should_Return_Week_Start()
+    {
+        // Arrange
+        var serialNumber = "1025510001000001"; // 2025, Week 51
+
+        // Act
+        var components = _service.ParseSerialNumber(serialNumber);
+
+        // Assert
+        // Week 51 of 2025 starts on Monday, December 15
+        components.ApproximateDate.Should().Be(new DateTime(2025, 12, 15));
     }
 
     [Theory]
     [InlineData("")]
     [InlineData(null)]
     [InlineData("invalid")]
-    public void ParseFullSerialNumber_Should_Throw_For_Invalid_Input(string serialNumber)
+    public void ParseSerialNumber_Should_Throw_For_Invalid_Input(string serialNumber)
     {
         // Act
-        var act = () => _service.ParseFullSerialNumber(serialNumber);
+        var act = () => _service.ParseSerialNumber(serialNumber);
 
         // Assert
         act.Should().Throw<ArgumentException>();
     }
 
     // ============================================================
-    // STRAIN TYPE TESTS
+    // SERIAL TYPE NAME TESTS
     // ============================================================
 
     [Theory]
-    [InlineData(100, "Sativa")]
-    [InlineData(150, "Sativa")]
-    [InlineData(199, "Sativa")]
-    [InlineData(200, "Indica")]
-    [InlineData(250, "Indica")]
-    [InlineData(299, "Indica")]
-    [InlineData(300, "Hybrid")]
-    [InlineData(350, "Hybrid")]
-    [InlineData(399, "Hybrid")]
-    [InlineData(400, "CBD")]
-    [InlineData(450, "CBD")]
-    [InlineData(499, "CBD")]
-    [InlineData(500, "Unknown")]
-    [InlineData(999, "Unknown")]
-    public void GetStrainType_Should_Return_Correct_Type(int strainCode, string expectedType)
+    [InlineData(SerialType.Production, "Production")]
+    [InlineData(SerialType.GRV, "Goods Received")]
+    [InlineData(SerialType.Retail, "Retail Sub")]
+    [InlineData(SerialType.Bucking, "Bucking")]
+    [InlineData(SerialType.Transfer, "Transfer")]
+    [InlineData(SerialType.Adjustment, "Adjustment")]
+    [InlineData(SerialType.Packaging, "Packaging")]
+    [InlineData(SerialType.QCSample, "QC Sample")]
+    [InlineData(SerialType.Destruction, "Destruction")]
+    public void GetSerialTypeName_Should_Return_Correct_Name(SerialType serialType, string expectedName)
     {
         // Act
-        var result = _service.GetStrainType(strainCode);
+        var result = _service.GetSerialTypeName(serialType);
 
         // Assert
-        result.Should().Be(expectedType);
+        result.Should().Be(expectedName);
     }
 
+    // ============================================================
+    // DERIVE PARENT BATCH TESTS
+    // ============================================================
+
     [Fact]
-    public async Task GenerateSerialNumberAsync_Should_Include_StrainType_In_Result()
+    public async Task DeriveParentBatchNumber_Should_Reconstruct_Batch()
     {
         // Arrange
-        var strainCode = 250; // Indica
+        var date = new DateTime(2025, 12, 15);
+        var batchNumber = await _batchService.GenerateBatchNumberAsync(
+            1, BatchType.Production, date, TestUser);
+        var serial = await _service.GenerateSerialNumberAsync(
+            1, SerialType.Production, batchNumber, TestUser);
 
         // Act
-        var result = await _service.GenerateSerialNumberAsync(
-            1, strainCode, BatchType.Production, DateTime.Today, 1, 3.5m, 1, TestUser);
+        var derivedBatch = _service.DeriveParentBatchNumber(
+            serial.SerialNumber, 1, BatchType.Production);
 
         // Assert
-        result.StrainType.Should().Be("Indica");
+        derivedBatch.Should().Be(batchNumber);
     }
 
     // ============================================================
@@ -501,71 +407,122 @@ public class SerialNumberGeneratorServiceTests : IDisposable
     [InlineData(-1)]
     public async Task GenerateSerialNumberAsync_Should_Throw_For_Invalid_SiteId(int siteId)
     {
+        // Arrange
+        var date = new DateTime(2025, 12, 15);
+        var batchNumber = await _batchService.GenerateBatchNumberAsync(
+            1, BatchType.Production, date, TestUser);
+
         // Act
         var act = async () => await _service.GenerateSerialNumberAsync(
-            siteId, 100, BatchType.Production, DateTime.Today, 1, 3.5m, 1, TestUser);
+            siteId, SerialType.Production, batchNumber, TestUser);
 
         // Assert
         await act.Should().ThrowAsync<ArgumentOutOfRangeException>();
     }
 
-    [Theory]
-    [InlineData(0)]
-    [InlineData(99)]
-    [InlineData(1000)]
-    [InlineData(-1)]
-    public async Task GenerateSerialNumberAsync_Should_Throw_For_Invalid_StrainCode(int strainCode)
+    [Fact]
+    public async Task GenerateSerialNumberAsync_Should_Throw_For_Invalid_BatchNumber()
     {
         // Act
         var act = async () => await _service.GenerateSerialNumberAsync(
-            1, strainCode, BatchType.Production, DateTime.Today, 1, 3.5m, 1, TestUser);
+            1, SerialType.Production, "invalid", TestUser);
 
         // Assert
-        await act.Should().ThrowAsync<ArgumentOutOfRangeException>();
-    }
-
-    [Theory]
-    [InlineData(-1)]
-    [InlineData(10)]
-    public async Task GenerateSerialNumberAsync_Should_Throw_For_Invalid_PackQty(int packQty)
-    {
-        // Act
-        var act = async () => await _service.GenerateSerialNumberAsync(
-            1, 100, BatchType.Production, DateTime.Today, 1, 3.5m, packQty, TestUser);
-
-        // Assert
-        await act.Should().ThrowAsync<ArgumentOutOfRangeException>();
+        await act.Should().ThrowAsync<ArgumentException>();
     }
 
     [Fact]
     public async Task GenerateSerialNumberAsync_Should_Persist_SerialNumber_Record()
     {
         // Arrange
-        var siteId = 1;
-        var strainCode = 100;
-        var date = new DateTime(2025, 12, 12);
+        var date = new DateTime(2025, 12, 15);
+        var batchNumber = await _batchService.GenerateBatchNumberAsync(
+            1, BatchType.Production, date, TestUser);
 
         // Act
         var result = await _service.GenerateSerialNumberAsync(
-            siteId, strainCode, BatchType.Production, date, 1, 3.5m, 1, TestUser);
+            1, SerialType.Production, batchNumber, TestUser);
 
         // Assert
         var serialNumbers = await _context.SerialNumbers.ToListAsync();
         serialNumbers.Should().HaveCount(1);
-        serialNumbers[0].FullSerialNumber.Should().Be(result.FullSerialNumber);
-        serialNumbers[0].ShortSerialNumber.Should().Be(result.ShortSerialNumber);
+        serialNumbers[0].FullSerialNumber.Should().Be(result.SerialNumber);
     }
 
     [Fact]
     public async Task GenerateSerialNumberAsync_Should_Set_Audit_Fields()
     {
+        // Arrange
+        var date = new DateTime(2025, 12, 15);
+        var batchNumber = await _batchService.GenerateBatchNumberAsync(
+            1, BatchType.Production, date, TestUser);
+
         // Act
-        var result = await _service.GenerateSerialNumberAsync(
-            1, 100, BatchType.Production, DateTime.Today, 1, 3.5m, 1, TestUser);
+        await _service.GenerateSerialNumberAsync(1, SerialType.Production, batchNumber, TestUser);
 
         // Assert
         var serial = await _context.SerialNumbers.FirstAsync();
         serial.CreatedBy.Should().Be(TestUser);
         serial.CreatedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(5));
+    }
+
+    // ============================================================
+    // VISUAL IDENTIFICATION TESTS
+    // ============================================================
+
+    [Fact]
+    public async Task GenerateSerialNumber_Should_Be_Visually_Identifiable()
+    {
+        // This test documents the visual identification capability of the new format
+        // Format: TT YY WW BBBB SSSSSS
+        //         10 25 51 0001 000001
+        //         │  │  │  │    └── Serial #1 from this batch
+        //         │  │  │  └─────── From Batch 0001
+        //         │  │  └────────── Week 51
+        //         │  └───────────── 2025
+        //         └──────────────── Production type (10)
+
+        var date = new DateTime(2025, 12, 15);
+        var batchNumber = await _batchService.GenerateBatchNumberAsync(
+            1, BatchType.Production, date, TestUser);
+        var serial = await _service.GenerateSerialNumberAsync(
+            1, SerialType.Production, batchNumber, TestUser);
+
+        // Parse visually
+        serial.SerialNumber.Substring(0, 2).Should().Be("10", "Type should be Production (10)");
+        serial.SerialNumber.Substring(2, 2).Should().Be("25", "Year should be 25");
+        serial.SerialNumber.Substring(4, 2).Should().Be("51", "Week should be 51");
+        serial.SerialNumber.Substring(6, 4).Should().Be("0001", "Batch sequence should be 0001");
+        serial.SerialNumber.Substring(10, 6).Should().Be("000001", "Serial sequence should be 000001");
+    }
+
+    [Fact]
+    public async Task Serial_Batch_Relationship_Should_Be_Traceable()
+    {
+        // This test documents the traceability from Serial → Batch
+        var date = new DateTime(2025, 12, 15);
+
+        // Create batch: 011025510001 (Site 01, Production, 2025-W51, Batch #1)
+        var batchNumber = await _batchService.GenerateBatchNumberAsync(
+            1, BatchType.Production, date, TestUser);
+
+        // Create serial from this batch
+        var serial = await _service.GenerateSerialNumberAsync(
+            1, SerialType.Retail, batchNumber, TestUser);
+
+        // Serial: 3025510001000001 (Retail, 2025-W51, from Batch 0001, Serial #1)
+        // The YYWW and BBBB in serial match the batch!
+        var batchComponents = _batchService.ParseBatchNumber(batchNumber);
+        var serialComponents = _service.ParseSerialNumber(serial.SerialNumber);
+
+        // Verify traceability
+        serialComponents.Year.Should().Be(batchComponents.Year);
+        serialComponents.Week.Should().Be(batchComponents.Week);
+        serialComponents.BatchSequence.Should().Be(batchComponents.Sequence);
+
+        // Can reconstruct parent batch from serial
+        var derivedBatch = _service.DeriveParentBatchNumber(
+            serial.SerialNumber, 1, BatchType.Production);
+        derivedBatch.Should().Be(batchNumber);
     }
 }

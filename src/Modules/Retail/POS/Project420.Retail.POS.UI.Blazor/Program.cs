@@ -60,6 +60,7 @@ builder.Services.AddDbContext<ProductionDbContext>(options =>
 builder.Services.AddDbContext<InventoryDbContext>(options =>
     options.UseSqlServer(businessConnection));
 
+
 // Register DatabaseSeeder
 builder.Services.AddScoped<DatabaseSeeder>();
 

@@ -1,8 +1,11 @@
 # Project420 - Cannabis Management System
 
-**Status**: 🟡 Proof of Concept - Initial Setup
+> **⚠️ PoC FROZEN**: This Proof of Concept is frozen. All future feature development occurs in Prototype.
+
+**Status**: 🔴 Proof of Concept - FROZEN (Tag: poc-freeze-v1)
 **Version**: 0.1.0
 **Created**: 2025-12-01
+**Frozen**: 2025-12-19
 **Location**: `C:\Users\Jason\Documents\Mine\projects\Personal\Project420`
 
 ---

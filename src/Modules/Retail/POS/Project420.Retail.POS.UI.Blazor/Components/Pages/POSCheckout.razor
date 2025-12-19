@@ -2,7 +2,10 @@
 @using Project420.Retail.POS.BLL.Services
 @using Project420.Retail.POS.BLL.DTOs
 @using Project420.Shared.Core.Enums
+@using Project420.Management.BLL.Sales.SalesCommon.Services
+@using Project420.Management.DAL.Repositories.Sales.SalesCommon
 @inject ITransactionService TransactionService
+@inject IDebtorRepository Customers
 
 <PageTitle>POS Checkout</PageTitle>
 
@@ -110,22 +113,13 @@
                         <h5>Shopping Cart</h5>
                     </div>
                     <div class="card-body">
+
+
                         @if (cart.Count == 0)
                         {
                             <div class="alert alert-warning">
                                 Cart is empty. Add products to continue.
-                            </div>
-
-                            <!-- DEMO: Quick add products -->
-                            <div class="mt-3">
-                                <h6>Quick Add (Demo Data)</h6>
-                                <button class="btn btn-sm btn-outline-primary" @onclick="() => AddDemoProduct(1, 100.00m)">
-                                    Add Cannabis Flower - R100.00
-                                </button>
-                                <button class="btn btn-sm btn-outline-primary ms-2" @onclick="() => AddDemoProduct(2, 50.00m)">
-                                    Add Pre-Roll - R50.00
-                                </button>
-                            </div>
+                            </div> 
                         }
                         else
                         {
@@ -162,6 +156,25 @@
                                 <h5>Cart Total: R @cart.Sum(c => c.UnitPriceInclVAT * c.Quantity).ToString("F2")</h5>
                             </div>
                         }
+
+                        <!-- DEMO: Quick add products -->
+                        <div class="mt-3">
+                            <h6>Quick Add (Demo Data)</h6>
+
+                            <button type="button"
+                                    class="btn btn-sm btn-outline-primary"
+                                    @onclick="() => AddDemoProduct(1, 100.00m)">
+                                Add Cannabis Flower - R100.00
+                            </button>
+
+                            <button type="button"
+                                    class="btn btn-sm btn-outline-primary ms-2"
+                                    @onclick="() => AddDemoProduct(2, 50.00m)">
+                                Add Pre-Roll - R50.00
+                            </button>
+
+                        </div>
+
                     </div>
                 </div>
             </div>
@@ -174,9 +187,16 @@
                     <div class="card-body">
                         <!-- Customer Info -->
                         <div class="mb-3">
-                            <label class="form-label">Customer Name</label>
-                            <input type="text" class="form-control" @bind="customerName"
-                                   placeholder="Walk-In Customer" />
+                            <select class="form-select" @bind="customerName">
+                                <option value="">Walk-In Customer</option>
+
+                                @foreach (var customer in customers)
+                                {
+                                    <option value="@customer.Id">
+                                        @customer.Name
+                                    </option>
+                                }
+                            </select>
                         </div>
 
                         <!-- Age Verification (Cannabis Act Requirement) -->
@@ -262,6 +282,7 @@
 @code {
     // Cart state
     private List<CartItemDto> cart = new();
+    private List<DebtorRepository> customers = new();
 
     // Checkout form state
     private string customerName = "Walk-In Customer";
@@ -292,7 +313,9 @@
             BatchNumber = $"BATCH-{DateTime.Now:yyyyMMdd}-{id:D3}",
             CostPrice = price * 0.6m // 40% margin
         });
+        Console.WriteLine($"{id},{price},Product added apparently");
     }
+
 
     /// <summary>
     /// Remove item from cart

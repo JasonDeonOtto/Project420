@@ -4,25 +4,31 @@ using Microsoft.Extensions.Logging;
 using Project420.Shared.Core.Abstractions;
 using Project420.Shared.Core.Entities;
 using Project420.Shared.Core.Enums;
-using Project420.Shared.Database.Utilities;
 
 namespace Project420.Shared.Database.Services;
 
 /// <summary>
-/// Service for generating unique serial numbers in two formats:
-/// - Full Serial Number (31 digits including check) for QR codes
-/// - Short Serial Number (13 digits) for barcodes
+/// Service for generating unique serial numbers in the 16-digit batch-linked format: TTYYYWWBBBBSSSSSS
 /// </summary>
 /// <remarks>
-/// Full Serial Format (31 digits):
-/// SS(2) + SSS(3) + TT(2) + YYYYMMDD(8) + BBBB(4) + UUUUU(5) + WWWW(4) + Q(1) + C(1) = 30 + 1 check
+/// Serial Number Format (16 digits): TTYYYWWBBBBSSSSSS
+/// - TT: Serial Type (2 digits - operation type code)
+/// - YY: Year (2 digits, e.g., 25 for 2025)
+/// - WW: ISO week number (01-53)
+/// - BBBB: Parent batch sequence (4 digits - links to batch's NNNN)
+/// - SSSSSS: Serial sequence within batch (000001-999999)
 ///
-/// Short Serial Format (13 digits):
-/// SS(2) + YYMMDD(6) + NNNNN(5) = 13
+/// Example: 1025510001000001
+/// - Production type (10), 2025, Week 51, from Batch 0001, Serial #1
 ///
 /// Thread Safety:
 /// - Uses database transactions for atomic sequence increments
 /// - Safe for multi-instance deployments
+///
+/// Cannabis Compliance:
+/// - SAHPRA unit-level traceability (seed-to-sale)
+/// - Batch linkage enables recall management
+/// - Week-based tracking aligns with production cycles
 ///
 /// Architecture:
 /// - Uses IBusinessDbContext interface to access business data tables
@@ -33,68 +39,70 @@ public class SerialNumberGeneratorService : ISerialNumberGeneratorService
 {
     private readonly IBusinessDbContext _context;
     private readonly ILogger<SerialNumberGeneratorService> _logger;
+    private readonly IBatchNumberGeneratorService _batchService;
     private readonly string _defaultUser;
 
     public SerialNumberGeneratorService(
         IBusinessDbContext context,
         ILogger<SerialNumberGeneratorService> logger,
+        IBatchNumberGeneratorService batchService,
         string defaultUser = "SYSTEM")
     {
         _context = context ?? throw new ArgumentNullException(nameof(context));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _batchService = batchService ?? throw new ArgumentNullException(nameof(batchService));
         _defaultUser = defaultUser;
     }
 
     /// <inheritdoc />
     public async Task<SerialNumberResult> GenerateSerialNumberAsync(
         int siteId,
-        int strainCode,
-        BatchType batchType,
-        DateTime? productionDate = null,
-        int? batchSequence = null,
-        decimal weightGrams = 0m,
-        int packQty = 1,
+        SerialType serialType,
+        string batchNumber,
         string? requestedBy = null)
     {
         // Validate inputs
-        ValidateInputs(siteId, strainCode, weightGrams, packQty);
+        if (siteId < 1 || siteId > 99)
+            throw new ArgumentOutOfRangeException(nameof(siteId), "Site ID must be 1-99.");
 
-        var date = productionDate?.Date ?? DateTime.Today;
+        if (!_batchService.ValidateBatchNumber(batchNumber))
+            throw new ArgumentException($"Invalid batch number format: {batchNumber}", nameof(batchNumber));
+
+        // Parse batch number to extract YYWW and BBBB
+        var batchComponents = _batchService.ParseBatchNumber(batchNumber);
+        var year = batchComponents.Year;
+        var week = batchComponents.Week;
+        var batchSequence = batchComponents.Sequence;
         var user = requestedBy ?? _defaultUser;
-        var batchSeq = batchSequence ?? 1;
 
         _logger.LogDebug(
-            "Generating serial number for Site {SiteId}, Strain {StrainCode}, Type {BatchType}, Date {Date}",
-            siteId, strainCode, batchType, date);
+            "Generating serial for Site {SiteId}, Type {SerialType}, Batch {BatchNumber}",
+            siteId, serialType, batchNumber);
 
         await using var transaction = await _context.Database.BeginTransactionAsync();
 
         try
         {
-            // Get next unit sequence for this batch
-            var unitSequence = await GetNextUnitSequenceAsync(siteId, batchType, date, batchSeq, user);
+            // Get next serial sequence for this batch
+            var serialSequence = await GetNextSerialSequenceAsync(
+                siteId, serialType, year, week, batchSequence, user);
 
-            // Get next daily sequence for short SN
-            var dailySequence = await GetNextDailySequenceAsync(siteId, date, user);
-
-            // Build the serial numbers
-            var fullSN = BuildFullSerialNumber(
-                siteId, strainCode, batchType, date, batchSeq, unitSequence, weightGrams, packQty);
-            var shortSN = BuildShortSerialNumber(siteId, date, dailySequence);
+            // Build the serial number: TTYYYWWBBBBSSSSSS (16 digits)
+            var serialNumber = FormatSerialNumber(serialType, year, week, batchSequence, serialSequence);
 
             // Store the serial number record
             var serialRecord = new SerialNumber
             {
-                FullSerialNumber = fullSN,
-                ShortSerialNumber = shortSN,
+                FullSerialNumber = serialNumber,
+                ShortSerialNumber = serialNumber, // Same format now
                 SiteId = siteId,
-                StrainCode = strainCode,
-                BatchType = batchType,
-                ProductionDate = date,
-                BatchSequence = batchSeq,
-                UnitSequence = unitSequence,
-                WeightGrams = weightGrams,
-                PackQty = packQty,
+                StrainCode = 0, // Not used in new format
+                BatchType = batchComponents.BatchType,
+                ProductionDate = batchComponents.ApproximateDate,
+                BatchSequence = batchSequence,
+                UnitSequence = serialSequence,
+                WeightGrams = 0, // Not embedded in new format
+                PackQty = 1,
                 Status = SerialStatus.Created,
                 CreatedAt = DateTime.UtcNow,
                 CreatedBy = user
@@ -106,23 +114,20 @@ public class SerialNumberGeneratorService : ISerialNumberGeneratorService
 
             var result = new SerialNumberResult
             {
-                FullSerialNumber = fullSN,
-                ShortSerialNumber = shortSN,
+                SerialNumber = serialNumber,
                 SiteId = siteId,
-                StrainCode = strainCode,
-                StrainType = GetStrainType(strainCode),
-                BatchType = batchType,
-                ProductionDate = date,
-                BatchSequence = batchSeq,
-                UnitSequence = unitSequence,
-                WeightGrams = weightGrams,
-                PackQty = packQty,
-                CheckDigit = LuhnCheckDigit.ExtractCheckDigit(fullSN)
+                SerialType = serialType,
+                SerialTypeName = GetSerialTypeName(serialType),
+                Year = year,
+                Week = week,
+                BatchSequence = batchSequence,
+                Sequence = serialSequence,
+                ParentBatchNumber = batchNumber
             };
 
             _logger.LogInformation(
-                "Generated serial number {ShortSN} (Full: {FullSN}) for Site {SiteId}",
-                shortSN, fullSN, siteId);
+                "Generated serial {SerialNumber} for Batch {BatchNumber}",
+                serialNumber, batchNumber);
 
             return result;
         }
@@ -130,8 +135,8 @@ public class SerialNumberGeneratorService : ISerialNumberGeneratorService
         {
             await transaction.RollbackAsync();
             _logger.LogError(ex,
-                "Failed to generate serial number for Site {SiteId}, Strain {StrainCode}",
-                siteId, strainCode);
+                "Failed to generate serial for Site {SiteId}, Type {SerialType}, Batch {BatchNumber}",
+                siteId, serialType, batchNumber);
             throw;
         }
     }
@@ -140,33 +145,26 @@ public class SerialNumberGeneratorService : ISerialNumberGeneratorService
     public async Task<List<SerialNumberResult>> GenerateBulkSerialNumbersAsync(
         int count,
         int siteId,
-        int strainCode,
-        BatchType batchType,
-        DateTime? productionDate = null,
-        int? batchSequence = null,
-        decimal weightGrams = 0m,
-        int packQty = 1,
+        SerialType serialType,
+        string batchNumber,
         string? requestedBy = null)
     {
-        if (count < 1 || count > 10000)
+        if (count < 1 || count > 999999)
         {
             throw new ArgumentOutOfRangeException(nameof(count),
-                "Count must be between 1 and 10,000.");
+                "Count must be between 1 and 999,999.");
         }
-
-        ValidateInputs(siteId, strainCode, weightGrams, packQty);
 
         var results = new List<SerialNumberResult>(count);
 
         _logger.LogInformation(
-            "Generating {Count} serial numbers for Site {SiteId}, Strain {StrainCode}",
-            count, siteId, strainCode);
+            "Generating {Count} serial numbers for Batch {BatchNumber}",
+            count, batchNumber);
 
         for (int i = 0; i < count; i++)
         {
             var result = await GenerateSerialNumberAsync(
-                siteId, strainCode, batchType, productionDate,
-                batchSequence, weightGrams, packQty, requestedBy);
+                siteId, serialType, batchNumber, requestedBy);
             results.Add(result);
         }
 
@@ -177,53 +175,43 @@ public class SerialNumberGeneratorService : ISerialNumberGeneratorService
     }
 
     /// <inheritdoc />
-    public bool ValidateFullSerialNumber(string fullSerialNumber)
+    public bool ValidateSerialNumber(string serialNumber)
     {
-        if (string.IsNullOrWhiteSpace(fullSerialNumber))
+        if (string.IsNullOrWhiteSpace(serialNumber))
             return false;
 
-        // Must be exactly 30 digits: SS(2)+SSS(3)+TT(2)+YYYYMMDD(8)+BBBB(4)+UUUUU(5)+WWWW(4)+Q(1)+C(1)
-        if (fullSerialNumber.Length != 30)
+        // Must be exactly 16 digits
+        if (serialNumber.Length != 16)
             return false;
 
         // Must be all numeric
-        if (!IsNumeric(fullSerialNumber))
+        if (!IsNumeric(serialNumber))
             return false;
 
-        // Validate Luhn check digit
-        if (!LuhnCheckDigit.Validate(fullSerialNumber))
-            return false;
-
-        // Parse and validate components
         try
         {
-            var components = ParseFullSerialNumber(fullSerialNumber);
-            return components.IsCheckDigitValid;
-        }
-        catch
-        {
-            return false;
-        }
-    }
+            var components = ParseSerialNumber(serialNumber);
 
-    /// <inheritdoc />
-    public bool ValidateShortSerialNumber(string shortSerialNumber)
-    {
-        if (string.IsNullOrWhiteSpace(shortSerialNumber))
-            return false;
+            // Validate serial type (must be defined enum value)
+            if (!Enum.IsDefined(typeof(SerialType), components.SerialType))
+                return false;
 
-        // Must be exactly 13 digits
-        if (shortSerialNumber.Length != 13)
-            return false;
+            // Validate year (reasonable range: 20-99 for 2020-2099)
+            if (components.Year < 20 || components.Year > 99)
+                return false;
 
-        // Must be all numeric
-        if (!IsNumeric(shortSerialNumber))
-            return false;
+            // Validate week (01-53)
+            if (components.Week < 1 || components.Week > 53)
+                return false;
 
-        // Parse and validate components
-        try
-        {
-            ParseShortSerialNumber(shortSerialNumber);
+            // Validate batch sequence (0001-9999)
+            if (components.BatchSequence < 1 || components.BatchSequence > 9999)
+                return false;
+
+            // Validate serial sequence (000001-999999)
+            if (components.Sequence < 1 || components.Sequence > 999999)
+                return false;
+
             return true;
         }
         catch
@@ -233,170 +221,115 @@ public class SerialNumberGeneratorService : ISerialNumberGeneratorService
     }
 
     /// <inheritdoc />
-    public FullSerialNumberComponents ParseFullSerialNumber(string fullSerialNumber)
+    public SerialNumberComponents ParseSerialNumber(string serialNumber)
     {
-        if (string.IsNullOrWhiteSpace(fullSerialNumber))
-            throw new ArgumentException("Serial number cannot be null or empty.", nameof(fullSerialNumber));
+        if (string.IsNullOrWhiteSpace(serialNumber))
+            throw new ArgumentException("Serial number cannot be null or empty.", nameof(serialNumber));
 
-        // Format: SS(2)+SSS(3)+TT(2)+YYYYMMDD(8)+BBBB(4)+UUUUU(5)+WWWW(4)+Q(1)+C(1) = 30 digits
-        if (fullSerialNumber.Length != 30)
-            throw new ArgumentException($"Full serial number must be 30 digits. Got {fullSerialNumber.Length}.", nameof(fullSerialNumber));
+        if (serialNumber.Length != 16)
+            throw new ArgumentException($"Serial number must be 16 digits. Got {serialNumber.Length}.", nameof(serialNumber));
 
-        if (!IsNumeric(fullSerialNumber))
-            throw new ArgumentException("Serial number must be all numeric.", nameof(fullSerialNumber));
+        if (!IsNumeric(serialNumber))
+            throw new ArgumentException("Serial number must be all numeric.", nameof(serialNumber));
 
-        // Parse components: SS(2)+SSS(3)+TT(2)+YYYYMMDD(8)+BBBB(4)+UUUUU(5)+WWWW(4)+Q(1)+C(1)
-        int pos = 0;
+        // Extract components: TTYYYWWBBBBSSSSSS (16 digits)
+        // TT: Serial Type (positions 0-1)
+        // YY: Year (positions 2-3)
+        // WW: Week (positions 4-5)
+        // BBBB: Batch sequence (positions 6-9)
+        // SSSSSS: Serial sequence (positions 10-15)
 
-        // Site ID (2 digits)
-        var siteId = int.Parse(fullSerialNumber.Substring(pos, 2));
-        pos += 2;
+        var serialTypeStr = serialNumber.Substring(0, 2);
+        var yearStr = serialNumber.Substring(2, 2);
+        var weekStr = serialNumber.Substring(4, 2);
+        var batchSeqStr = serialNumber.Substring(6, 4);
+        var serialSeqStr = serialNumber.Substring(10, 6);
 
-        // Strain Code (3 digits)
-        var strainCode = int.Parse(fullSerialNumber.Substring(pos, 3));
-        pos += 3;
+        // Parse serial type
+        if (!int.TryParse(serialTypeStr, out int serialTypeInt))
+            throw new ArgumentException($"Invalid serial type '{serialTypeStr}'.", nameof(serialNumber));
 
-        // Batch Type (2 digits)
-        var batchTypeInt = int.Parse(fullSerialNumber.Substring(pos, 2));
-        pos += 2;
+        if (!Enum.IsDefined(typeof(SerialType), serialTypeInt))
+            throw new ArgumentException($"Unknown serial type code '{serialTypeInt}'.", nameof(serialNumber));
 
-        if (!Enum.IsDefined(typeof(BatchType), batchTypeInt))
-            throw new ArgumentException($"Unknown batch type code: {batchTypeInt}");
-        var batchType = (BatchType)batchTypeInt;
+        var serialType = (SerialType)serialTypeInt;
 
-        // Date (8 digits)
-        var dateStr = fullSerialNumber.Substring(pos, 8);
-        pos += 8;
+        // Parse year
+        if (!int.TryParse(yearStr, out int year) || year < 20 || year > 99)
+            throw new ArgumentException($"Invalid year '{yearStr}'. Must be 20-99.", nameof(serialNumber));
 
-        if (!DateTime.TryParseExact(dateStr, "yyyyMMdd", CultureInfo.InvariantCulture,
-            DateTimeStyles.None, out var productionDate))
-            throw new ArgumentException($"Invalid date: {dateStr}");
+        // Parse week
+        if (!int.TryParse(weekStr, out int week) || week < 1 || week > 53)
+            throw new ArgumentException($"Invalid week '{weekStr}'. Must be 01-53.", nameof(serialNumber));
 
-        // Batch Sequence (4 digits)
-        var batchSequence = int.Parse(fullSerialNumber.Substring(pos, 4));
-        pos += 4;
+        // Parse batch sequence
+        if (!int.TryParse(batchSeqStr, out int batchSequence) || batchSequence < 1)
+            throw new ArgumentException($"Invalid batch sequence '{batchSeqStr}'.", nameof(serialNumber));
 
-        // Unit Sequence (5 digits)
-        var unitSequence = int.Parse(fullSerialNumber.Substring(pos, 5));
-        pos += 5;
+        // Parse serial sequence
+        if (!int.TryParse(serialSeqStr, out int serialSequence) || serialSequence < 1)
+            throw new ArgumentException($"Invalid serial sequence '{serialSeqStr}'.", nameof(serialNumber));
 
-        // Weight (4 digits, in tenths of grams)
-        var weightTenths = int.Parse(fullSerialNumber.Substring(pos, 4));
-        var weightGrams = weightTenths / 10m;
-        pos += 4;
-
-        // Pack Qty (1 digit)
-        var packQty = int.Parse(fullSerialNumber.Substring(pos, 1));
-        pos += 1;
-
-        // Check Digit (1 digit)
-        var checkDigit = int.Parse(fullSerialNumber.Substring(pos, 1));
-
-        // Validate check digit
-        var isValid = LuhnCheckDigit.Validate(fullSerialNumber);
-
-        return new FullSerialNumberComponents
+        return new SerialNumberComponents
         {
-            SiteId = siteId,
-            StrainCode = strainCode,
-            StrainType = GetStrainType(strainCode),
-            BatchType = batchType,
-            ProductionDate = productionDate,
+            SerialType = serialType,
+            SerialTypeName = GetSerialTypeName(serialType),
+            Year = year,
+            Week = week,
             BatchSequence = batchSequence,
-            UnitSequence = unitSequence,
-            WeightGrams = weightGrams,
-            PackQty = packQty,
-            CheckDigit = checkDigit,
-            OriginalSerialNumber = fullSerialNumber,
-            IsCheckDigitValid = isValid
+            Sequence = serialSequence,
+            OriginalSerialNumber = serialNumber
         };
     }
 
     /// <inheritdoc />
-    public ShortSerialNumberComponents ParseShortSerialNumber(string shortSerialNumber)
+    public string GetSerialTypeName(SerialType serialType)
     {
-        if (string.IsNullOrWhiteSpace(shortSerialNumber))
-            throw new ArgumentException("Serial number cannot be null or empty.", nameof(shortSerialNumber));
-
-        if (shortSerialNumber.Length != 13)
-            throw new ArgumentException($"Short serial number must be 13 digits. Got {shortSerialNumber.Length}.", nameof(shortSerialNumber));
-
-        if (!IsNumeric(shortSerialNumber))
-            throw new ArgumentException("Serial number must be all numeric.", nameof(shortSerialNumber));
-
-        // Parse components: SS(2)+YYMMDD(6)+NNNNN(5)
-        int pos = 0;
-
-        // Site ID (2 digits)
-        var siteId = int.Parse(shortSerialNumber.Substring(pos, 2));
-        pos += 2;
-
-        // Date (6 digits: YYMMDD)
-        var dateStr = shortSerialNumber.Substring(pos, 6);
-        pos += 6;
-
-        if (!DateTime.TryParseExact(dateStr, "yyMMdd", CultureInfo.InvariantCulture,
-            DateTimeStyles.None, out var productionDate))
-            throw new ArgumentException($"Invalid date: {dateStr}");
-
-        // Sequence (5 digits)
-        var sequence = int.Parse(shortSerialNumber.Substring(pos, 5));
-
-        return new ShortSerialNumberComponents
+        return serialType switch
         {
-            SiteId = siteId,
-            ProductionDate = productionDate,
-            Sequence = sequence,
-            OriginalSerialNumber = shortSerialNumber
-        };
-    }
-
-    /// <inheritdoc />
-    public string GetStrainType(int strainCode)
-    {
-        if (strainCode < 100 || strainCode > 999)
-            return "Unknown";
-
-        int typeDigit = strainCode / 100;
-        return typeDigit switch
-        {
-            1 => "Sativa",
-            2 => "Indica",
-            3 => "Hybrid",
-            4 => "CBD",
+            SerialType.Production => "Production",
+            SerialType.GRV => "Goods Received",
+            SerialType.Retail => "Retail Sub",
+            SerialType.Bucking => "Bucking",
+            SerialType.Transfer => "Transfer",
+            SerialType.Adjustment => "Adjustment",
+            SerialType.Packaging => "Packaging",
+            SerialType.QCSample => "QC Sample",
+            SerialType.Destruction => "Destruction",
             _ => "Unknown"
         };
+    }
+
+    /// <inheritdoc />
+    public string DeriveParentBatchNumber(string serialNumber, int siteId, BatchType batchType)
+    {
+        var components = ParseSerialNumber(serialNumber);
+
+        // Reconstruct batch number: SSTTYYYWWNNNN
+        return $"{siteId:D2}" +
+               $"{(int)batchType:D2}" +
+               $"{components.Year:D2}" +
+               $"{components.Week:D2}" +
+               $"{components.BatchSequence:D4}";
     }
 
     // ==========================================
     // Private Helper Methods
     // ==========================================
 
-    private void ValidateInputs(int siteId, int strainCode, decimal weightGrams, int packQty)
+    private async Task<int> GetNextSerialSequenceAsync(
+        int siteId, SerialType serialType, int year, int week, int batchSequence, string user)
     {
-        if (siteId < 1 || siteId > 99)
-            throw new ArgumentOutOfRangeException(nameof(siteId), "Site ID must be 1-99.");
+        // Create a unique key for this batch's serial sequence
+        // We use the week start date for storage
+        var weekDate = ISOWeek.ToDateTime(2000 + year, week, DayOfWeek.Monday);
 
-        if (strainCode < 100 || strainCode > 999)
-            throw new ArgumentOutOfRangeException(nameof(strainCode), "Strain code must be 100-999.");
-
-        if (weightGrams < 0 || weightGrams > 999.9m)
-            throw new ArgumentOutOfRangeException(nameof(weightGrams), "Weight must be 0-999.9 grams.");
-
-        if (packQty < 0 || packQty > 9)
-            throw new ArgumentOutOfRangeException(nameof(packQty), "Pack quantity must be 0-9.");
-    }
-
-    private async Task<int> GetNextUnitSequenceAsync(
-        int siteId, BatchType batchType, DateTime date, int batchSeq, string user)
-    {
         var sequence = await _context.SerialNumberSequences
             .FirstOrDefaultAsync(s =>
                 s.SiteId == siteId &&
-                s.SequenceType == "Unit" &&
-                s.BatchType == batchType &&
-                s.ProductionDate == date &&
-                s.BatchSequence == batchSeq &&
+                s.SequenceType == "Serial" &&
+                s.ProductionDate == weekDate &&
+                s.BatchSequence == batchSequence &&
                 !s.IsDeleted);
 
         if (sequence == null)
@@ -404,12 +337,11 @@ public class SerialNumberGeneratorService : ISerialNumberGeneratorService
             sequence = new SerialNumberSequence
             {
                 SiteId = siteId,
-                SequenceType = "Unit",
-                BatchType = batchType,
-                ProductionDate = date,
-                BatchSequence = batchSeq,
+                SequenceType = "Serial",
+                ProductionDate = weekDate,
+                BatchSequence = batchSequence,
                 CurrentSequence = 0,
-                MaxSequence = 99999,
+                MaxSequence = 999999,
                 CreatedAt = DateTime.UtcNow,
                 CreatedBy = user
             };
@@ -419,8 +351,8 @@ public class SerialNumberGeneratorService : ISerialNumberGeneratorService
         if (sequence.CurrentSequence >= sequence.MaxSequence)
         {
             throw new InvalidOperationException(
-                $"Maximum unit sequence ({sequence.MaxSequence}) reached for " +
-                $"Site {siteId}, Type {batchType}, Date {date:yyyy-MM-dd}, Batch {batchSeq}.");
+                $"Maximum serial sequence ({sequence.MaxSequence}) reached for " +
+                $"Site {siteId}, Year {year}, Week {week}, Batch {batchSequence}.");
         }
 
         sequence.CurrentSequence++;
@@ -432,74 +364,15 @@ public class SerialNumberGeneratorService : ISerialNumberGeneratorService
         return sequence.CurrentSequence;
     }
 
-    private async Task<int> GetNextDailySequenceAsync(int siteId, DateTime date, string user)
+    private static string FormatSerialNumber(
+        SerialType serialType, int year, int week, int batchSequence, int serialSequence)
     {
-        var sequence = await _context.SerialNumberSequences
-            .FirstOrDefaultAsync(s =>
-                s.SiteId == siteId &&
-                s.SequenceType == "Daily" &&
-                s.ProductionDate == date &&
-                !s.IsDeleted);
-
-        if (sequence == null)
-        {
-            sequence = new SerialNumberSequence
-            {
-                SiteId = siteId,
-                SequenceType = "Daily",
-                ProductionDate = date,
-                CurrentSequence = 0,
-                MaxSequence = 99999,
-                CreatedAt = DateTime.UtcNow,
-                CreatedBy = user
-            };
-            _context.SerialNumberSequences.Add(sequence);
-        }
-
-        if (sequence.CurrentSequence >= sequence.MaxSequence)
-        {
-            throw new InvalidOperationException(
-                $"Maximum daily sequence ({sequence.MaxSequence}) reached for " +
-                $"Site {siteId}, Date {date:yyyy-MM-dd}.");
-        }
-
-        sequence.CurrentSequence++;
-        sequence.LastGeneratedAt = DateTime.UtcNow;
-        sequence.LastGeneratedBy = user;
-        sequence.ModifiedAt = DateTime.UtcNow;
-        sequence.ModifiedBy = user;
-
-        return sequence.CurrentSequence;
-    }
-
-    private string BuildFullSerialNumber(
-        int siteId, int strainCode, BatchType batchType, DateTime date,
-        int batchSeq, int unitSeq, decimal weightGrams, int packQty)
-    {
-        // Convert weight to tenths of grams (4 digits)
-        var weightTenths = (int)(weightGrams * 10);
-        if (weightTenths > 9999) weightTenths = 9999;
-
-        // Build the 30-digit base (before check digit)
-        var baseSN = $"{siteId:D2}" +           // SS: Site (2)
-                     $"{strainCode:D3}" +        // SSS: Strain (3)
-                     $"{(int)batchType:D2}" +    // TT: Type (2)
-                     $"{date:yyyyMMdd}" +        // YYYYMMDD (8)
-                     $"{batchSeq:D4}" +          // BBBB: Batch (4)
-                     $"{unitSeq:D5}" +           // UUUUU: Unit (5)
-                     $"{weightTenths:D4}" +      // WWWW: Weight (4)
-                     $"{packQty}";               // Q: Pack (1)
-
-        // Add Luhn check digit
-        return LuhnCheckDigit.AppendCheckDigit(baseSN);
-    }
-
-    private string BuildShortSerialNumber(int siteId, DateTime date, int sequence)
-    {
-        // Format: SS + YYMMDD + NNNNN (13 digits)
-        return $"{siteId:D2}" +
-               $"{date:yyMMdd}" +
-               $"{sequence:D5}";
+        // Format: TTYYYWWBBBBSSSSSS (16 digits)
+        return $"{(int)serialType:D2}" +      // TT: Serial Type (2 digits)
+               $"{year:D2}" +                  // YY: Year (2 digits)
+               $"{week:D2}" +                  // WW: Week (2 digits)
+               $"{batchSequence:D4}" +         // BBBB: Batch sequence (4 digits)
+               $"{serialSequence:D6}";         // SSSSSS: Serial sequence (6 digits)
     }
 
     private static bool IsNumeric(string str)
